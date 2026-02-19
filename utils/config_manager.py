@@ -1,0 +1,127 @@
+import json
+import os
+from typing import Optional
+from datetime import datetime, timezone, timedelta
+
+CONFIG_FILE = "config.json"
+MESSAGES_LOG_FILE = "data/訊息.json"
+DATA_DIR = "data"
+
+# UTC+8 時區
+TZ_OFFSET = timezone(timedelta(hours=8))
+
+def ensure_data_dir():
+    """確保數據目錄存在"""
+    if not os.path.exists(DATA_DIR):
+        os.makedirs(DATA_DIR)
+
+def load_config():
+    """加載配置文件"""
+    if not os.path.exists(CONFIG_FILE):
+        save_config({"guilds": {}})
+    
+    with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+def save_config(config):
+    """保存配置文件"""
+    with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+        json.dump(config, f, ensure_ascii=False, indent=2)
+
+def get_guild_log_channel(guild_id: int) -> Optional[int]:
+    """獲取伺服器的日誌頻道ID"""
+    config = load_config()
+    guild_str = str(guild_id)
+    return config.get("guilds", {}).get(guild_str, {}).get("log_channel")
+
+def set_guild_log_channel(guild_id: int, channel_id: int):
+    """設置伺服器的日誌頻道ID"""
+    config = load_config()
+    guild_str = str(guild_id)
+    
+    if "guilds" not in config:
+        config["guilds"] = {}
+    if guild_str not in config["guilds"]:
+        config["guilds"][guild_str] = {}
+    
+    config["guilds"][guild_str]["log_channel"] = channel_id
+    save_config(config)
+
+# ========== 統一訊息日誌 JSON ==========
+
+def load_messages_log() -> dict:
+    """加載統一的訊息紀錄日誌"""
+    if not os.path.exists(MESSAGES_LOG_FILE):
+        return {}
+    
+    with open(MESSAGES_LOG_FILE, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+def save_messages_log(data: dict):
+    """保存統一的訊息紀錄日誌"""
+    with open(MESSAGES_LOG_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def add_message_record(guild_id: int, message_id: int, content: str, author_id: int, channel_id: int):
+    """添加訊息記錄 - 統一JSON"""
+    records = load_messages_log()
+    msg_key = f"{guild_id}_{message_id}"  # 複合鍵：guild_message
+    
+    if msg_key not in records:
+        records[msg_key] = {
+            "message_id": message_id,
+            "guild_id": guild_id,
+            "channel_id": channel_id,
+            "author_id": author_id,
+            "original_content": content,
+            "edit_history": [],
+            "deleted": False,
+            "created_at": datetime.now(TZ_OFFSET).isoformat()
+        }
+        save_messages_log(records)
+        print(f"[JSON] 已添加新訊息記錄: {msg_key}")
+        return True
+    return False
+
+def update_message_edit(guild_id: int, message_id: int, new_content: str):
+    """更新訊息編輯歷史 - 統一JSON"""
+    records = load_messages_log()
+    msg_key = f"{guild_id}_{message_id}"
+    
+    if msg_key in records:
+        records[msg_key]["edit_history"].append(new_content)
+        records[msg_key]["last_edited_at"] = datetime.now(TZ_OFFSET).isoformat()
+        save_messages_log(records)
+        print(f"[JSON] 已更新編輯歷史: {msg_key} (編輯次數: {len(records[msg_key]['edit_history'])})")
+        return True
+    else:
+        print(f"[JSON] 未找到訊息記錄: {msg_key}，創建新紀錄...")
+        # 如果沒有記錄，先創建一個空的，然後添加編輯內容
+        add_message_record(guild_id, message_id, new_content, None, None)
+        records = load_messages_log()
+        msg_key = f"{guild_id}_{message_id}"
+        if msg_key in records:
+            records[msg_key]["edit_history"].append(new_content)
+            save_messages_log(records)
+        return False
+
+def mark_message_deleted(guild_id: int, message_id: int):
+    """標記訊息為已刪除 - 統一JSON"""
+    records = load_messages_log()
+    msg_key = f"{guild_id}_{message_id}"
+    
+    if msg_key in records:
+        records[msg_key]["deleted"] = True
+        records[msg_key]["deleted_at"] = datetime.now(TZ_OFFSET).isoformat()
+        save_messages_log(records)
+        print(f"[JSON] 已標記刪除: {msg_key}")
+        return True
+    else:
+        print(f"[JSON] 未找到訊息記錄: {msg_key}")
+        return False
+
+def get_message_record(guild_id: int, message_id: int) -> Optional[dict]:
+    """獲取訊息記錄 - 統一JSON"""
+    records = load_messages_log()
+    msg_key = f"{guild_id}_{message_id}"
+    return records.get(msg_key)
