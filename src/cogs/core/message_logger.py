@@ -5,7 +5,7 @@ from typing import Optional
 import json
 import os
 
-from utils.config_manager import ensure_data_dir
+from src.utils.config_manager import ensure_data_dir
 
 # UTC+8 時區
 TZ_OFFSET = timezone(timedelta(hours=8))
@@ -15,8 +15,8 @@ class MessageLogger(commands.Cog):
     
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.data_file = "data/message_log.json"
-        self.config_file = "data/log_channels.json"
+        self.data_file = "data/logs/messages/message_log.json"
+        self.config_file = "data/storage/log_channels.json"
         ensure_data_dir()
         
     def get_current_time_str(self) -> str:

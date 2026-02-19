@@ -1,9 +1,9 @@
 import discord
 from discord.ext import commands
 from datetime import timedelta
-from utils.blacklist_manager import blacklist_manager
-from utils.anti_spam import AntiSpamManager, create_anti_spam_log_embed
-from utils.config_manager import get_guild_log_channel
+from src.utils.blacklist_manager import blacklist_manager
+from src.utils.anti_spam import AntiSpamManager, create_anti_spam_log_embed
+from src.utils.config_manager import get_guild_log_channel
 
 class AntiSpam(commands.Cog):
     """防炸群功能 Cog"""

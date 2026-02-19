@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from datetime import timedelta
-from utils.blacklist_manager import blacklist_manager
+from src.utils.blacklist_manager import blacklist_manager
 
 class Admin(commands.Cog):
     """管理員指令 Cog"""

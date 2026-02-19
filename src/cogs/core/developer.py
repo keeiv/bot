@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from utils.blacklist_manager import blacklist_manager
+from src.utils.blacklist_manager import blacklist_manager
 
 class Developer(commands.Cog):
     """開發者專用指令 Cog - 只有開發者可見和使用"""
