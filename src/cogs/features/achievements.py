@@ -124,12 +124,12 @@ class Achievements(commands.Cog):
     
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.data_file = "data/achievements.json"
+        self.data_file = "data/storage/achievements.json"
         self.ensure_data_dir()
     
     def ensure_data_dir(self):
         """確保資料目錄存在"""
-        os.makedirs("data", exist_ok=True)
+        os.makedirs("data/storage", exist_ok=True)
     
     def load_achievements(self) -> dict:
         """載入成就數據"""

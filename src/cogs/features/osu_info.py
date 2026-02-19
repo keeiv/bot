@@ -13,8 +13,8 @@ class OsuInfo(commands.Cog):
     
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.data_file = "data/osu_links.json"
-        os.makedirs("data", exist_ok=True)
+        self.data_file = "data/storage/osu_links.json"
+        os.makedirs("data/storage", exist_ok=True)
 
         client_id = os.getenv("OSU_CLIENT_ID")
         client_secret = os.getenv("OSU_CLIENT_SECRET")

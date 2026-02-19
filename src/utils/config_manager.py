@@ -3,8 +3,8 @@ import os
 from typing import Optional
 from datetime import datetime, timezone, timedelta
 
-CONFIG_FILE = "config.json"
-MESSAGES_LOG_FILE = "data/訊息.json"
+CONFIG_FILE = "data/config/bot.json"
+MESSAGES_LOG_FILE = "data/logs/messages/訊息.json"
 DATA_DIR = "data"
 
 # UTC+8 時區
@@ -12,8 +12,10 @@ TZ_OFFSET = timezone(timedelta(hours=8))
 
 def ensure_data_dir():
     """確保數據目錄存在"""
-    if not os.path.exists(DATA_DIR):
-        os.makedirs(DATA_DIR)
+    directories = ["data", "data/config", "data/storage", "data/logs/messages"]
+    for directory in directories:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
 
 def load_config():
     """加載配置文件"""

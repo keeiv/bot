@@ -6,15 +6,15 @@ class BlacklistManager:
     """黑名單管理器"""
     
     def __init__(self):
-        self.blacklist_file = "data/blacklist.json"
+        self.blacklist_file = "data/storage/blacklist.json"
         self.ensure_data_dir()
         self._blacklist_cache = None
         self._last_load_time = None
     
     def ensure_data_dir(self):
         """確保數據目錄存在"""
-        if not os.path.exists("data"):
-            os.makedirs("data")
+        if not os.path.exists("data/storage"):
+            os.makedirs("data/storage")
     
     def load_blacklist(self) -> Set[int]:
         """載入黑名單（帶緩存）"""

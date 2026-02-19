@@ -24,8 +24,8 @@ class GithubWatch(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.data_file = "data/github_watch.json"
-        os.makedirs("data", exist_ok=True)
+        self.data_file = "data/storage/github_watch.json"
+        os.makedirs("data/storage", exist_ok=True)
 
         self._config = self._load_config()
         self._session: aiohttp.ClientSession | None = None
