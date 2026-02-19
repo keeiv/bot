@@ -1,15 +1,22 @@
 # Discord 訊息編輯刪除日誌機器人
 
-一個功能完整的Discord bot，用於記錄伺服器成員的訊息編輯和刪除操作。
+Discord bot，用於記錄伺服器成員的訊息編輯與刪除操作，並提供防刷屏、遊戲、成就與 osu 查詢等附加功能。
 
 ## 功能特性
 
 ### 核心功能
-- [編輯] **訊息編輯監控**: 記錄訊息編輯前後的內容，支持多次編輯歷史
-- [刪除] **訊息刪除監控**: 記錄被刪除訊息的內容
-- [存儲] **JSON持久化**: 所有記錄保存在JSON文件中，方便查詢和備份
-- [通知] **即時通知**: 編輯和刪除操作立即發送到指定的日誌頻道
-- [防護] **防炸群保護**: 自動檢測和阻止垃圾訊息和訊息刷屏
+- **訊息編輯監控**: 記錄訊息編輯前後的內容，支援多次編輯歷史
+- **訊息刪除監控**: 記錄被刪除訊息的內容
+- **JSON 持久化**: 記錄與設定保存於本機檔案
+- **即時通知**: 編輯與刪除事件即時發送到指定日誌頻道
+- **反刷屏**: 自動檢測與處理垃圾訊息/刷屏行為
+
+### 擴充功能
+- **用戶/伺服器資訊**: `/user_info`、`/server_info`
+- **成就系統**: `/achievements`、`/achievement_codex`
+- **osu 查詢與綁定**: `/user_info_osu`、`/osu bind`、`/osu best`、`/osu recent`
+- **GitHub 更新通知**: `/repo_watch set/status/disable`
+- **遊戲**: 俄羅斯輪盤、深海氧氣瓶
 
 ### 管理功能
 - `/編刪紀錄設定` - 設置日誌頻道
@@ -52,9 +59,12 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-編輯 `.env` 文件，添加你的Discord bot token：
+編輯 `.env` 文件，添加必要環境變數：
 ```
 DISCORD_TOKEN=your_bot_token_here
+OSU_CLIENT_ID=your_osu_client_id
+OSU_CLIENT_SECRET=your_osu_client_secret
+GITHUB_TOKEN=your_github_token_optional
 ```
 
 ### 4. 運行bot
