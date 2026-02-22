@@ -1,0 +1,37 @@
+[flake8]
+# Enforce English-readable code standards
+max-line-length = 88
+extend-ignore = E203, W503
+exclude = 
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    build,
+    dist
+
+# English naming conventions
+# Variable names: descriptive English snake_case
+# Function names: verb-based English snake_case  
+# Class names: noun-based English PascalCase
+# Constants: UPPER_CASE English
+
+# Import organization (English-first)
+import-order-style = google
+application-import-names = src
+
+# Documentation requirements
+require-plugins = 
+    flake8-docstrings,
+    flake8-bugbear,
+    flake8-comprehensions
+
+# Docstring standards (Google style, English only)
+docstring-convention = google
+
+# Error codes to enforce English readability
+# D401: First line should be in imperative mood (English)
+# D401: First word should be capitalized
+# N801: Class names should use PascalCase
+# N802: Function names should be snake_case
+# N803: Argument names should be snake_case

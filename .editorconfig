@@ -1,52 +1,91 @@
-# EditorConfig is awesome: https://EditorConfig.org
+# EditorConfig for English-readable code consistency
+# Enforces professional coding standards with clear, readable patterns
 
 # top-most EditorConfig file
 root = true
 
-# All files
+# All files - Universal formatting rules
 [*]
 charset = utf-8
 end_of_line = crlf
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-# Python files
+# Python files - Strict English formatting
 [*.py]
 indent_style = space
 indent_size = 4
 max_line_length = 88
 
-# JSON files
+# Enforce English-only patterns (IDE integration)
+# - Comments must be in English
+# - Variable names use snake_case with English words
+# - Function names use descriptive English verbs
+# - Class names use PascalCase English nouns
+# - String literals for user messages must be in English
+# - Docstrings follow Google style with English descriptions
+
+# JSON files - Consistent data structure formatting
 [*.json]
 indent_style = space
 indent_size = 2
+# Keys must use snake_case English names
+# Values should be English where user-facing
 
-# TOML files
+# TOML files - Configuration consistency
 [*.toml]
 indent_style = space
 indent_size = 4
+# Section headers use descriptive English titles
+# Keys follow snake_case English convention
 
-# Markdown files
+# Markdown files - Documentation standards
 [*.md]
 indent_style = space
 indent_size = 2
 trim_trailing_whitespace = false
+# All content must be in English
+# Headers use sentence case with English titles
+# Code examples follow project Python standards
 
-# YAML files
+# YAML files - Configuration files
 [*.{yml,yaml}]
 indent_style = space
 indent_size = 2
+# Keys use snake_case English
+# Comments for explanation must be in English
 
-# Configuration files
+# Configuration files - System settings
 [*.{ini,cfg}]
 indent_style = space
 indent_size = 4
+# Section headers and comments in English
 
-# Shell scripts
+# Shell scripts - Automation scripts
 [*.sh]
 indent_style = space
 indent_size = 2
+# Comments and variable names in English
 
-# Batch files
+# Batch files - Windows automation
 [*.bat]
 end_of_line = crlf
+# Comments and labels in English
+
+# Git files - Version control
+[.gitignore]
+indent_style = space
+indent_size = 2
+# Comments explaining patterns in English
+
+# Docker files - Container configuration
+[Dockerfile*]
+indent_style = space
+indent_size = 2
+# Instructions and comments in English
+
+# Requirements files - Dependencies
+[requirements*.txt]
+indent_style = space
+indent_size = 2
+# Comments explaining packages in English
