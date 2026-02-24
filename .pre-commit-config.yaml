@@ -42,7 +42,7 @@ repos:
 
 # English code quality checks
 default_language_version:
-  python: python3.8
+  python: python3
 
 # Ensure all commits follow English standards
 fail_fast: true
