@@ -1,5 +1,8 @@
 # Discord Bot
 
+![幫我設計一個產品名稱叫bot的log _參考osu!的設計](https://github.com/user-attachments/assets/856dc33e-ebe8-4316-9a12-c57d058126ed)
+
+
 一個功能完整的 Discord 機器人，包含訊息管理、遊戲、osu 整合與 GitHub 監控。
 
 ## 主要功能
