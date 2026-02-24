@@ -34,6 +34,8 @@ The CI/CD pipeline ensures code quality, security, and functionality through aut
 
 ## CI Workflows
 
+This project uses a comprehensive CI/CD pipeline with multiple specialized workflows:
+
 ### Main CI Workflow
 
 **File**: `.github/workflows/ci.yml`
@@ -94,29 +96,20 @@ strategy:
 **Triggers**:
 - Pull requests
 - Pushes to main branch
-- Weekly schedule
+- Weekly schedule (Monday 00:00 UTC)
 
 **Jobs**:
 
-#### Pre-commit Hooks
-- Run all pre-commit hooks
-- Verify code formatting
-- Check import organization
+#### Quality Analysis
+- **Complexity Analysis**: Radon for cyclomatic complexity
+- **Maintainability Index**: Code maintainability scoring
+- **Duplicate Code Detection**: Identify code duplication
+- **Pre-commit Hooks**: Run all quality checks
 
-#### Code Complexity Analysis
-- Run radon for complexity metrics
-- Generate complexity reports
-- Flag overly complex functions
-
-#### Duplicate Code Detection
-- Run duplicate code detection tool
-- Identify code duplication
-- Generate duplication report
-
-#### Security Scanning
-- Run Bandit for security issues
-- Run Trufflehog for secrets detection
-- Generate security reports
+#### Advanced Linting
+- **Pylint**: Deep code analysis and scoring
+- **Import Organization**: isort validation
+- **Docstring Coverage**: Ensure proper documentation
 
 ### Security Workflow
 
@@ -131,20 +124,58 @@ strategy:
 
 **Jobs**:
 
-#### Dependency Security
-- Run Safety for known vulnerabilities
-- Run pip-audit for dependency auditing
-- Generate vulnerability reports
+#### Security Scan
+- **Bandit**: Python security vulnerability scanner
+- **Safety**: Dependency vulnerability checker
+- **Semgrep**: Static analysis security rules
+- **TruffleHog**: Secrets and credentials detection
 
-#### Code Security
-- Run Bandit for code security issues
-- Check for hardcoded secrets
-- Analyze security best practices
+#### Dependency Audit
+- **pip-audit**: Official Python package vulnerability scanner
+- **License Compliance**: Check package license compatibility
 
-#### Secret Detection
-- Run Trufflehog for secrets scanning
-- Check for exposed API keys
-- Validate sensitive data handling
+### Release Workflow
+
+**File**: `.github/workflows/release.yml`
+
+**Purpose**: Automated release management and deployment
+
+**Triggers**:
+- Git tags (v*)
+- Manual workflow dispatch
+
+**Jobs**:
+
+#### Release Creation
+- **Changelog Generation**: Auto-generate from git commits
+- **GitHub Release**: Create release with changelog
+- **Asset Upload**: Attach built packages
+
+#### Package Publishing
+- **PyPI Upload**: Publish to Python Package Index
+- **Docker Build**: Multi-platform Docker images
+- **Release Notification**: Announce release completion
+
+### Documentation Workflow
+
+**File**: `.github/workflows/docs.yml`
+
+**Purpose**: Documentation building and deployment
+
+**Triggers**:
+- Documentation file changes
+- Pull requests
+- Manual workflow dispatch
+
+**Jobs**:
+
+#### Documentation Build
+- **MkDocs Build**: Generate static documentation site
+- **English Standards**: Validate documentation language
+- **Link Checking**: Verify internal and external links
+
+#### Documentation Deploy
+- **GitHub Pages**: Deploy to GitHub Pages (main branch only)
 
 ## Code Quality Checks
 
