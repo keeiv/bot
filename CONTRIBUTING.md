@@ -1,388 +1,165 @@
-# Contributing to Discord Bot
+# 貢獻指南
 
-Thank you for your interest in contributing to this Discord bot project. This guide will help you understand our development standards and workflow.
+感謝您對本項目的興趣！我們歡迎各種形式的貢獻。
 
-## Table of Contents
+## 開發環境設置
 
-- [Code Standards](#code-standards)
-- [Development Setup](#development-setup)
-- [Development Workflow](#development-workflow)
-- [Code Review Process](#code-review-process)
-- [Project Structure](#project-structure)
-- [Testing Guidelines](#testing-guidelines)
-- [Documentation](#documentation)
-
-## Code Standards
-
-### English-First Policy
-
-All code, comments, documentation, and user-facing strings must be written in English. This ensures:
-
-- International accessibility
-- Consistent codebase readability
-- Professional maintenance standards
-
-### Naming Conventions
-
-**Variables and Functions:**
-```python
-# Use descriptive snake_case with English words
-user_message_count = 0
-async def send_welcome_message(self, user: discord.Member):
-    pass
-```
-
-**Classes:**
-```python
-# Use PascalCase with English nouns
-class MessageLogger(commands.Cog):
-    pass
-
-class AchievementManager:
-    pass
-```
-
-**Constants:**
-```python
-# Use UPPER_CASE with English names
-MAX_MESSAGE_LENGTH = 2000
-DEFAULT_TIMEOUT_DURATION = 60
-```
-
-### Documentation Standards
-
-All functions and classes must have Google-style docstrings in English:
-
-```python
-async def process_user_command(self, ctx: commands.Context, command_name: str) -> bool:
-    """Process a user command and return execution status.
-
-    Args:
-        ctx: The command context containing user information.
-        command_name: The name of the command to process.
-
-    Returns:
-        True if command was executed successfully, False otherwise.
-
-    Raises:
-        ValueError: If command_name is empty or invalid.
-        CommandError: If command execution fails.
-    """
-    pass
-```
-
-### Code Formatting
-
-This project enforces strict formatting rules through:
-
-- **EditorConfig**: Consistent indentation and line endings
-- **Black**: Code formatting with 88-character line limit
-- **isort**: Import organization following Google style
-- **flake8**: Code quality and style checking
-- **MyPy**: Static type checking with strict mode
-
-## Development Setup
-
-### Prerequisites
-
-- Python 3.8 or higher
+### 前置需求
+- Python 3.9+
 - Git
-- GitHub account
 
-### Initial Setup
+### 安裝步驟
+1. Fork 本倉庫
+2. Clone 您的 fork：`git clone https://github.com/your-username/bot.git`
+3. 進入項目目錄：`cd bot`
+4. 創建虛擬環境：`python -m venv venv`
+5. 啟動虛擬環境：
+   - Windows: `venv\Scripts\activate`
+   - macOS/Linux: `source venv/bin/activate`
+6. 安裝依賴：`pip install -r requirements.txt -r requirements-dev.txt`
 
-1. Fork the repository on GitHub
-2. Clone your fork locally:
+## 代碼風格
+
+### 基本要求
+- 使用 Python 3.9+ 語法
+- 遵循 PEP 8 基本規範
+- 添加適當的註釋和文檔
+
+### 代碼格式化
+我們使用以下工具確保代碼質量：
+- **Black**: 自動代碼格式化
+- **isort**: 導入語句排序
+- **flake8**: 代碼風格檢查
+
 ```bash
-git clone https://github.com/YOUR_USERNAME/bot.git
-cd bot
+# 格式化代碼
+black src/ tests/
+isort src/ tests/
+
+# 檢查代碼風格
+flake8 src/ tests/
 ```
 
-3. Add the original repository as upstream:
+## 測試
+
+### 運行測試
 ```bash
-git remote add upstream https://github.com/finn001023-cpu/bot.git
+# 運行所有測試
+pytest -v
+
+# 運行特定測試
+pytest tests/test_bot_startup.py -v
 ```
 
-4. Create a virtual environment:
-```bash
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-```
+### 測試覆蓋率
+我們鼓勵為新功能添加測試。運行測試時會自動生成覆蓋率報告。
 
-5. Install dependencies:
-```bash
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
-```
+## 提交流程
 
-6. Install pre-commit hooks:
-```bash
-pre-commit install
-```
-
-### Environment Configuration
-
-1. Copy the example environment file:
-```bash
-cp .env.example .env
-```
-
-2. Fill in your Discord bot token and other required variables in `.env`
-
-## Development Workflow
-
-### Branch Strategy
-
-- `main`: Stable production branch
-- `develop`: Integration branch for new features
-- `feature/feature-name`: Feature development branches
-- `bugfix/bug-description`: Bug fix branches
-- `hotfix/critical-fix`: Urgent fixes
-
-### Creating a Feature Branch
-
-1. Ensure your main branch is up to date:
-```bash
-git checkout main
-git pull upstream main
-```
-
-2. Create a new feature branch:
+### 1. 創建分支
 ```bash
 git checkout -b feature/your-feature-name
 ```
 
-### Making Changes
+### 2. 進行更改
+- 編寫代碼
+- 添加測試
+- 確保所有測試通過
 
-1. Write your code following the established standards
-2. Add tests for new functionality
-3. Update documentation as needed
-4. Run pre-commit hooks automatically:
+### 3. 提交更改
 ```bash
-pre-commit run --all-files
+git add .
+git commit -m "feat: add your feature description"
 ```
 
-### Commit Messages
-
-Follow Conventional Commits format:
-
-```
-type(scope): description
-
-[optional body]
-
-[optional footer]
+### 4. 推送並創建 Pull Request
+```bash
+git push origin feature/your-feature-name
 ```
 
-Types:
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation changes
-- `style`: Code formatting changes
-- `refactor`: Code refactoring
-- `test`: Test additions or changes
-- `chore`: Maintenance tasks
+然後在 GitHub 上創建 Pull Request。
 
-Examples:
-```
-feat(admin): add timeout command for member moderation
+## Pull Request 指南
 
-Implement the timeout command that allows moderators to temporarily
-mute members for a specified duration.
+### PR 標題
+使用以下前缀：
+- `feat:` 新功能
+- `fix:` 錯誤修復
+- `docs:` 文檔更新
+- `style:` 代碼格式化
+- `refactor:` 代碼重構
+- `test:` 測試相關
 
-Closes #123
-```
+### PR 描述
+請包含：
+- 變更的簡要描述
+- 相關問題的編號（如果有）
+- 如何測試這些變更
+- 截圖（如果適用）
 
-```
-fix(auth): resolve token validation error
+## 代碼語言
 
-Fixes issue where bot tokens with special characters were not
-properly validated during startup.
-```
+### 命名規範
+- **函數和變量**: 使用英文命名（推薦）
+- **類名**: 使用英文命名（推薦）
+- **註釋**: 可以使用中文或英文
+- **文檔字符串**: 可以使用中文或英文
 
-## Code Review Process
+### 靈活政策
+- 我們理解中文開發者的需求
+- 函數和變量名鼓勵使用英文，但不是強制要求
+- 註釋和文檔可以使用中文
+- 用戶界面文本可以使用中文
 
-### Pull Request Requirements
-
-Before submitting a pull request:
-
-1. **Code Quality**: All automated checks must pass
-2. **Tests**: New features must include tests with >80% coverage
-3. **Documentation**: Updated docstrings and README sections
-4. **English Standards**: All text must be in English
-5. **Formatting**: Code must pass Black, isort, and flake8 checks
-
-### Pull Request Template
-
-```markdown
-## Description
-Brief description of changes made.
-
-## Type of Change
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Breaking change
-- [ ] Documentation update
-
-## Testing
-- [ ] Unit tests pass
-- [ ] Integration tests pass
-- [ ] Manual testing completed
-
-## Checklist
-- [ ] Code follows project style guidelines
-- [ ] Self-review completed
-- [ ] Documentation updated
-- [ ] All tests passing
-```
-
-### Review Process
-
-1. Automated checks run automatically
-2. Maintainer review focuses on:
-   - Code quality and architecture
-   - English documentation standards
-   - Test coverage and quality
-   - Security considerations
-3. Address all review comments
-4. Maintain approval required for merge
-
-## Project Structure
+## 倉庫結構
 
 ```
 bot/
-├── src/
-│   ├── bot.py              # Main bot class
-│   ├── main.py             # Entry point
-│   ├── cogs/               # Bot modules
-│   │   ├── core/          # Core functionality
-│   │   ├── features/      # Feature modules
-│   │   └── games/         # Game modules
-│   ├── utils/             # Utility functions
-│   └── bot_types/         # Type definitions
-├── tests/                 # Test files
-├── docs/                  # Documentation
-├── data/                  # Runtime data
-├── scripts/               # Utility scripts
-└── services/              # External service configs
+├── src/              # 主要源代碼
+│   ├── bot.py        # 機器人主程序
+│   ├── cogs/         # 機器人功能模組
+│   └── utils/        # 工具函數
+├── tests/            # 測試文件
+├── docs/             # 文檔
+├── scripts/          # 腳本工具
+└── requirements.txt  # 依賴列表
 ```
 
-### Module Organization
+## 發布流程
 
-**Core Modules** (`src/cogs/core/`):
-- Essential bot functionality
-- Administrative commands
-- System utilities
+1. 更新版本號
+2. 更新 CHANGELOG.md
+3. 創建 release tag
+4. GitHub Actions 會自動處理發布
 
-**Feature Modules** (`src/cogs/features/`):
-- User-facing features
-- External integrations
-- Specialized functionality
+## 社區行為準則
 
-**Game Modules** (`src/cogs/games/`):
-- Interactive games
-- Entertainment features
+### 我們的承諾
+- 對所有貢獻者保持尊重
+- 提供友善和包容的環境
+- 歡迎新手和經驗豐富的開發者
 
-**Utilities** (`src/utils/`):
-- Helper functions
-- Shared utilities
-- Configuration management
+### 不當行為
+- 騷擾或歧視性語言
+- 人身攻擊或侮辱
+- 發布不當內容
 
-## Testing Guidelines
+## 獲得幫助
 
-### Test Structure
+如果您需要幫助：
+1. 查看現有的 Issues
+2. 創建新的 Issue
+3. 在 Discord 社群中提問
+4. 查看文檔和 README
 
-```python
-import pytest
-from unittest.mock import Mock, AsyncMock
-from src.cogs.core.admin import Admin
+## 許可證
 
-class TestAdmin:
-    @pytest.fixture
-    def admin_cog(self):
-        bot = Mock()
-        return Admin(bot)
-    
-    @pytest.fixture
-    def mock_ctx(self):
-        ctx = AsyncMock()
-        ctx.author.guild_permissions.manage_messages = True
-        return ctx
-    
-    @pytest.mark.asyncio
-    async def test_clear_command_success(self, admin_cog, mock_ctx):
-        """Test clear command with valid parameters."""
-        # Arrange
-        amount = 10
-        
-        # Act
-        await admin_cog.clear(mock_ctx, amount)
-        
-        # Assert
-        mock_ctx.channel.purge.assert_called_once_with(limit=amount)
-        mock_ctx.followup.send.assert_called_once()
-```
+通過貢獻代碼，您同意您的貢獻將在與項目相同的許可證下發布。
 
-### Test Requirements
+## 感謝
 
-1. **Unit Tests**: Test individual functions and methods
-2. **Integration Tests**: Test module interactions
-3. **Coverage**: Maintain >80% test coverage
-4. **English Standards**: Test names and docstrings in English
-
-### Running Tests
-
-```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=src --cov-report=html
-
-# Run specific test file
-pytest tests/test_admin.py
-
-# Run with verbose output
-pytest -v
-```
-
-## Documentation
-
-### Code Documentation
-
-- All public functions must have docstrings
-- Complex logic requires inline comments
-- Use type hints consistently
-- Follow Google style for docstrings
-
-### README Documentation
-
-Keep README.md updated with:
-- Installation instructions
-- Usage examples
-- Configuration options
-- Contributing guidelines link
-
-### API Documentation
-
-For complex modules, maintain separate documentation in `docs/` directory:
-- API reference
-- Architecture diagrams
-- Integration guides
-
-## Getting Help
-
-If you need help with contributing:
-
-1. Check existing issues and discussions
-2. Review the codebase for similar implementations
-3. Ask questions in GitHub Discussions
-4. Contact maintainers for guidance
-
-## License
-
-By contributing to this project, you agree that your contributions will be licensed under the same MIT license as the project.
+感謝所有為本項目做出貢獻的開發者！您的貢獻讓這個項目變得更好。
 
 ---
 
-Thank you for following these guidelines and helping improve this Discord bot project!
+**如果您有任何問題，請隨時提問！我們很樂意幫助新貢獻者入門。**
