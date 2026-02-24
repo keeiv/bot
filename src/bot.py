@@ -26,6 +26,7 @@ class Bot(commands.Bot):
     async def setup_hook(self):
         """Load all cogs and setup bot."""
         await self.load_cogs()
+        await self.tree.sync()
 
     async def load_cogs(self):
         """Automatically discover and load all cogs under src.cogs."""
@@ -42,8 +43,7 @@ class Bot(commands.Bot):
         ):
             module_name = module_info.name
 
-
-            if module_name.endswith(".__init__"):
+            if module_info.ispkg:
                 continue
 
             try:
