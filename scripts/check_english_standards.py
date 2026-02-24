@@ -44,7 +44,7 @@ class EnglishStandardsChecker:
     def is_allowed_file(self, file_path: Path) -> bool:
         """Check if file is exempt from English standards."""
         for allowed in self.allowed_paths:
-            if str(file_path).startswith(allowed):
+            if allowed in str(file_path):
                 return True
         return False
 
@@ -52,11 +52,10 @@ class EnglishStandardsChecker:
         """Check Python file for English standards."""
         try:
             tree = ast.parse(content)
-            if self.strict_mode:
+            if not self.strict_mode:
                 self.check_ast_nodes(tree, file_path)
-                self.check_strings_and_comments(content, file_path)
             else:
-                # In non-strict mode, only check function/class names
+                self.check_strings_and_comments(content, file_path)
                 self.check_ast_nodes(tree, file_path)
         except SyntaxError:
             self.add_issue(file_path, 0, "Syntax error in file")
@@ -75,22 +74,22 @@ class EnglishStandardsChecker:
                     self.add_issue(file_path, node.lineno, f"Class name '{node.name}' contains Chinese characters")
 
             elif isinstance(node, ast.Name):
-                if isinstance(node.ctx, ast.Store) and self.has_chinese(node.id):
-                    self.add_issue(file_path, node.lineno, f"Variable name '{node.id}' contains Chinese characters")
+                if self.has_chinese(node.id):
+                    # Only check variable names that are not built-ins
+                    if node.id not in dir(__builtins__):
+                        self.add_issue(file_path, node.lineno, f"Variable name '{node.id}' contains Chinese characters")
 
     def check_strings_and_comments(self, content: str, file_path: Path):
         """Check strings and comments for non-English text."""
         lines = content.split('\n')
         for i, line in enumerate(lines, 1):
-            # Skip lines that are only whitespace or imports
-            if not line.strip() or line.strip().startswith(('import', 'from')):
+            # Skip lines that are only whitespace or single characters
+            if len(line.strip()) <= 1:
                 continue
 
-            # Check for Chinese characters in comments
-            if '#' in line:
-                comment_part = line[line.index('#'):]
-                if self.has_chinese(comment_part):
-                    self.add_issue(file_path, i, f"Comment contains Chinese characters: {comment_part.strip()}")
+            # Check for Chinese characters in comments and strings
+            if self.has_chinese(line):
+                self.add_issue(file_path, i, f"Line contains Chinese characters")
 
     def check_text_file(self, file_path: Path, content: str) -> bool:
         """Check text file for English standards."""

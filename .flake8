@@ -2,7 +2,7 @@
 # Enforce English-readable code standards
 max-line-length = 88
 extend-ignore = E203, W503
-exclude = 
+exclude =
     .git,
     __pycache__,
     .venv,
@@ -12,7 +12,7 @@ exclude =
 
 # English naming conventions
 # Variable names: descriptive English snake_case
-# Function names: verb-based English snake_case  
+# Function names: verb-based English snake_case
 # Class names: noun-based English PascalCase
 # Constants: UPPER_CASE English
 
@@ -21,7 +21,7 @@ import-order-style = google
 application-import-names = src
 
 # Documentation requirements
-require-plugins = 
+require-plugins =
     flake8-docstrings,
     flake8-bugbear,
     flake8-comprehensions
