@@ -83,10 +83,12 @@ python src/main.py
 
 ## 開發
 
-專案採用 Cog 架構，主要模組：
-- `cogs/`：各功能模組
-- `utils/`：共用工具
-- `main.py`：主程式與載入
+• `src/`：核心原始碼，包含機器人主要的 Cogs 模組與邏輯。
+• `services/`：核心服務層，處理背景運算與外部整合邏輯。
+• `tests/`：自動化測試腳本，確保程式碼品質與 CI 檢查通過。
+• `scripts/`開發與維護用的輔助腳本。
+• `docs/`：存放專案相關的說明文件與指南。
+• `.github/`：GitHub Actions 的 CI/CD 工作流配置檔案
 
 ## 授權
 
