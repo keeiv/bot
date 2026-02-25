@@ -1,5 +1,5 @@
 [flake8]
-# Enforce English-readable code standards
+# Code style standards for multilingual Discord bot
 max-line-length = 88
 extend-ignore = E203, W503
 exclude =
@@ -10,13 +10,13 @@ exclude =
     build,
     dist
 
-# English naming conventions
-# Variable names: descriptive English snake_case
-# Function names: verb-based English snake_case
-# Class names: noun-based English PascalCase
-# Constants: UPPER_CASE English
+# Naming conventions (supports multilingual)
+# Variable names: descriptive snake_case (English or Chinese)
+# Function names: verb-based snake_case (English or Chinese)
+# Class names: noun-based PascalCase (English or Chinese)
+# Constants: UPPER_CASE (English or Chinese)
 
-# Import organization (English-first)
+# Import organization
 import-order-style = google
 application-import-names = src
 
@@ -26,12 +26,11 @@ require-plugins =
     flake8-bugbear,
     flake8-comprehensions
 
-# Docstring standards (Google style, English only)
+# Docstring standards (Google style, supports multilingual)
 docstring-convention = google
 
-# Error codes to enforce English readability
-# D401: First line should be in imperative mood (English)
-# D401: First word should be capitalized
+# Error codes for code quality
+# D401: First line should be in imperative mood
 # N801: Class names should use PascalCase
 # N802: Function names should be snake_case
 # N803: Argument names should be snake_case

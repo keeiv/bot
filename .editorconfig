@@ -1,5 +1,6 @@
-# EditorConfig for English-readable code consistency
+# EditorConfig for multilingual Discord bot code consistency
 # Enforces professional coding standards with clear, readable patterns
+# Supports both English and Chinese comments and documentation
 
 # top-most EditorConfig file
 root = true
@@ -11,81 +12,81 @@ end_of_line = crlf
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-# Python files - Strict English formatting
+# Python files - Multilingual formatting
 [*.py]
 indent_style = space
 indent_size = 4
 max_line_length = 88
 
-# Enforce English-only patterns (IDE integration)
-# - Comments must be in English
-# - Variable names use snake_case with English words
-# - Function names use descriptive English verbs
-# - Class names use PascalCase English nouns
-# - String literals for user messages must be in English
-# - Docstrings follow Google style with English descriptions
+# Support multilingual patterns (IDE integration)
+# - Comments can be in English or Chinese
+# - Variable names use snake_case (English or Chinese words)
+# - Function names use descriptive verbs (English or Chinese)
+# - Class names use PascalCase nouns (English or Chinese)
+# - String literals for user messages support multiple languages
+# - Docstrings follow Google style with multilingual descriptions
 
 # JSON files - Consistent data structure formatting
 [*.json]
 indent_style = space
 indent_size = 2
-# Keys must use snake_case English names
-# Values should be English where user-facing
+# Keys use snake_case names (English or Chinese)
+# Values support multiple languages for user-facing content
 
 # TOML files - Configuration consistency
 [*.toml]
 indent_style = space
 indent_size = 4
-# Section headers use descriptive English titles
-# Keys follow snake_case English convention
+# Section headers use descriptive titles (English or Chinese)
+# Keys follow snake_case convention (English or Chinese)
 
 # Markdown files - Documentation standards
 [*.md]
 indent_style = space
 indent_size = 2
 trim_trailing_whitespace = false
-# All content must be in English
-# Headers use sentence case with English titles
+# Content supports multiple languages
+# Headers use sentence case with appropriate language titles
 # Code examples follow project Python standards
 
 # YAML files - Configuration files
 [*.{yml,yaml}]
 indent_style = space
 indent_size = 2
-# Keys use snake_case English
-# Comments for explanation must be in English
+# Keys use snake_case (English or Chinese)
+# Comments for explanation support multiple languages
 
 # Configuration files - System settings
 [*.{ini,cfg}]
 indent_style = space
 indent_size = 4
-# Section headers and comments in English
+# Section headers and comments support multiple languages
 
 # Shell scripts - Automation scripts
 [*.sh]
 indent_style = space
 indent_size = 2
-# Comments and variable names in English
+# Comments and variable names support multiple languages
 
 # Batch files - Windows automation
 [*.bat]
 end_of_line = crlf
-# Comments and labels in English
+# Comments and labels support multiple languages
 
 # Git files - Version control
 [.gitignore]
 indent_style = space
 indent_size = 2
-# Comments explaining patterns in English
+# Comments explaining patterns support multiple languages
 
 # Docker files - Container configuration
 [Dockerfile*]
 indent_style = space
 indent_size = 2
-# Instructions and comments in English
+# Instructions and comments support multiple languages
 
 # Requirements files - Dependencies
 [requirements*.txt]
 indent_style = space
 indent_size = 2
-# Comments explaining packages in English
+# Comments explaining packages support multiple languages
