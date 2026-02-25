@@ -1,3 +1,5 @@
+<img width="1384" height="1040" alt="圖片" src="https://github.com/user-attachments/assets/39815446-fc60-4a4a-9c13-df71df9be1c0" />
+
 # Discord Bot
 
 一個功能完整的 Discord 機器人，包含訊息管理、遊戲、osu 整合與 GitHub 監控。
