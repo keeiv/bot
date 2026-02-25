@@ -55,17 +55,13 @@ class Management(commands.Cog):
     # Repository tracking commands
     repo_track = app_commands.Group(name="repo_track", description="追蹤倉庫更新與拉取請求")
 
-    @repo_track.command(name="add", description="新增倉庫以追蹤提交與拉取請求")
+    @repo_track.command(name="add", description="新增 keeiv/bot 倉庫追蹤")
     @app_commands.describe(
-        owner="倉庫擁有者",
-        repo="倉庫名稱",
         channel="發送通知的頻道"
     )
     async def repo_track_add(
         self,
         interaction: discord.Interaction,
-        owner: str,
-        repo: str,
         channel: discord.TextChannel
     ):
         if not interaction.user.guild_permissions.manage_channels:
@@ -73,7 +69,9 @@ class Management(commands.Cog):
             return
 
         guild_id = str(interaction.guild.id)
-        repo_key = f"{owner}/{repo}"
+        repo_key = "keeiv/bot"
+        owner = "keeiv"
+        repo = "bot"
 
         if guild_id not in self._config:
             self._config[guild_id] = {}
@@ -89,25 +87,19 @@ class Management(commands.Cog):
         }
 
         self._save_config()
-        await interaction.response.send_message(f"Now tracking {repo_key} in {channel.mention}")
+        await interaction.response.send_message(f"Now tracking {repo_key} updates in {channel.mention}")
 
-    @repo_track.command(name="remove", description="移除倉庫追蹤")
-    @app_commands.describe(
-        owner="倉庫擁有者",
-        repo="倉庫名稱"
-    )
+    @repo_track.command(name="remove", description="移除 keeiv/bot 倉庫追蹤")
     async def repo_track_remove(
         self,
-        interaction: discord.Interaction,
-        owner: str,
-        repo: str
+        interaction: discord.Interaction
     ):
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message("You need 'Manage Channels' permission to use this command.", ephemeral=True)
             return
 
         guild_id = str(interaction.guild.id)
-        repo_key = f"{owner}/{repo}"
+        repo_key = "keeiv/bot"
 
         if (guild_id in self._config and
             "tracked_repos" in self._config[guild_id] and
@@ -130,9 +122,14 @@ class Management(commands.Cog):
             await interaction.response.send_message("No repositories are being tracked", ephemeral=True)
             return
 
-        embed = discord.Embed(title="Repository Tracking Status", color=discord.Color.blue())
+        embed = discord.Embed(title="keeiv/bot Repository Tracking Status", color=discord.Color.blue())
 
-        for repo_key, data in self._config[guild_id]["tracked_repos"].items():
+        repo_key = "keeiv/bot"
+        if (guild_id in self._config and
+            "tracked_repos" in self._config[guild_id] and
+            repo_key in self._config[guild_id]["tracked_repos"]):
+
+            data = self._config[guild_id]["tracked_repos"][repo_key]
             channel = self.bot.get_channel(data["channel_id"])
             channel_name = channel.mention if channel else f"Unknown channel ({data['channel_id']})"
 
@@ -141,6 +138,8 @@ class Management(commands.Cog):
                 value=f"Channel: {channel_name}\nLast commit: {data.get('last_commit', 'Never')}\nLast PR: {data.get('last_pr', 'Never')}",
                 inline=False
             )
+        else:
+            embed.description = "keeiv/bot repository is not being tracked"
 
         await interaction.response.send_message(embed=embed)
 
