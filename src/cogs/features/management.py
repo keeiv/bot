@@ -1,6 +1,7 @@
 import os
 import json
 import aiohttp
+import shutil
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any
 
@@ -44,12 +45,33 @@ class Management(commands.Cog):
             return {}
 
     def _save_config(self):
-        with open(self.data_file, "w", encoding="utf-8") as f:
-            json.dump(self._config, f, ensure_ascii=False, indent=2)
+        """Save configuration with backup mechanism"""
+        try:
+            # Create backup before saving
+            if os.path.exists(self.data_file):
+                backup_file = f"{self.data_file}.backup"
+                shutil.copy2(self.data_file, backup_file)
+
+            # Save main config
+            with open(self.data_file, "w", encoding="utf-8") as f:
+                json.dump(self._config, f, ensure_ascii=False, indent=2)
+
+        except Exception as e:
+            print(f"Error saving config: {e}")
+            # Try to restore from backup if main save failed
+            backup_file = f"{self.data_file}.backup"
+            if os.path.exists(backup_file):
+                print("Attempting to restore from backup...")
+                shutil.copy2(backup_file, self.data_file)
 
     async def _get_session(self) -> aiohttp.ClientSession:
+        """Get or create HTTP session with timeout and retry logic"""
         if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
+            timeout = aiohttp.ClientTimeout(total=30, connect=10)
+            self._session = aiohttp.ClientSession(
+                timeout=timeout,
+                headers={'User-Agent': 'Discord-Bot/1.0'}
+            )
         return self._session
 
     # Repository tracking commands
@@ -145,9 +167,12 @@ class Management(commands.Cog):
 
     @tasks.loop(minutes=5)
     async def _repo_poll_task(self):
-        """Check for repository updates every 5 minutes"""
+        """Check for repository updates every 5 minutes with error handling"""
+        if not self._config:
+            return
+
         for guild_id, guild_config in self._config.items():
-            if "tracked_repos" not in guild_config:
+            if "tracked_repos" not in guild_config or not guild_config["tracked_repos"]:
                 continue
 
             for repo_key, repo_data in guild_config["tracked_repos"].items():
@@ -155,67 +180,85 @@ class Management(commands.Cog):
                     await self._check_repo_updates(guild_id, repo_key, repo_data)
                 except Exception as e:
                     print(f"Error checking {repo_key}: {e}")
+                    # Continue with other repos even if one fails
+                    continue
 
     async def _check_repo_updates(self, guild_id: str, repo_key: str, repo_data: dict):
+        """Check repository updates with improved error handling"""
         session = await self._get_session()
         owner = repo_data["owner"]
         repo = repo_data["repo"]
 
-        # Check commits
-        commits_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
-        async with session.get(commits_url) as response:
-            if response.status == 200:
-                commits = await response.json()
-                if commits and commits[0]["sha"] != repo_data.get("last_commit"):
-                    latest_commit = commits[0]
-                    repo_data["last_commit"] = latest_commit["sha"]
+        try:
+            # Check commits with error handling
+            commits_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
+            async with session.get(commits_url) as response:
+                if response.status == 200:
+                    commits = await response.json()
+                    if commits and commits[0]["sha"] != repo_data.get("last_commit"):
+                        latest_commit = commits[0]
+                        repo_data["last_commit"] = latest_commit["sha"]
 
-                    channel = self.bot.get_channel(repo_data["channel_id"])
-                    if channel:
-                        embed = discord.Embed(
-                            title=f"New Commit in {repo_key}",
-                            description=latest_commit["commit"]["message"][:200],
-                            url=latest_commit["html_url"],
-                            color=discord.Color.green()
-                        )
-                        embed.set_author(
-                            name=latest_commit["author"]["login"],
-                            url=latest_commit["author"]["html_url"],
-                            icon_url=latest_commit["author"]["avatar_url"]
-                        )
-                        embed.add_field(name="SHA", value=latest_commit["sha"][:7], inline=True)
-                        embed.add_field(name="Date", value=_format_time(datetime.fromisoformat(latest_commit["commit"]["committer"]["date"])), inline=True)
+                        channel = self.bot.get_channel(repo_data["channel_id"])
+                        if channel:
+                            embed = discord.Embed(
+                                title=f"New Commit in {repo_key}",
+                                description=latest_commit["commit"]["message"][:200],
+                                url=latest_commit["html_url"],
+                                color=discord.Color.green()
+                            )
+                            embed.set_author(
+                                name=latest_commit["author"]["login"],
+                                url=latest_commit["author"]["html_url"],
+                                icon_url=latest_commit["author"]["avatar_url"]
+                            )
+                            embed.add_field(name="SHA", value=latest_commit["sha"][:7], inline=True)
+                            embed.add_field(name="Date", value=_format_time(datetime.fromisoformat(latest_commit["commit"]["committer"]["date"])), inline=True)
 
-                        await channel.send(embed=embed)
+                            await channel.send(embed=embed)
+                elif response.status == 403:
+                    print(f"Rate limited for {repo_key}, skipping this check")
+                else:
+                    print(f"Failed to fetch commits for {repo_key}: {response.status}")
 
-        # Check pull requests
-        prs_url = f"https://api.github.com/repos/{owner}/{repo}/pulls"
-        async with session.get(prs_url) as response:
-            if response.status == 200:
-                prs = await response.json()
-                if prs and prs[0]["number"] != repo_data.get("last_pr"):
-                    latest_pr = prs[0]
-                    repo_data["last_pr"] = latest_pr["number"]
+            # Check pull requests with error handling
+            prs_url = f"https://api.github.com/repos/{owner}/{repo}/pulls"
+            async with session.get(prs_url) as response:
+                if response.status == 200:
+                    prs = await response.json()
+                    if prs and prs[0]["number"] != repo_data.get("last_pr"):
+                        latest_pr = prs[0]
+                        repo_data["last_pr"] = latest_pr["number"]
 
-                    channel = self.bot.get_channel(repo_data["channel_id"])
-                    if channel:
-                        embed = discord.Embed(
-                            title=f"New Pull Request in {repo_key}",
-                            description=latest_pr["title"][:200],
-                            url=latest_pr["html_url"],
-                            color=discord.Color.orange()
-                        )
-                        embed.set_author(
-                            name=latest_pr["user"]["login"],
-                            url=latest_pr["user"]["html_url"],
-                            icon_url=latest_pr["user"]["avatar_url"]
-                        )
-                        embed.add_field(name="PR Number", value=str(latest_pr["number"]), inline=True)
-                        embed.add_field(name="State", value=latest_pr["state"].title(), inline=True)
+                        channel = self.bot.get_channel(repo_data["channel_id"])
+                        if channel:
+                            embed = discord.Embed(
+                                title=f"New Pull Request in {repo_key}",
+                                description=latest_pr["title"][:200],
+                                url=latest_pr["html_url"],
+                                color=discord.Color.orange()
+                            )
+                            embed.set_author(
+                                name=latest_pr["user"]["login"],
+                                url=latest_pr["user"]["html_url"],
+                                icon_url=latest_pr["user"]["avatar_url"]
+                            )
+                            embed.add_field(name="PR Number", value=str(latest_pr["number"]), inline=True)
+                            embed.add_field(name="State", value=latest_pr["state"].title(), inline=True)
 
-                        await channel.send(embed=embed)
+                            await channel.send(embed=embed)
+                elif response.status == 403:
+                    print(f"Rate limited for {repo_key} PRs, skipping this check")
+                else:
+                    print(f"Failed to fetch PRs for {repo_key}: {response.status}")
 
-        self._save_config()
+            # Only save if there were changes
+            self._save_config()
+
+        except aiohttp.ClientError as e:
+            print(f"Network error checking {repo_key}: {e}")
+        except Exception as e:
+            print(f"Unexpected error checking {repo_key}: {e}")
 
     # Role management commands
     role = app_commands.Group(name="role", description="身份組管理指令")
