@@ -32,10 +32,12 @@
 - `/user_info` 會顯示已綁定的 osu 資訊
 
 ### GitHub 監控
-- `/repo_watch set owner:<owner> repo:<repo> channel:<channel>` 設定監控
-- 定時檢查 repo 更新，發現新 commit 自動通知
-- `/repo_watch status` 查看狀態
-- `/repo_watch disable` 停用監控
+- `/repo_watch set owner:<owner> repo:<repo> channel:<channel>` 設定通用倉庫監控
+- `/repo_track add` 專門追蹤 keeiv/bot 倉庫更新 (包含 commits 和 PRs)
+- `/repo_watch status` 查看通用監控狀態
+- `/repo_track status` 查看 keeiv/bot 追蹤狀態
+- `/repo_watch disable` 停用通用監控
+- `/repo_track remove` 移除 keeiv/bot 追蹤
 
 ## 安裝
 
@@ -55,7 +57,7 @@ GITHUB_TOKEN=
 
 3. 執行
 ```bash
-python main.py
+python src/main.py
 ```
 
 ## 權限說明
@@ -66,13 +68,14 @@ python main.py
 | 反刷群設定 | 管理員 |
 | 清除/踢出/封禁/禁言/警告 | 對應管理權限 |
 | GitHub 監控設定 | 管理伺服器 |
+| Repository 追蹤設定 | 管理頻道 |
 | 其他查詢指令 | 無特殊限制 |
 
 ## 資料存放
 
-- `config.json`：伺服器設定
+- `data/storage/management.json`：管理功能配置 (包含 repo_track)
+- `data/storage/github_watch.json`：通用 GitHub 監控設定
 - `data/`：訊息記錄、成就、osu 綁定資料
-- `data/github_watch.json`：GitHub 監控設定
 
 ## 時區
 
