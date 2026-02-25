@@ -92,7 +92,7 @@ python src/main.py
 
 • `docs/`：存放專案相關的說明文件與指南。
 
-• `.github/`：GitHub Actions 的 CI/CD 工作流配置檔案
+• `.github/`：GitHub Actions 的 CI/CD 工作流配置檔案。
 
 ## 授權
 
