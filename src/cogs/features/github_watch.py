@@ -7,6 +7,8 @@ import discord
 from discord.ext import commands, tasks
 from discord import app_commands
 
+from src.utils.github_manager import get_github_manager
+
 # UTC+8 時區
 TZ_OFFSET = timezone(timedelta(hours=8))
 
@@ -52,56 +54,47 @@ class GithubWatch(commands.Cog):
         return self._config.get(str(guild_id))
 
     async def _ensure_session(self) -> aiohttp.ClientSession:
-        if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
-        return self._session
+        return get_github_manager()
 
     async def _fetch_latest_commit(self, owner: str, repo: str) -> dict:
-        session = await self._ensure_session()
+        github_manager = await self._ensure_session()
 
-        url = f"https://api.github.com/repos/{owner}/{repo}/commits"
-        headers = {"Accept": "application/vnd.github+json"}
+        try:
+            commits = await github_manager.get_commits(owner, repo, per_page=1)
 
-        token = os.getenv("GITHUB_TOKEN")
-        if token:
-            headers["Authorization"] = f"Bearer {token}"
+            if not commits:
+                raise RuntimeError("GitHub API 回傳空資料")
 
-        async with session.get(url, headers=headers, params={"per_page": 1}) as resp:
-            if resp.status != 200:
-                text = await resp.text()
-                raise RuntimeError(f"GitHub API 失敗: HTTP {resp.status} {text}")
-            data = await resp.json()
+            c = commits[0]
+            sha = c.get("sha")
+            html_url = c.get("html_url")
+            commit = c.get("commit") or {}
+            message = (commit.get("message") or "").split("\n", 1)[0]
+            author = (commit.get("author") or {}).get("name")
+            date_str = (commit.get("author") or {}).get("date")
 
-        if not data:
-            raise RuntimeError("GitHub API 回傳空資料")
+            dt = None
+            if date_str:
+                try:
+                    dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                except Exception:
+                    dt = None
 
-        c = data[0]
-        sha = c.get("sha")
-        html_url = c.get("html_url")
-        commit = c.get("commit") or {}
-        message = (commit.get("message") or "").split("\n", 1)[0]
-        author = (commit.get("author") or {}).get("name")
-        date_str = (commit.get("author") or {}).get("date")
+            pusher = None
+            if c.get("author") and isinstance(c["author"], dict):
+                pusher = c["author"].get("login")
 
-        dt = None
-        if date_str:
-            try:
-                dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-            except Exception:
-                dt = None
-
-        pusher = None
-        if c.get("author") and isinstance(c["author"], dict):
-            pusher = c["author"].get("login")
-
-        return {
-            "sha": sha,
-            "url": html_url,
-            "message": message,
-            "author": author,
-            "pusher": pusher,
-            "date": dt,
-        }
+            return {
+                "sha": sha,
+                "url": html_url,
+                "message": message,
+                "author": author,
+                "pusher": pusher,
+                "date": dt,
+            }
+        except Exception as e:
+            print(f"[GitHub Watch] Error fetching commit: {e}")
+            raise RuntimeError(f"GitHub API 失敗: {e}")
 
     async def _send_update_message(self, guild_id: int, channel_id: int, owner: str, repo: str, commit: dict):
         guild = self.bot.get_guild(guild_id)
