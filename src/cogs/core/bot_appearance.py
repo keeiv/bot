@@ -142,21 +142,19 @@ class BotAppearance(commands.Cog):
                 return
 
             try:
-                if change_type == "avatar":
-                    await guild.me.edit(avatar=request["image_bytes"])
-                elif change_type == "banner":
-                    b64 = base64.b64encode(request["image_bytes"]).decode("ascii")
-                    data_uri = (
-                        f"data:{request['content_type']};base64,{b64}"
-                    )
-                    route = discord.http.Route(
-                        "PATCH",
-                        "/guilds/{guild_id}/members/@me",
-                        guild_id=guild.id,
-                    )
-                    await self.bot.http.request(
-                        route, json={"banner": data_uri}
-                    )
+                b64 = base64.b64encode(request["image_bytes"]).decode("ascii")
+                data_uri = (
+                    f"data:{request['content_type']};base64,{b64}"
+                )
+                route = discord.http.Route(
+                    "PATCH",
+                    "/guilds/{guild_id}/members/@me",
+                    guild_id=guild.id,
+                )
+                payload_key = "avatar" if change_type == "avatar" else "banner"
+                await self.bot.http.request(
+                    route, json={payload_key: data_uri}
+                )
 
                 # 更新審核訊息
                 embed = discord.Embed(
