@@ -57,7 +57,7 @@ GITHUB_TOKEN=
 
 3. 執行
 ```bash
-python src/main.py
+python -m src.main
 ```
 
 ## 權限說明
