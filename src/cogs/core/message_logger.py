@@ -6,6 +6,7 @@ import json
 import os
 
 from src.utils.config_manager import ensure_data_dir
+from src.utils.message_cache import get_message_cache
 
 # UTC+8 時區
 TZ_OFFSET = timezone(timedelta(hours=8))
@@ -17,6 +18,7 @@ class MessageLogger(commands.Cog):
         self.bot = bot
         self.data_file = "data/logs/messages/message_log.json"
         self.config_file = "data/storage/log_channels.json"
+        self.message_cache = get_message_cache()
         ensure_data_dir()
         
     def get_current_time_str(self) -> str:
@@ -86,7 +88,7 @@ class MessageLogger(commands.Cog):
             for attachment in attachments:
                 attachment_urls.append(attachment.url)
         
-        logs[msg_key] = {
+        record = {
             "message_id": message_id,
             "guild_id": guild_id,
             "channel_id": channel_id,
@@ -98,7 +100,11 @@ class MessageLogger(commands.Cog):
             "created_at": datetime.now(TZ_OFFSET).isoformat()
         }
         
+        logs[msg_key] = record
         self.save_message_log(logs)
+        
+        # 存儲到內存快取
+        self.message_cache.set(guild_id, message_id, record)
     
     def update_message_edit(self, guild_id: int, message_id: int, new_content: str):
         """更新訊息編輯歷史"""
@@ -109,6 +115,12 @@ class MessageLogger(commands.Cog):
             logs[msg_key]["edit_history"].append(new_content)
             logs[msg_key]["last_edited_at"] = datetime.now(TZ_OFFSET).isoformat()
             self.save_message_log(logs)
+            
+            # 更新快取
+            self.message_cache.update(guild_id, message_id, {
+                "edit_history": logs[msg_key]["edit_history"],
+                "last_edited_at": logs[msg_key]["last_edited_at"]
+            })
             return True
         else:
             print(f"[警告] 未找到訊息記錄: {msg_key}")
@@ -123,16 +135,34 @@ class MessageLogger(commands.Cog):
             logs[msg_key]["deleted"] = True
             logs[msg_key]["deleted_at"] = datetime.now(TZ_OFFSET).isoformat()
             self.save_message_log(logs)
+            
+            # 更新快取
+            self.message_cache.update(guild_id, message_id, {
+                "deleted": True,
+                "deleted_at": logs[msg_key]["deleted_at"]
+            })
             return True
         else:
             print(f"[警告] 未找到訊息記錄: {msg_key}")
             return False
     
     def get_message_record(self, guild_id: int, message_id: int) -> Optional[dict]:
-        """獲取訊息記錄"""
+        """獲取訊息記錄（優先從快取查詢）"""
+        # 先檢查內存快取
+        cached_record = self.message_cache.get(guild_id, message_id)
+        if cached_record is not None:
+            return cached_record
+        
+        # 快取未命中，查詢 JSON
         logs = self.load_message_log()
         msg_key = f"{guild_id}_{message_id}"
-        return logs.get(msg_key)
+        record = logs.get(msg_key)
+        
+        # 如果找到，保存到快取
+        if record:
+            self.message_cache.set(guild_id, message_id, record)
+        
+        return record
     
     def is_image_or_gif(self, url: str) -> bool:
         """檢查連結是否為圖片或GIF"""
