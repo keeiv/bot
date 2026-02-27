@@ -33,7 +33,7 @@ class AppealModal(ui.Modal, title="黑名單申訴"):
         user_id = interaction.user.id
         reason = self.reason.value
 
-        # 嘗試添加申訴
+        # 嘗試新增申訴
         success = blacklist_manager.add_appeal(user_id, reason)
 
         if success:
@@ -208,15 +208,15 @@ class Blacklist(commands.Cog):
 
     blacklist_group = app_commands.Group(name="黑名單", description="黑名單管理命令")
 
-    @blacklist_group.command(name="新增", description="將用戶添加到黑名單")
-    @app_commands.describe(user="要添加的用戶", reason="封禁原因")
+    @blacklist_group.command(name="新增", description="將用戶新增到黑名單")
+    @app_commands.describe(user="要新增的用戶", reason="封禁原因")
     async def blacklist_add(
         self,
         interaction: discord.Interaction,
         user: discord.User,
         reason: str = "未提供原因",
     ):
-        """添加用戶到黑名單"""
+        """新增用戶到黑名單"""
         # 檢查開發者權限
         if interaction.user.id != DEVELOPER_ID:
             embed = discord.Embed(
@@ -231,7 +231,7 @@ class Blacklist(commands.Cog):
         if user.id == interaction.user.id:
             embed = discord.Embed(
                 title="[失敗] 無法封禁自己",
-                description="您無法將自己添加到黑名單。",
+                description="您無法將自己新增到黑名單。",
                 color=discord.Color.red(),
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -247,11 +247,11 @@ class Blacklist(commands.Cog):
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
-        # 添加到黑名單
+        # 新增到黑名單
         blacklist_manager.add_to_blacklist(user.id)
 
         embed = discord.Embed(
-            title="[成功] 用戶已添加到黑名單",
+            title="[成功] 用戶已新增到黑名單",
             description=f"**用戶:** {user.mention}\n**用戶 ID:** {user.id}\n**原因:** {reason}",
             color=discord.Color.green(),
         )
@@ -263,8 +263,8 @@ class Blacklist(commands.Cog):
         # 私訊被黑名單的用戶
         try:
             user_embed = discord.Embed(
-                title="[警告] 您已被添加到黑名單",
-                description=f"您因以下原因被添加到黑名單：\n\n>>> {reason}",
+                title="[警告] 您已被新增到黑名單",
+                description=f"您因以下原因被新增到黑名單：\n\n>>> {reason}",
                 color=discord.Color.orange(),
             )
             user_embed.add_field(
@@ -402,7 +402,7 @@ class Blacklist(commands.Cog):
 
         if not appeal:
             embed = discord.Embed(
-                title="[信息] 沒有申訴記錄",
+                title="[資訊] 沒有申訴記錄",
                 description="您沒有提交過申訴。",
                 color=discord.Color.blue(),
             )

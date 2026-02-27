@@ -91,7 +91,7 @@ class MessageCache:
             if oldest_key in self.cache_timestamp:
                 del self.cache_timestamp[oldest_key]
 
-        # 添加新項目
+        # 新增新項目
         self.cache[cache_key] = data.copy()
         self.cache_timestamp[cache_key] = datetime.now(TZ_OFFSET).timestamp()
 
@@ -167,10 +167,10 @@ class MessageCache:
 
     def get_stats(self) -> Dict[str, Any]:
         """
-        獲取快取統計信息
+        獲取快取統計資訊
 
         Returns:
-            統計信息字典
+            統計資訊字典
         """
         total_requests = self.hits + self.misses
         hit_rate = (self.hits / total_requests * 100) if total_requests > 0 else 0
@@ -186,18 +186,18 @@ class MessageCache:
         }
 
     def reset_stats(self) -> None:
-        """重置統計信息"""
+        """重置統計資訊"""
         self.hits = 0
         self.misses = 0
 
 
-# 全局訊息快取實例
+# 全域訊息快取實例
 _global_message_cache: Optional[MessageCache] = None
 
 
 def get_message_cache(max_size: int = 1000, ttl_seconds: int = 3600) -> MessageCache:
     """
-    獲取全局訊息快取實例（單例模式）
+    獲取全域訊息快取實例（單例模式）
 
     Args:
         max_size: 最大緩存訊息數

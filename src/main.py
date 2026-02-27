@@ -74,7 +74,7 @@ def main():
                 print("[錯誤] 機器人已在運行，請先停止舊實例")
                 exit(1)
             except OSError:
-                print("[信息] 舊實例已停止，繼續啟動")
+                print("[資訊] 舊實例已停止，繼續啟動")
         except Exception as e:
             print(f"[警告] 鎖定文件檢查失敗: {e}")
 
@@ -91,7 +91,7 @@ def main():
     # 初始化所有優化
     async def on_ready():
         await initialize_optimizations()
-        print("[信息] 機器人和優化模組已就緒")
+        print("[資訊] 機器人和優化模組已就緒")
 
     bot.add_listener(on_ready, "on_ready")
 
@@ -99,10 +99,10 @@ def main():
     init_api_optimizer(bot)
 
     try:
-        print("[信息] 啟動機器人")
+        print("[資訊] 啟動機器人")
         bot.run(TOKEN)
     except KeyboardInterrupt:
-        print("[信息] 用戶請求機器人關閉")
+        print("[資訊] 用戶請求機器人關閉")
     except Exception as e:
         print(f"[錯誤] 機器人啟動失敗: {e}")
     finally:

@@ -30,7 +30,7 @@ ACHIEVEMENTS = {
         "rarity": "rare",
     },
     "first_delete": {
-        "name": "信息撤回",
+        "name": "訊息撤回",
         "description": "首次刪除一條訊息",
         "rarity": "common",
     },
@@ -236,7 +236,7 @@ class Achievements(commands.Cog):
                 timestamp=datetime.now(TZ_OFFSET),
             )
 
-            # 用戶信息
+            # 用戶資訊
             embed.set_thumbnail(
                 url=user.avatar.url if user.avatar else user.default_avatar.url
             )
@@ -284,7 +284,7 @@ class Achievements(commands.Cog):
         except Exception as e:
             print(f"[achievements_command] 錯誤: {e}")
             await interaction.response.send_message(
-                f"[錯誤] 無法獲取成就信息: {str(e)}", ephemeral=True
+                f"[錯誤] 無法獲取成就資訊: {str(e)}", ephemeral=True
             )
 
     @app_commands.command(name="achievement_codex", description="查看成就圖鑑")
@@ -315,7 +315,7 @@ class Achievements(commands.Cog):
             # 標題頁面
             title_embed = discord.Embed(
                 title=" 成就圖鑑",
-                description="查看所有可解鎖的成就\n\n使用 `/achievement_info <成就ID>` 查看詳細信息",
+                description="查看所有可解鎖的成就\n\n使用 `/achievement_info <成就ID>` 查看詳細資訊",
                 color=discord.Color.gold(),
                 timestamp=datetime.now(TZ_OFFSET),
             )
@@ -326,7 +326,7 @@ class Achievements(commands.Cog):
             )
             embeds.append(title_embed)
 
-            # 按稀有度添加成就
+            # 按稀有度新增成就
             for rarity in rarity_order:
                 if not achievements_by_rarity[rarity]:
                     continue
@@ -354,12 +354,12 @@ class Achievements(commands.Cog):
             print(f"[achievement_codex] 錯誤: {e}")
             await interaction.followup.send(f"[錯誤] {str(e)}", ephemeral=True)
 
-    @app_commands.command(name="achievement_info", description="查看成就詳細信息")
+    @app_commands.command(name="achievement_info", description="查看成就詳細資訊")
     @app_commands.describe(achievement="成就名稱或 ID")
     async def achievement_info(
         self, interaction: discord.Interaction, achievement: str
     ):
-        """查看成就詳細信息"""
+        """查看成就詳細資訊"""
         try:
             # 優先按 ID 查找，然後按名稱查找
             achievement_id = None

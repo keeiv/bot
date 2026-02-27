@@ -50,7 +50,7 @@ class BlacklistManager:
         return user_id in self.load_blacklist()
 
     def add_to_blacklist(self, user_id: int):
-        """添加用戶到黑名單"""
+        """新增用戶到黑名單"""
         blacklist = self.load_blacklist()
         blacklist.add(user_id)
         self.save_blacklist(blacklist)
@@ -150,5 +150,5 @@ class BlacklistManager:
         ]
 
 
-# 全局黑名單管理器實例
+# 全域黑名單管理器實例
 blacklist_manager = BlacklistManager()

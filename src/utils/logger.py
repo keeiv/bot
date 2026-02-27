@@ -123,7 +123,7 @@ def create_delete_embed(
         timestamp=datetime.now(TZ_OFFSET),
     )
 
-    # 添加基本信息
+    # 新增基本資訊
     embed.add_field(name="用戶", value=f"<@{user_id}> ({user_id})", inline=False)
     embed.add_field(name="伺服器", value=f"{guild_name} ({guild_id})", inline=False)
     embed.add_field(name="頻道", value=f"<#{channel_id}> ({channel_id})", inline=False)
@@ -132,7 +132,7 @@ def create_delete_embed(
     # 檢查是否有圖片附件
     image_url = get_first_image_url(attachments) if attachments else None
 
-    # 添加刪除前的訊息內容
+    # 新增刪除前的訊息內容
     if image_url:
         # 如果有圖片，不用代碼框
         content_text = content[:1024] if content else "(空)"
@@ -147,7 +147,7 @@ def create_delete_embed(
             name="刪除前的訊息", value=f"```\n{content_text}\n```", inline=False
         )
 
-    # 如果有圖片，添加到embed
+    # 如果有圖片，新增到embed
     if image_url:
         embed.set_image(url=image_url)
 

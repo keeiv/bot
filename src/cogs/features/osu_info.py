@@ -9,7 +9,7 @@ from ossapi import Ossapi
 
 
 class OsuInfo(commands.Cog):
-    """OSU! 用戶信息查詢"""
+    """OSU! 用戶資訊查詢"""
 
     osu = app_commands.Group(name="osu", description="osu! 查詢")
 
@@ -34,10 +34,10 @@ class OsuInfo(commands.Cog):
                 "osu 功能尚未啟用。請在專案根目錄的 .env 加上 OSU_CLIENT_ID 與 OSU_CLIENT_SECRET，然後重啟 bot。"
             )
 
-    @app_commands.command(name="user_info_osu", description="查詢 osu! 用戶信息")
+    @app_commands.command(name="user_info_osu", description="查詢 osu! 用戶資訊")
     @app_commands.describe(username="osu! 用戶名")
     async def user_info_osu(self, interaction: discord.Interaction, username: str):
-        """查詢 osu! 用戶信息"""
+        """查詢 osu! 用戶資訊"""
         try:
             await interaction.response.defer()
 
@@ -48,7 +48,7 @@ class OsuInfo(commands.Cog):
 
             # 創建嵌入消息
             embed = discord.Embed(
-                title=f"osu! 用戶信息 - {user.username}",
+                title=f"osu! 用戶資訊 - {user.username}",
                 color=discord.Color.pink(),
                 url=f"https://osu.ppy.sh/users/{user.id}",
             )
@@ -57,7 +57,7 @@ class OsuInfo(commands.Cog):
             if user.avatar_url:
                 embed.set_thumbnail(url=user.avatar_url)
 
-            # 基本信息欄位
+            # 基本資訊欄位
             basic_info = f"**用戶名**: {user.username}\n"
             basic_info += f"**等級**: {user.statistics.level.current}\n"
             basic_info += (
@@ -77,7 +77,7 @@ class OsuInfo(commands.Cog):
             )
             basic_info += f"**是否為 Supporter**: {'是' if user.is_supporter else '否'}"
 
-            embed.add_field(name="基本信息", value=basic_info, inline=False)
+            embed.add_field(name="基本資訊", value=basic_info, inline=False)
 
             # 成績統計
             counts = user.statistics.grade_counts
@@ -105,7 +105,7 @@ class OsuInfo(commands.Cog):
 
             embed.add_field(name="遊戲統計", value=playcount_info, inline=True)
 
-            # 附加信息
+            # 附加資訊
             if user.cover_url:
                 embed.set_image(url=user.cover_url)
 

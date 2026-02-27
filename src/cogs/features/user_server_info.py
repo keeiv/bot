@@ -11,7 +11,7 @@ TZ_OFFSET = timezone(timedelta(hours=8))
 
 
 class UserServerInfo(commands.Cog):
-    """用戶和伺服器信息 Cog"""
+    """用戶和伺服器資訊 Cog"""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -23,18 +23,18 @@ class UserServerInfo(commands.Cog):
         local_dt = dt.astimezone(TZ_OFFSET)
         return local_dt.strftime("%Y/%m/%d %H:%M:%S")
 
-    @app_commands.command(name="user_info", description="顯示用戶信息")
+    @app_commands.command(name="user_info", description="顯示用戶資訊")
     @app_commands.describe(user="要查詢的用戶 (不填默認為自己)")
     async def user_info(
         self, interaction: discord.Interaction, user: discord.User = None
     ):
-        """顯示用戶信息"""
+        """顯示用戶資訊"""
         try:
             # 如果未指定用戶，默認為當前用戶
             if user is None:
                 user = interaction.user
 
-            # 獲取伺服器成員信息（用於獲取加入時間）
+            # 獲取伺服器成員資訊（用於獲取加入時間）
             member = None
             if interaction.guild:
                 try:
@@ -44,7 +44,7 @@ class UserServerInfo(commands.Cog):
 
             # 創建 Embed
             embed = discord.Embed(
-                title="用戶信息",
+                title="用戶資訊",
                 color=discord.Color.from_rgb(52, 152, 219),
                 timestamp=datetime.now(TZ_OFFSET),
             )
@@ -59,7 +59,7 @@ class UserServerInfo(commands.Cog):
             if user.banner:
                 embed.set_image(url=user.banner.url)
 
-            # 添加用戶信息字段
+            # 新增用戶資訊欄位
             embed.add_field(name="用戶ID", value=str(user.id), inline=False)
 
             # 唯一用戶名 (username)
@@ -88,7 +88,7 @@ class UserServerInfo(commands.Cog):
             status = "機器人" if user.bot else "普通用戶"
             embed.add_field(name="帳號狀態", value=status, inline=False)
 
-            # 角色信息（如果在伺服器內）
+            # 角色資訊（如果在伺服器內）
             if member:
                 roles = [
                     role.mention for role in member.roles if role.name != "@everyone"
@@ -122,7 +122,7 @@ class UserServerInfo(commands.Cog):
                 except Exception as e:
                     print(f"[成就] 顯示進度失敗: {e}")
 
-            # osu 綁定信息
+            # osu 綁定資訊
             if not user.bot:
                 try:
                     osu_cog = self.bot.get_cog("OsuInfo")
@@ -158,10 +158,10 @@ class UserServerInfo(commands.Cog):
                             )
 
                             embed.add_field(
-                                name="osu 信息", value="\n".join(lines), inline=False
+                                name="osu 資訊", value="\n".join(lines), inline=False
                             )
                 except Exception as e:
-                    print(f"[osu] 顯示綁定信息失敗: {e}")
+                    print(f"[osu] 顯示綁定資訊失敗: {e}")
 
             embed.set_footer(
                 text=f"查詢時間: {self.format_time(datetime.now(TZ_OFFSET))}"
@@ -172,12 +172,12 @@ class UserServerInfo(commands.Cog):
         except Exception as e:
             print(f"[user_info] 錯誤: {e}")
             await interaction.response.send_message(
-                f"[錯誤] 無法獲取用戶信息: {str(e)}", ephemeral=True
+                f"[錯誤] 無法獲取用戶資訊: {str(e)}", ephemeral=True
             )
 
-    @app_commands.command(name="server_info", description="顯示伺服器信息")
+    @app_commands.command(name="server_info", description="顯示伺服器資訊")
     async def server_info(self, interaction: discord.Interaction):
-        """顯示伺服器信息"""
+        """顯示伺服器資訊"""
         try:
             guild = interaction.guild
             if not guild:
@@ -188,7 +188,7 @@ class UserServerInfo(commands.Cog):
 
             # 創建 Embed
             embed = discord.Embed(
-                title="伺服器信息",
+                title="伺服器資訊",
                 color=discord.Color.from_rgb(46, 204, 113),
                 timestamp=datetime.now(TZ_OFFSET),
             )
@@ -197,7 +197,7 @@ class UserServerInfo(commands.Cog):
             if guild.icon:
                 embed.set_thumbnail(url=guild.icon.url)
 
-            # 基本信息
+            # 基本資訊
             embed.add_field(name="伺服器名稱", value=guild.name, inline=False)
             embed.add_field(name="伺服器ID", value=str(guild.id), inline=False)
 
@@ -205,7 +205,7 @@ class UserServerInfo(commands.Cog):
             created_time = self.format_time(guild.created_at)
             embed.add_field(name="創建時間", value=created_time, inline=False)
 
-            # 擁有者信息
+            # 擁有者資訊
             owner = guild.owner
             if owner:
                 embed.add_field(
@@ -252,7 +252,7 @@ class UserServerInfo(commands.Cog):
 
             # 伺服器等級 (Boosts)
             embed.add_field(
-                name="Boost 信息",
+                name="Boost 資訊",
                 value=f"等級: {guild.premium_tier}\nBoosts: {guild.premium_subscription_count}",
                 inline=False,
             )
@@ -284,7 +284,7 @@ class UserServerInfo(commands.Cog):
         except Exception as e:
             print(f"[server_info] 錯誤: {e}")
             await interaction.response.send_message(
-                f"[錯誤] 無法獲取伺服器信息: {str(e)}", ephemeral=True
+                f"[錯誤] 無法獲取伺服器資訊: {str(e)}", ephemeral=True
             )
 
 

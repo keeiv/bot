@@ -221,7 +221,7 @@ class MessageLogger(commands.Cog):
             timestamp=datetime.now(TZ_OFFSET),
         )
 
-        # 添加基本信息
+        # 新增基本資訊
         embed.add_field(name="用戶ID", value=f"{user_id}", inline=True)
         embed.add_field(name="原始頻道ID", value=f"{channel_id}", inline=True)
         embed.add_field(
@@ -235,7 +235,7 @@ class MessageLogger(commands.Cog):
             self.get_first_image_url(before_attachments) if before_attachments else None
         )
 
-        # 添加編輯前內容
+        # 新增編輯前內容
         if before_image_url:
             # 如果有圖片，不用代碼框
             before_text = before_content[:1024] if before_content else "(空)"
@@ -253,7 +253,7 @@ class MessageLogger(commands.Cog):
             self.get_first_image_url(after_attachments) if after_attachments else None
         )
 
-        # 添加編輯後內容
+        # 新增編輯後內容
         if after_image_url:
             # 如果有圖片，不用代碼框
             after_text = after_content[:1024] if after_content else "(空)"
@@ -266,7 +266,7 @@ class MessageLogger(commands.Cog):
                 name="編輯後", value=f"```\n{after_text}\n```", inline=False
             )
 
-        # 如果有編輯後的圖片，添加到embed
+        # 如果有編輯後的圖片，新增到embed
         if after_image_url:
             embed.set_image(url=after_image_url)
 
@@ -294,7 +294,7 @@ class MessageLogger(commands.Cog):
             timestamp=datetime.now(TZ_OFFSET),
         )
 
-        # 添加基本信息
+        # 新增基本資訊
         embed.add_field(name="用戶ID", value=f"{user_id}", inline=True)
         embed.add_field(name="原始頻道ID", value=f"{channel_id}", inline=True)
         embed.add_field(
@@ -306,7 +306,7 @@ class MessageLogger(commands.Cog):
         # 檢查是否有圖片附件
         image_url = self.get_first_image_url(attachments) if attachments else None
 
-        # 添加刪除前的訊息內容
+        # 新增刪除前的訊息內容
         if image_url:
             # 如果有圖片，不用代碼框
             content_text = content[:1024] if content else "(空)"
@@ -321,7 +321,7 @@ class MessageLogger(commands.Cog):
                 name="刪除前的訊息", value=f"```\n{content_text}\n```", inline=False
             )
 
-        # 如果有圖片，添加到embed
+        # 如果有圖片，新增到embed
         if image_url:
             embed.set_image(url=image_url)
 

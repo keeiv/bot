@@ -208,6 +208,16 @@ class Admin(commands.Cog):
         )
 
         embed_main.add_field(
+            name="[機器人外觀]",
+            value=(
+                "`/bot_appearance name` - 更改機器人暱稱\n"
+                "`/bot_appearance avatar` - 更改機器人頭像\n"
+                "`/bot_appearance banner` - 更改機器人橫幅"
+            ),
+            inline=False,
+        )
+
+        embed_main.add_field(
             name="[防刷屏]",
             value=(
                 "`/anti_spam_set` - 設置防刷屏功能\n"
