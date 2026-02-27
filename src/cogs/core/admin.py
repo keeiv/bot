@@ -7,13 +7,13 @@ from src.utils.blacklist_manager import blacklist_manager
 
 
 class Admin(commands.Cog):
-    """Admin commands Cog"""
+    """管理員命令 Cog"""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     def is_blacklisted_check(self):
-        """Blacklist check decorator"""
+        """黑名單檢查裝飾器"""
 
         async def predicate(ctx):
             if blacklist_manager.is_blacklisted(ctx.author.id):
@@ -28,13 +28,11 @@ class Admin(commands.Cog):
 
         return commands.check(predicate)
 
-    @commands.hybrid_command(
-        name="clear", description="Clear specified number of messages"
-    )
+    @commands.hybrid_command(name="clear", description="清除指定數量的訊息")
     @commands.has_permissions(manage_messages=True)
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def clear(self, ctx, amount: int = 10):
-        """Clear messages"""
+        """清除訊息"""
         if not ctx.author.guild_permissions.manage_messages:
             await ctx.send(
                 "[Failed] You need manage messages permission", ephemeral=True
@@ -51,10 +49,10 @@ class Admin(commands.Cog):
             f"[Success] Cleared {len(deleted)} messages", ephemeral=True
         )
 
-    @commands.hybrid_command(name="kick", description="Kick member")
+    @commands.hybrid_command(name="kick", description="踢出成员")
     @commands.has_permissions(kick_members=True)
-    async def kick(self, ctx, user: discord.Member, reason: str = "No reason provided"):
-        """Kick member"""
+    async def kick(self, ctx, user: discord.Member, reason: str = "沒有提供原因"):
+        """踢出成员"""
         if not ctx.author.guild_permissions.kick_members:
             await ctx.send("[Failed] You need kick members permission", ephemeral=True)
             return
@@ -81,10 +79,10 @@ class Admin(commands.Cog):
         except Exception as e:
             await ctx.send(f"[Failed] Unable to kick member: {str(e)}", ephemeral=True)
 
-    @commands.hybrid_command(name="ban", description="Ban member")
+    @commands.hybrid_command(name="ban", description="封禁成员")
     @commands.has_permissions(ban_members=True)
-    async def ban(self, ctx, user: discord.Member, reason: str = "No reason provided"):
-        """Ban member"""
+    async def ban(self, ctx, user: discord.Member, reason: str = "沒有提供原因"):
+        """封禁成员"""
         if not ctx.author.guild_permissions.ban_members:
             await ctx.send("[Failed] You need ban members permission", ephemeral=True)
             return
@@ -174,32 +172,28 @@ class Admin(commands.Cog):
                 ephemeral=True,
             )
 
-    @commands.command(name="help", description="Display help message")
+    @commands.command(name="help", description="顯示警告消息")
     async def help_command(self, ctx):
-        """Help command"""
+        """幫助指令"""
         embed = discord.Embed(
-            title="[Help] Command List",
+            title="[幫助] 指令清單",
             color=discord.Color.blue(),
-            description="All available admin commands",
+            description="所有可用的管理指令",
         )
 
-        # Admin commands
+        # 管理指令
         embed.add_field(
-            name="🛠️ Admin Commands",
-            value="`/編刪紀錄設定` `!clear` `!kick` `!ban` `!mute` `!warn`",
+            name="🛠️ 管理指令",
+            value="`/編刪紀錄設定` `/clear` `/kick` `/ban` `/mute` `/warn`",
             inline=False,
         )
 
-        # Developer commands (usage not shown)
-        embed.add_field(
-            name="🔐 Developer Commands", value="For developers only", inline=False
-        )
+        # 開發者指令（不顯示用法）
+        embed.add_field(name="🔐 開發者指令", value="僅供開發者使用", inline=False)
 
-        embed.add_field(
-            name="ℹ️ Other", value="Use `!help` for more information", inline=False
-        )
+        embed.add_field(name="ℹ️ 其他", value="使用 `/help` 取得更多資訊", inline=False)
 
-        embed.set_footer(text="Use '/' or '!' prefix to use commands")
+        embed.set_footer(text="使用 '/' 或 '!' 前綴來使用指令")
         await ctx.send(embed=embed)
 
 

@@ -17,6 +17,8 @@ from src.utils.network_optimizer import NetworkDiagnostics
 
 
 class PerformanceMonitorCog(commands.Cog):
+    """機器人效能監控 Cog"""
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._monitor_task.start()
@@ -34,8 +36,6 @@ class PerformanceMonitorCog(commands.Cog):
             print(f"[Performance Monitor] Error collecting metrics: {e}")
 
     async def collect_performance_metrics(self):
-        timestamp = time.time()
-
         # Database metrics
         db_manager = get_database_manager()
         if db_manager:

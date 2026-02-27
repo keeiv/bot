@@ -231,7 +231,7 @@ class GitHubDiagnostics:
         }
 
         try:
-            rate_limit = await self.api_manager.get_rate_limit_status()
+            await self.api_manager.get_rate_limit_status()
             results["rate_limit"] = "ok"
             results["token_valid"] = True
             results["api_status"] = "operational"

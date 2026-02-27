@@ -66,25 +66,17 @@ class GitHubDiagnosticsCog(commands.Cog):
 
             results = await self.diagnostics.run_diagnostics()
 
-            status_color = (
+            embed.color = (
                 discord.Color.green()
                 if results["api_status"] == "operational"
                 else discord.Color.red()
             )
             embed.add_field(name="API Status", value=results["api_status"], inline=True)
 
-            token_color = (
-                discord.Color.green() if results["token_valid"] else discord.Color.red()
-            )
             embed.add_field(
                 name="Token Valid", value=str(results["token_valid"]), inline=True
             )
 
-            connectivity_color = (
-                discord.Color.green()
-                if results["connectivity"]
-                else discord.Color.red()
-            )
             embed.add_field(
                 name="Connectivity", value=str(results["connectivity"]), inline=True
             )

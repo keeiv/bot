@@ -413,7 +413,6 @@ class RussianRoulette(commands.Cog):
         self, interaction: discord.Interaction, opponent: discord.Member
     ):
         """開始俄羅斯輪盤遊戲"""
-
         # 檢查是否已在遊戲中
         if interaction.channel.id in self.active_games:
             await interaction.response.send_message(
