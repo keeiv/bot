@@ -172,29 +172,187 @@ class Admin(commands.Cog):
                 ephemeral=True,
             )
 
-    @commands.command(name="help", description="顯示警告消息")
+    @commands.hybrid_command(name="help", description="顯示機器人幫助資訊")
     async def help_command(self, ctx):
         """幫助指令"""
-        embed = discord.Embed(
-            title="[幫助] 指令清單",
+        # --- 第一頁：機器人介紹與指令清單 ---
+        embed_main = discord.Embed(
+            title="[幫助] 機器人資訊",
+            description=(
+                "一個功能完整的 Discord 機器人，包含訊息管理、遊戲、osu! 整合與 GitHub 監控。\n"
+                "由社群共同維護，歡迎任何人貢獻。"
+            ),
             color=discord.Color.blue(),
-            description="所有可用的管理指令",
         )
 
-        # 管理指令
-        embed.add_field(
-            name="🛠️ 管理指令",
-            value="`/編刪紀錄設定` `/clear` `/kick` `/ban` `/mute` `/warn`",
+        embed_main.add_field(
+            name="[管理指令]",
+            value=(
+                "`/編刪紀錄設定` - 設置訊息日誌頻道\n"
+                "`/clear` - 清除指定數量的訊息\n"
+                "`/kick` - 踢出成員\n"
+                "`/ban` - 封禁成員\n"
+                "`/mute` - 禁言成員\n"
+                "`/warn` - 警告成員"
+            ),
             inline=False,
         )
 
-        # 開發者指令（不顯示用法）
-        embed.add_field(name="🔐 開發者指令", value="僅供開發者使用", inline=False)
+        embed_main.add_field(
+            name="[防刷屏]",
+            value=(
+                "`/anti_spam_set` - 設置防刷屏功能\n"
+                "`/anti_spam_status` - 查看防刷屏狀態"
+            ),
+            inline=False,
+        )
 
-        embed.add_field(name="ℹ️ 其他", value="使用 `/help` 取得更多資訊", inline=False)
+        embed_main.add_field(
+            name="[遊戲]",
+            value=(
+                "`/deep_sea_oxygen` - 深海氧氣瓶遊戲\n"
+                "`/russian_roulette` - 俄羅斯輪盤"
+            ),
+            inline=False,
+        )
 
-        embed.set_footer(text="使用 '/' 或 '!' 前綴來使用指令")
-        await ctx.send(embed=embed)
+        embed_main.add_field(
+            name="[osu! 整合]",
+            value=(
+                "`/user_info_osu` - 查詢 osu! 玩家資料\n"
+                "`/osu bind` - 綁定 osu! 帳號\n"
+                "`/osu best` - 查詢 BP\n"
+                "`/osu recent` - 查詢最近遊玩"
+            ),
+            inline=False,
+        )
+
+        embed_main.add_field(
+            name="[GitHub 監控]",
+            value=(
+                "`/repo_watch set` - 設定倉庫監控\n"
+                "`/repo_track add` - 追蹤 keeiv/bot 更新\n"
+                "`/repo_watch status` - 查看監控狀態"
+            ),
+            inline=False,
+        )
+
+        embed_main.add_field(
+            name="[其他]",
+            value=(
+                "`/achievements` - 查看成就\n"
+                "`/user_info` - 查看用戶資訊\n"
+                "`/server_info` - 查看伺服器資訊"
+            ),
+            inline=False,
+        )
+
+        # --- 第二頁：開發者資訊 ---
+        embed_dev = discord.Embed(
+            title="[關於] 開發者資訊",
+            description="本機器人由 **凱伊 (keeiv)** 開發與維護。",
+            color=discord.Color.from_rgb(88, 101, 242),
+        )
+
+        embed_dev.add_field(
+            name="[自我介紹]",
+            value=(
+                "- Discord Bot 開發者 / 小型遊戲開發者\n"
+                "- 追求低延遲設計 / 專業開發\n"
+                "- 喜歡把簡單的事情變複雜\n"
+                "- 具有代碼強迫症"
+            ),
+            inline=False,
+        )
+
+        embed_dev.add_field(
+            name="[關於我]",
+            value=(
+                "- 熟悉多種語言開發\n"
+                "- 注重團隊紀律 (Team Discipline)\n"
+                "- 學習程式語言已有 8 年以上\n"
+                "- UI/UX 具有深度理解\n"
+                "- 希望做出與 osu! 一樣厲害的低延遲音樂遊戲"
+            ),
+            inline=False,
+        )
+
+        embed_dev.add_field(
+            name="[技術棧]",
+            value=(
+                "**主要語言**: C++, C#, Java, Python\n"
+                "**Web / Script**: JS, Lua, PHP, HTML5\n"
+                "**框架與工具**: .NET, Discord, Linux, Git"
+            ),
+            inline=False,
+        )
+
+        embed_dev.add_field(
+            name="[專案]",
+            value=(
+                "**BOT** - 開放大家踴躍提交 PR 的 Discord Bot\n"
+                "**RhythmClicker** - 音樂節奏遊戲 (開發中)"
+            ),
+            inline=False,
+        )
+
+        embed_dev.set_footer(text="GitHub Developer Program Member | PRO")
+
+        # --- 第三頁：貢獻指南 ---
+        embed_contrib = discord.Embed(
+            title="[貢獻] 如何參與開發",
+            description=(
+                "這個專案歡迎任何人貢獻。如果你想要某個功能，歡迎直接提交 PR！"
+            ),
+            color=discord.Color.from_rgb(46, 204, 113),
+        )
+
+        embed_contrib.add_field(
+            name="[小型/中型更新]",
+            value=(
+                "不需要事先討論，直接提交 PR 即可。\n"
+                "例如：新增獨立指令、修復 Bug、更新文件、程式碼重構。"
+            ),
+            inline=False,
+        )
+
+        embed_contrib.add_field(
+            name="[大型更新]",
+            value=(
+                "必須先開 Issue 討論後再開發。\n"
+                "例如：新增依賴、架構變動、資料結構變更、破壞性變更。"
+            ),
+            inline=False,
+        )
+
+        embed_contrib.add_field(
+            name="[PR 提交流程]",
+            value=(
+                "1. Fork 倉庫並建立分支\n"
+                "2. 完成開發並確保通過 CI 檢查\n"
+                "3. 使用 Conventional Commits 格式\n"
+                "   `feat:` 新功能 / `fix:` 修復 / `docs:` 文件\n"
+                "4. 提交 PR 並清楚描述變更內容"
+            ),
+            inline=False,
+        )
+
+        embed_contrib.add_field(
+            name="[程式碼規範]",
+            value=(
+                "- 遵循 PEP 8 規範\n"
+                "- 使用 Black + isort 格式化\n"
+                "- 通過 flake8 檢查\n"
+                "- 鼓勵為新功能編寫測試"
+            ),
+            inline=False,
+        )
+
+        embed_contrib.set_footer(
+            text="倉庫: github.com/keeiv/bot"
+        )
+
+        await ctx.send(embeds=[embed_main, embed_dev, embed_contrib])
 
 
 async def setup(bot: commands.Bot):
