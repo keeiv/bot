@@ -25,7 +25,7 @@ class Developer(commands.Cog):
             color=discord.Color.purple()
         )
         embed.add_field(name="開發者ID", value=f"`{self.developer_id}`", inline=True)
-        embed.add_field(name="機器人狀態", value="✅ 運行中", inline=True)
+        embed.add_field(name="機器人狀態", value="運行中", inline=True)
         embed.set_footer(text=f"請求者: {interaction.user.name}")
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -39,7 +39,7 @@ class Developer(commands.Cog):
             color=discord.Color.purple()
         )
         embed.add_field(name="開發者ID", value=f"`{self.developer_id}`", inline=True)
-        embed.add_field(name="機器人狀態", value="✅ 運行中", inline=True)
+        embed.add_field(name="機器人狀態", value="運行中", inline=True)
         embed.set_footer(text=f"請求者: {ctx.author.name}")
 
         await ctx.send(embed=embed, ephemeral=True)

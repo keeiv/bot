@@ -1,6 +1,7 @@
 import os
 import json
 import aiohttp
+import asyncio
 import shutil
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any
@@ -388,13 +389,21 @@ class Management(commands.Cog):
     @welcome.command(name="setup", description="設定新成員歡迎訊息")
     @app_commands.describe(
         channel="發送歡迎訊息的頻道",
-        message="歡迎訊息範本（使用 {user} 代表用戶提及，{server} 代表伺服器名稱）"
+        message="歡迎訊息範本",
+        embed_title="嵌入訊息標題",
+        embed_color="嵌入訊息顏色 (hex 格式)",
+        auto_role="自動分配的角色",
+        send_dm="同時發送私訊"
     )
     async def welcome_setup(
         self,
         interaction: discord.Interaction,
         channel: discord.TextChannel,
-        message: str = "Welcome {user} to {server}!"
+        message: str = "Welcome {user} to {server}!",
+        embed_title: str = None,
+        embed_color: str = None,
+        auto_role: discord.Role = None,
+        send_dm: bool = False
     ):
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message("You need 'Manage Channels' permission to use this command.", ephemeral=True)
@@ -405,13 +414,116 @@ class Management(commands.Cog):
         if guild_id not in self._config:
             self._config[guild_id] = {}
 
-        self._config[guild_id]["welcome"] = {
+        welcome_config = {
             "channel_id": channel.id,
-            "message": message
+            "message": message,
+            "send_dm": send_dm
         }
 
+        if embed_title:
+            welcome_config["embed_title"] = embed_title
+
+        if embed_color:
+            try:
+                welcome_config["embed_color"] = int(embed_color.lstrip('#'), 16)
+            except ValueError:
+                await interaction.response.send_message("Invalid color format. Use hex format like #FF5733", ephemeral=True)
+                return
+
+        if auto_role:
+            welcome_config["auto_role_id"] = auto_role.id
+
+        self._config[guild_id]["welcome"] = welcome_config
         self._save_config()
-        await interaction.response.send_message(f"Welcome messages will be sent to {channel.mention}")
+
+        response_msg = f"Welcome messages will be sent to {channel.mention}"
+        if auto_role:
+            response_msg += f"\nAuto role: {auto_role.mention}"
+        if send_dm:
+            response_msg += "\nDM notifications enabled"
+
+        await interaction.response.send_message(response_msg)
+
+    @welcome.command(name="templates", description="預設歡迎訊息模板")
+    async def welcome_templates(self, interaction: discord.Interaction):
+        templates = [
+            {
+                "name": "Basic",
+                "message": "Welcome {user} to {server}! We now have {count} members!"
+            },
+            {
+                "name": "Friendly",
+                "message": "Hello {user}! Welcome to {server}! Feel free to introduce yourself."
+            },
+            {
+                "name": "Formal",
+                "message": "Greetings {user}. Welcome to {server}. Please review the rules and enjoy your stay."
+            },
+            {
+                "name": "Gaming",
+                "message": "{user} joined the game! Welcome to {server}! Ready to play?"
+            },
+            {
+                "name": "Community",
+                "message": "Welcome {user} to our community {server}! You're our {count}th member!"
+            }
+        ]
+
+        embed = discord.Embed(
+            title="Welcome Message Templates",
+            description="Use these templates with variables: {user}, {server}, {count}, {created_at}",
+            color=discord.Color.blue()
+        )
+
+        for template in templates:
+            embed.add_field(
+                name=template["name"],
+                value=template["message"],
+                inline=False
+            )
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @welcome.command(name="preview", description="預覽歡迎訊息")
+    @app_commands.describe(
+        test_user="測試用戶名稱",
+        test_server="測試伺服器名稱"
+    )
+    async def welcome_preview(
+        self,
+        interaction: discord.Interaction,
+        test_user: str = None,
+        test_server: str = None
+    ):
+        guild_id = str(interaction.guild.id)
+
+        if guild_id not in self._config or "welcome" not in self._config[guild_id]:
+            await interaction.response.send_message("Welcome messages are not configured", ephemeral=True)
+            return
+
+        welcome_config = self._config[guild_id]["welcome"]
+
+        user_mention = test_user or interaction.user.mention
+        server_name = test_server or interaction.guild.name
+
+        message = welcome_config["message"].format(
+            user=user_mention,
+            server=server_name,
+            count=interaction.guild.member_count,
+            created_at=interaction.guild.created_at.strftime("%Y/%m/%d")
+        )
+
+        if "embed_title" in welcome_config or "embed_color" in welcome_config:
+            embed = discord.Embed(
+                title=welcome_config.get("embed_title"),
+                description=message,
+                color=welcome_config.get("embed_color", discord.Color.blue())
+            )
+            embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
+            embed.set_footer(text=f"Member #{interaction.guild.member_count}")
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Preview: {message}", ephemeral=True)
 
     @welcome.command(name="disable", description="停用歡迎訊息")
     async def welcome_disable(self, interaction: discord.Interaction):
@@ -428,38 +540,184 @@ class Management(commands.Cog):
         else:
             await interaction.response.send_message("Welcome messages are not enabled", ephemeral=True)
 
-    @welcome.command(name="preview", description="預覽歡迎訊息")
-    async def welcome_preview(self, interaction: discord.Interaction):
-        guild_id = str(interaction.guild.id)
+    # Auto role commands
+    auto_role = app_commands.Group(name="auto_role", description="自動角色分配管理")
 
-        if guild_id not in self._config or "welcome" not in self._config[guild_id]:
-            await interaction.response.send_message("Welcome messages are not configured", ephemeral=True)
+    @auto_role.command(name="setup", description="設定自動角色分配規則")
+    @app_commands.describe(
+        role="要分配的角色",
+        delay="延遲分配時間（秒）",
+        min_members="最小成員數要求",
+        require_verification="需要通過驗證"
+    )
+    async def auto_role_setup(
+        self,
+        interaction: discord.Interaction,
+        role: discord.Role,
+        delay: int = 0,
+        min_members: int = 0,
+        require_verification: bool = False
+    ):
+        if not interaction.user.guild_permissions.manage_roles:
+            await interaction.response.send_message("You need 'Manage Roles' permission to use this command.", ephemeral=True)
             return
 
-        welcome_config = self._config[guild_id]["welcome"]
-        message = welcome_config["message"].format(
-            user=interaction.user.mention,
-            server=interaction.guild.name
+        if role.position >= interaction.user.top_role.position:
+            await interaction.response.send_message("You cannot assign a role that is higher than or equal to your highest role.", ephemeral=True)
+            return
+
+        guild_id = str(interaction.guild.id)
+
+        if guild_id not in self._config:
+            self._config[guild_id] = {}
+        if "auto_roles" not in self._config[guild_id]:
+            self._config[guild_id]["auto_roles"] = []
+
+        role_config = {
+            "role_id": role.id,
+            "delay": delay,
+            "min_members": min_members,
+            "require_verification": require_verification
+        }
+
+        self._config[guild_id]["auto_roles"].append(role_config)
+        self._save_config()
+
+        embed = discord.Embed(
+            title="Auto Role Configured",
+            description=f"Role {role.mention} will be automatically assigned",
+            color=discord.Color.green()
+        )
+        embed.add_field(name="Delay", value=f"{delay} seconds", inline=True)
+        embed.add_field(name="Min Members", value=str(min_members), inline=True)
+        embed.add_field(name="Require Verification", value="Yes" if require_verification else "No", inline=True)
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @auto_role.command(name="list", description="列出自動角色分配規則")
+    async def auto_role_list(self, interaction: discord.Interaction):
+        guild_id = str(interaction.guild.id)
+
+        if guild_id not in self._config or "auto_roles" not in self._config[guild_id]:
+            await interaction.response.send_message("No auto role rules configured", ephemeral=True)
+            return
+
+        auto_roles = self._config[guild_id]["auto_roles"]
+
+        embed = discord.Embed(
+            title="Auto Role Rules",
+            color=discord.Color.blue()
         )
 
-        await interaction.response.send_message(f"Preview: {message}")
+        for i, role_config in enumerate(auto_roles, 1):
+            role = interaction.guild.get_role(role_config["role_id"])
+            role_name = role.name if role else f"Deleted Role ({role_config['role_id']})"
+
+            rules = []
+            if role_config.get("delay", 0) > 0:
+                rules.append(f"Delay: {role_config['delay']}s")
+            if role_config.get("min_members", 0) > 0:
+                rules.append(f"Min members: {role_config['min_members']}")
+            if role_config.get("require_verification", False):
+                rules.append("Verification required")
+
+            rule_text = " | ".join(rules) if rules else "Immediate"
+            embed.add_field(name=f"Rule {i}: {role_name}", value=rule_text, inline=False)
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @auto_role.command(name="remove", description="移除自動角色分配規則")
+    @app_commands.describe(rule_index="規則編號")
+    async def auto_role_remove(self, interaction: discord.Interaction, rule_index: int):
+        if not interaction.user.guild_permissions.manage_roles:
+            await interaction.response.send_message("You need 'Manage Roles' permission to use this command.", ephemeral=True)
+            return
+
+        guild_id = str(interaction.guild.id)
+
+        if (guild_id not in self._config or
+            "auto_roles" not in self._config[guild_id] or
+            rule_index < 1 or rule_index > len(self._config[guild_id]["auto_roles"])):
+            await interaction.response.send_message("Invalid rule index", ephemeral=True)
+            return
+
+        removed_role = self._config[guild_id]["auto_roles"].pop(rule_index - 1)
+        self._save_config()
+
+        role = interaction.guild.get_role(removed_role["role_id"])
+        role_name = role.name if role else f"Deleted Role ({removed_role['role_id']})"
+
+        await interaction.response.send_message(f"Removed auto role rule for: {role_name}", ephemeral=True)
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
         guild_id = str(member.guild.id)
 
-        if guild_id not in self._config or "welcome" not in self._config[guild_id]:
-            return
+        # Handle welcome messages
+        if guild_id in self._config and "welcome" in self._config[guild_id]:
+            welcome_config = self._config[guild_id]["welcome"]
+            channel = member.guild.get_channel(welcome_config["channel_id"])
 
-        welcome_config = self._config[guild_id]["welcome"]
-        channel = member.guild.get_channel(welcome_config["channel_id"])
+            if channel:
+                message = welcome_config["message"].format(
+                    user=member.mention,
+                    server=member.guild.name,
+                    count=member.guild.member_count,
+                    created_at=member.guild.created_at.strftime("%Y/%m/%d")
+                )
 
-        if channel:
-            message = welcome_config["message"].format(
-                user=member.mention,
-                server=member.guild.name
-            )
-            await channel.send(message)
+                if "embed_title" in welcome_config or "embed_color" in welcome_config:
+                    embed = discord.Embed(
+                        title=welcome_config.get("embed_title"),
+                        description=message,
+                        color=welcome_config.get("embed_color", discord.Color.blue())
+                    )
+                    embed.set_thumbnail(url=member.guild.icon.url if member.guild.icon else None)
+                    embed.set_footer(text=f"Member #{member.guild.member_count}")
+                    embed.set_author(name=member.name, icon_url=member.display_avatar.url)
+                    await channel.send(embed=embed)
+                else:
+                    await channel.send(message)
+
+                # Send DM if enabled
+                if welcome_config.get("send_dm", False):
+                    try:
+                        dm_message = welcome_config["message"].format(
+                            user=member.mention,
+                            server=member.guild.name,
+                            count=member.guild.member_count,
+                            created_at=member.guild.created_at.strftime("%Y/%m/%d")
+                        )
+                        await member.send(dm_message)
+                    except discord.Forbidden:
+                        pass
+
+        # Handle auto roles
+        if guild_id in self._config and "auto_roles" in self._config[guild_id]:
+            auto_roles = self._config[guild_id]["auto_roles"]
+
+            for role_config in auto_roles:
+                try:
+                    # Check conditions
+                    if role_config.get("min_members", 0) > member.guild.member_count:
+                        continue
+
+                    if role_config.get("require_verification", False):
+                        if not member.verified:
+                            continue
+
+                    role = member.guild.get_role(role_config["role_id"])
+                    if not role:
+                        continue
+
+                    # Apply delay if needed
+                    if role_config.get("delay", 0) > 0:
+                        await asyncio.sleep(role_config["delay"])
+
+                    await member.add_roles(role, reason="Auto role assignment")
+
+                except (discord.Forbidden, discord.HTTPException):
+                    continue
 
 
 async def setup(bot: commands.Bot):
