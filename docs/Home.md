@@ -1,6 +1,6 @@
 # Discord Bot - Feature-Rich Multi-Purpose Bot
 
-A comprehensive Discord bot with advanced moderation, entertainment features, and external service integrations. Built with Python 3.8+ and following strict English-first coding standards.
+A comprehensive Discord bot with advanced moderation, entertainment features, and external service integrations. Built with Python 3.8+ and discord.py 2.3.2.
 
 ## Table of Contents
 
@@ -8,65 +8,72 @@ A comprehensive Discord bot with advanced moderation, entertainment features, an
 - [Key Features](#key-features)
 - [Quick Start](#quick-start)
 - [Architecture](#architecture)
-- [Development Standards](#development-standards)
 - [Documentation](#documentation)
 - [Contributing](#contributing)
 
 ## Project Overview
 
-This Discord bot is designed to provide a complete server management solution with:
+This Discord bot provides a complete server management solution with:
 
-- **Professional Code Quality**: All code follows strict English-only standards with comprehensive CI/CD pipeline
 - **Modular Architecture**: Clean separation of concerns with cogs-based structure
-- **Comprehensive Testing**: Automated testing with coverage reporting
-- **Security First**: Built-in security scanning and vulnerability detection
-- **Type Safety**: Full type hints with MyPy strict mode
+- **Comprehensive Features**: Moderation, games, achievements, osu! integration, GitHub monitoring
+- **Security**: Built-in anti-spam, blacklist system, report system
+- **Type Safety**: Type hints throughout the codebase
 
 ### Technical Stack
 
 - **Language**: Python 3.8+
-- **Framework**: discord.py 2.0+
+- **Framework**: discord.py 2.3.2
 - **Testing**: pytest with asyncio support
-- **Code Quality**: Black, flake8, isort, MyPy
-- **CI/CD**: GitHub Actions with multi-version testing
-- **Security**: Bandit, Safety, pip-audit
+- **Code Quality**: Black, flake8, isort
+- **CI/CD**: GitHub Actions
 
 ## Key Features
 
 ### Core Administration
-- **Message Management**: Bulk message deletion with configurable limits
-- **User Moderation**: Kick, ban, mute, and timeout commands
-- **Permission System**: Role-based access control
-- **Audit Logging**: Comprehensive action tracking
+- **Message Management**: Bulk deletion, edit/delete logging
+- **User Moderation**: Kick, ban, mute (timeout), warn commands
+- **Audit Logging**: Member join/leave, voice, role, nickname, channel events
+- **Blacklist System**: Global blacklist with appeal system (Modal + View)
+- **Bot Appearance**: Per-guild avatar/banner with developer approval
+
+### Security & Protection
+- **7-Layer Anti-Spam**: Flood, duplicate, mention, link, emoji, newline, raid detection
+- **Report System**: Right-click context menu reporting with mute/ban/warn modals
+- **Auto Escalation**: Progressive punishment for repeat offenders
+- **Raid Detection**: Mass-join detection with auto-lockdown
 
 ### User Engagement
-- **Achievement System**: Progressive achievements for user interactions
-- **Message Logging**: Detailed message history and analytics
-- **Anti-Spam Protection**: Intelligent spam detection and prevention
-- **User Statistics**: Server activity and participation metrics
+- **Achievement System**: Chat, game, social, and special achievements
+- **Giveaway System**: Button-based participation, auto-expiry
+- **Welcome Messages**: Customizable messages with auto-role
+- **Role/Emoji Management**: Assign/remove roles, upload emojis
 
-### Entertainment Features
-- **Interactive Games**: Russian Roulette, Deep Sea Oxygen
-- **Music Player**: Voice channel music streaming
-- **Fun Commands**: Various entertainment and utility commands
+### Entertainment
+- **Deep Sea Oxygen**: 2-player cooperative game with shared oxygen
+- **Russian Roulette**: 2-player competitive game with items and chips
 
 ### External Integrations
-- **osu! Integration**: Player statistics and tracking
-- **GitHub Monitoring**: Repository updates and notifications
-- **Webhook Support**: External service integration
+- **osu! Integration**: Player stats, bind, best plays, recent plays, scores
+- **GitHub Monitoring**: Repository watch + keeiv/bot tracking
+- **GitHub Diagnostics**: API status and rate limit checks
+
+### System Monitoring
+- **Performance Dashboard**: Cache stats, network status, API optimization
+- **System Maintenance**: Cleanup, cache management
+- **Network Diagnostics**: Connectivity testing
 
 ## Quick Start
 
 ### Prerequisites
 - Python 3.8 or higher
 - Discord Bot Token
-- Git for cloning
 
 ### Installation
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/finn001023-cpu/bot.git
+git clone https://github.com/keeiv/bot.git
 cd bot
 ```
 
@@ -84,7 +91,7 @@ pip install -r requirements.txt
 4. **Configure environment**
 ```bash
 cp .env.example .env
-# Edit .env with your Discord bot token and other settings
+# Edit .env with your Discord bot token
 ```
 
 5. **Run the bot**
@@ -251,9 +258,9 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 
 For support and questions:
 
-- **Documentation**: Check the [wiki](https://github.com/finn001023-cpu/bot/wiki)
-- **Issues**: [Report bugs](https://github.com/finn001023-cpu/bot/issues)
-- **Discussions**: [Community forum](https://github.com/finn001023-cpu/bot/discussions)
+- **Documentation**: Check the [wiki](https://github.com/keeiv/bot/wiki)
+- **Issues**: [Report bugs](https://github.com/keeiv/bot/issues)
+- **Discussions**: [Community forum](https://github.com/keeiv/bot/discussions)
 
 ---
 

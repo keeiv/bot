@@ -36,7 +36,7 @@ This guide will help you install and set up the Discord bot on your system.
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/finn001023-cpu/bot.git
+git clone https://github.com/keeiv/bot.git
 cd bot
 ```
 
@@ -49,7 +49,7 @@ python --version
 ### Method 2: Download Release
 
 1. **Download latest release**
-   - Visit [Releases page](https://github.com/finn001023-cpu/bot/releases)
+   - Visit [Releases page](https://github.com/keeiv/bot/releases)
    - Download the latest `.zip` file
    - Extract to your desired location
 
@@ -62,7 +62,7 @@ cd bot
 
 1. **Pull the Docker image**
 ```bash
-docker pull ghcr.io/finn001023-cpu/bot:latest
+docker pull ghcr.io/keeiv/bot:latest
 ```
 
 2. **Run the container**
@@ -70,7 +70,7 @@ docker pull ghcr.io/finn001023-cpu/bot:latest
 docker run -d --name discord-bot \
   -v $(pwd)/data:/app/data \
   -e DISCORD_TOKEN=your_token_here \
-  ghcr.io/finn001023-cpu/bot:latest
+  ghcr.io/keeiv/bot:latest
 ```
 
 ## Environment Setup
@@ -290,7 +290,7 @@ Error: Improper token has been passed
 If you encounter issues not covered here:
 
 1. **Check the [Troubleshooting Guide](Troubleshooting)**
-2. **Search [GitHub Issues](https://github.com/finn001023-cpu/bot/issues)**
+2. **Search [GitHub Issues](https://github.com/keeiv/bot/issues)**
 3. **Create a new issue** with:
    - System information
    - Error messages

@@ -30,7 +30,7 @@ git clone https://github.com/YOUR_USERNAME/bot.git
 cd bot
 
 # Add upstream remote
-git remote add upstream https://github.com/finn001023-cpu/bot.git
+git remote add upstream https://github.com/keeiv/bot.git
 ```
 
 2. **Create Virtual Environment**

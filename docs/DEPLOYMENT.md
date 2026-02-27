@@ -10,7 +10,7 @@
 
 ### 1. Clone Repository
 ```bash
-git clone https://github.com/finn001023-cpu/bot.git
+git clone https://github.com/keeiv/bot.git
 cd bot
 ```
 

@@ -6,20 +6,20 @@
 
 ## 主要功能
 
-### 📝 編輯監聽
+### [輯監聽]
 - 監聽所有非 bot 成員的訊息編輯
 - 顯示編輯前和編輯後的內容
 - 記錄編輯次數
 - 自動更新 JSON 記錄
 
-### 🗑️ 刪除監聽  
+### [刪除監聽]
 - 監聽所有非 bot 成員的訊息刪除
 - 顯示刪除前的訊息內容
 - 自動標記為已刪除
 
-### 💾 數據存儲
-- 所有記錄保存在 `data/message_log.json` 中
-- 頻道設置保存在 `data/log_channels.json` 中
+### [數據存儲]
+- 訊息記錄保存在 `data/logs/messages/message_log.json` 中
+- 頻道設置保存在 `data/config/bot.json` 中 (guilds → log_channel)
 - 支援多伺服器獨立配置
 
 ## Embed 資訊
@@ -78,7 +78,7 @@
    - 確認不是 bot 訊息被忽略
 
 3. **JSON 文件錯誤**
-   - 檢查 `data/` 文件夾權限
+   - 檢查 `data/logs/messages/` 文件夾權限
    - 確認磁碟空間充足
 
 ## 更新日誌
