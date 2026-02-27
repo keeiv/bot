@@ -208,11 +208,11 @@ class Admin(commands.Cog):
         )
 
         embed_main.add_field(
-            name="[機器人外觀]",
+            name="[伺服器外觀]",
             value=(
-                "`/bot_appearance name` - 更改機器人暱稱\n"
-                "`/bot_appearance avatar` - 更改機器人頭像\n"
-                "`/bot_appearance banner` - 更改機器人橫幅"
+                "`/server_appearance name` - 更改機器人暱稱\n"
+                "`/server_appearance icon` - 申請更改伺服器頭像 (需審核)\n"
+                "`/server_appearance banner` - 申請更改伺服器橫幅 (需審核)"
             ),
             inline=False,
         )
