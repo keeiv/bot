@@ -9,7 +9,7 @@ from ossapi import Ossapi
 
 
 class OsuInfo(commands.Cog):
-    """osu! 用戶信息查詢"""
+    """OSU! 用戶信息查詢"""
 
     osu = app_commands.Group(name="osu", description="osu! 查詢")
 
@@ -324,7 +324,7 @@ class OsuInfo(commands.Cog):
         miss = getattr(score, "statistics", None)
         miss_count = None
         if miss and hasattr(miss, "count_miss"):
-            miss_count = getattr(miss, "count_miss")
+            miss_count = miss.count_miss
 
         miss_text = f"Miss {miss_count}" if miss_count is not None else ""
         parts = [f"{index}. {title} {version_text}", f"{rank_text}", pp_text, acc_text]

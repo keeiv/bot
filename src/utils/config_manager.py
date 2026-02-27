@@ -22,7 +22,7 @@ def ensure_data_dir():
 
 
 def load_config():
-    """加載配置文件"""
+    """載入配置檔案"""
     if not os.path.exists(CONFIG_FILE):
         save_config({"guilds": {}})
 
@@ -31,20 +31,20 @@ def load_config():
 
 
 def save_config(config):
-    """保存配置文件"""
+    """儲存配置檔案"""
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(config, f, ensure_ascii=False, indent=2)
 
 
 def get_guild_log_channel(guild_id: int) -> Optional[int]:
-    """獲取伺服器的日誌頻道ID"""
+    """獲取伺服器的日誌頻道 ID"""
     config = load_config()
     guild_str = str(guild_id)
     return config.get("guilds", {}).get(guild_str, {}).get("log_channel")
 
 
 def set_guild_log_channel(guild_id: int, channel_id: int):
-    """設置伺服器的日誌頻道ID"""
+    """設置伺服器的日誌頻道 ID"""
     config = load_config()
     guild_str = str(guild_id)
 
@@ -61,7 +61,7 @@ def set_guild_log_channel(guild_id: int, channel_id: int):
 
 
 def load_messages_log() -> dict:
-    """加載統一的訊息紀錄日誌"""
+    """載入統一的訊息紀錄日誌"""
     if not os.path.exists(MESSAGES_LOG_FILE):
         return {}
 
@@ -70,7 +70,7 @@ def load_messages_log() -> dict:
 
 
 def save_messages_log(data: dict):
-    """保存統一的訊息紀錄日誌"""
+    """儲存統一的訊息紀錄日誌"""
     with open(MESSAGES_LOG_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
@@ -78,9 +78,10 @@ def save_messages_log(data: dict):
 def add_message_record(
     guild_id: int, message_id: int, content: str, author_id: int, channel_id: int
 ):
-    """添加訊息記錄 - 統一JSON"""
+    """新增訊息記錄（統一 JSON）"""
     records = load_messages_log()
-    msg_key = f"{guild_id}_{message_id}"  # 複合鍵：guild_message
+    # 複合金鑰：guild_message
+    msg_key = f"{guild_id}_{message_id}"
 
     if msg_key not in records:
         records[msg_key] = {
@@ -94,13 +95,13 @@ def add_message_record(
             "created_at": datetime.now(TZ_OFFSET).isoformat(),
         }
         save_messages_log(records)
-        print(f"[JSON] 已添加新訊息記錄: {msg_key}")
+        print(f"[JSON] 已新增訊息記錄: {msg_key}")
         return True
     return False
 
 
 def update_message_edit(guild_id: int, message_id: int, new_content: str):
-    """更新訊息編輯歷史 - 統一JSON"""
+    """更新訊息編輯歷史記錄（統一 JSON）"""
     records = load_messages_log()
     msg_key = f"{guild_id}_{message_id}"
 
@@ -113,8 +114,8 @@ def update_message_edit(guild_id: int, message_id: int, new_content: str):
         )
         return True
     else:
-        print(f"[JSON] 未找到訊息記錄: {msg_key}，創建新紀錄...")
-        # 如果沒有記錄，先創建一個空的，然後添加編輯內容
+        print(f"[JSON] 未找到訊息記錄: {msg_key}，建立新紀錄...")
+        # 如果沒有記錄，先建立一個空的，然後新增編輯內容
         add_message_record(guild_id, message_id, new_content, None, None)
         records = load_messages_log()
         msg_key = f"{guild_id}_{message_id}"
@@ -125,7 +126,7 @@ def update_message_edit(guild_id: int, message_id: int, new_content: str):
 
 
 def mark_message_deleted(guild_id: int, message_id: int):
-    """標記訊息為已刪除 - 統一JSON"""
+    """標記訊息為已刪除（統一 JSON）"""
     records = load_messages_log()
     msg_key = f"{guild_id}_{message_id}"
 
@@ -141,7 +142,7 @@ def mark_message_deleted(guild_id: int, message_id: int):
 
 
 def get_message_record(guild_id: int, message_id: int) -> Optional[dict]:
-    """獲取訊息記錄 - 統一JSON"""
+    """取得訊息記錄（統一 JSON）"""
     records = load_messages_log()
     msg_key = f"{guild_id}_{message_id}"
     return records.get(msg_key)

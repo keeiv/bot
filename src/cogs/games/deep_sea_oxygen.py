@@ -405,13 +405,10 @@ class DeepSeaOxygen(commands.Cog):
                 # 無人被淘汰，比較 CT
                 if self.game.player1_coins > self.game.player2_coins:
                     winner = self.game.player1
-                    winner_coins = self.game.player1_coins
                 elif self.game.player2_coins > self.game.player1_coins:
                     winner = self.game.player2
-                    winner_coins = self.game.player2_coins
                 else:
                     winner = None
-                    winner_coins = self.game.player1_coins
 
                 embed = discord.Embed(
                     title="[遊戲結束] 最終結果",
@@ -557,7 +554,6 @@ class DeepSeaOxygen(commands.Cog):
         self, interaction: discord.Interaction, opponent: discord.Member
     ):
         """開始深海氧氣瓶遊戲"""
-
         # 檢查是否已在遊戲中
         if interaction.channel.id in self.active_games:
             await interaction.response.send_message(

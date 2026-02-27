@@ -122,7 +122,7 @@ class SystemMaintenance(commands.Cog):
                 if task.done() and not task.cancelled():
                     try:
                         task.exception()
-                    except:
+                    except (asyncio.CancelledError, asyncio.InvalidStateError):
                         pass
 
         finally:
@@ -131,7 +131,7 @@ class SystemMaintenance(commands.Cog):
     async def collect_performance_metrics(self):
         api_optimizer = get_api_optimizer()
         if api_optimizer:
-            stats = api_optimizer.get_cache_stats()
+            api_optimizer.get_cache_stats()
 
     @app_commands.command(name="system-status", description="系統狀態監控")
     @app_commands.checks.has_permissions(administrator=True)
@@ -146,14 +146,10 @@ class SystemMaintenance(commands.Cog):
 
             embed = discord.Embed(title="System Status", color=discord.Color.blue())
 
-            memory_color = (
+            embed.color = (
                 discord.Color.green()
                 if health["memory_percent"] < self.memory_threshold
-                else discord.Color.red()
-            )
-            cpu_color = (
-                discord.Color.green()
-                if health["cpu_percent"] < self.cpu_threshold
+                and health["cpu_percent"] < self.cpu_threshold
                 else discord.Color.red()
             )
 

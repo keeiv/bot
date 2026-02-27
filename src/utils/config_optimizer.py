@@ -105,7 +105,7 @@ class OptimizedConfigManager:
         try:
             with open(file_path, "rb") as f:
                 return hashlib.md5(f.read()).hexdigest()
-        except:
+        except OSError:
             return ""
 
     def _get_cache_key(self, file_path: str) -> str:

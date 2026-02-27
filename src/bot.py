@@ -34,7 +34,7 @@ class BlacklistCheckTree(app_commands.CommandTree):
 
 
 class Bot(commands.Bot):
-    """Main bot class with enhanced functionality."""
+    """包含增強功能的主機器人類別"""
 
     def __init__(self):
         intents = discord.Intents.default()
@@ -50,17 +50,17 @@ class Bot(commands.Bot):
         )
 
     async def setup_hook(self):
-        """Load all cogs and setup bot."""
+        """載入所有 cogs 並設置機器人"""
         await self.load_cogs()
         await self.tree.sync()
 
     async def load_cogs(self):
-        """Automatically discover and load all cogs under src.cogs."""
+        """自動發現並載入 src.cogs 下的所有 cogs"""
         base_package = "src.cogs"
         cogs_path = os.path.join(os.path.dirname(__file__), "cogs")
 
         if not os.path.isdir(cogs_path):
-            print(f"Cog directory not found: {cogs_path}")
+            print(f"找不到 Cog 目錄: {cogs_path}")
             return
 
         for module_info in pkgutil.walk_packages(
@@ -74,14 +74,14 @@ class Bot(commands.Bot):
 
             try:
                 await self.load_extension(module_name)
-                print(f"Loaded {module_name}")
+                print(f"已載入 {module_name}")
             except Exception as error:
-                print(f"Failed to load {module_name}: {error}")
+                print(f"載入 {module_name} 失敗: {error}")
 
     async def on_ready(self):
-        """Called when bot is ready."""
-        print(f"{self.user} has connected to Discord!")
-        print(f"Bot is in {len(self.guilds)} guilds")
+        """機器人已連線時觸發"""
+        print(f"{self.user} 已連接到 Discord！")
+        print(f"機器人在 {len(self.guilds)} 個伺服器中")
 
     async def on_message(self, message: discord.Message):
         """檢查訊息中的黑名單用戶"""

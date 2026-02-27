@@ -26,12 +26,12 @@ class MessageLogger(commands.Cog):
         ensure_data_dir()
 
     def get_current_time_str(self) -> str:
-        """獲取格式化的當前時間 (月/日 時:分)"""
+        """取得格式化的當前時間 (月/日 時:分)"""
         now = datetime.now(TZ_OFFSET)
         return now.strftime("%m/%d %H:%M")
 
     def load_log_channels(self) -> dict:
-        """載入日誌頻道設置"""
+        """載入日誌頻道設定"""
         if not os.path.exists(self.config_file):
             return {}
 
@@ -43,7 +43,7 @@ class MessageLogger(commands.Cog):
             return {}
 
     def save_log_channels(self, data: dict):
-        """保存日誌頻道設置"""
+        """儲存日誌頻道設定"""
         try:
             with open(self.config_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
@@ -51,12 +51,12 @@ class MessageLogger(commands.Cog):
             print(f"[錯誤] 無法保存日誌頻道設置: {e}")
 
     def get_log_channel_id(self, guild_id: int) -> Optional[int]:
-        """獲取伺服器的日誌頻道 ID"""
+        """取得伺服器的日誌頻道 ID"""
         channels = self.load_log_channels()
         return channels.get(str(guild_id))
 
     def set_log_channel_id(self, guild_id: int, channel_id: int):
-        """設置伺服器的日誌頻道 ID"""
+        """設定伺服器的日誌頻道 ID"""
         channels = self.load_log_channels()
         channels[str(guild_id)] = channel_id
         self.save_log_channels(channels)
@@ -74,7 +74,7 @@ class MessageLogger(commands.Cog):
             return {}
 
     def save_message_log(self, data: dict):
-        """保存訊息日誌"""
+        """儲存訊息日誌"""
         try:
             with open(self.data_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
@@ -90,11 +90,11 @@ class MessageLogger(commands.Cog):
         channel_id: int,
         attachments: list = None,
     ):
-        """添加訊息記錄"""
+        """新增訊息記錄"""
         logs = self.load_message_log()
         msg_key = f"{guild_id}_{message_id}"
 
-        # 提取附件URL
+        # 萃取附件 URL
         attachment_urls = []
         if attachments:
             for attachment in attachments:
@@ -119,7 +119,7 @@ class MessageLogger(commands.Cog):
         self.message_cache.set(guild_id, message_id, record)
 
     def update_message_edit(self, guild_id: int, message_id: int, new_content: str):
-        """更新訊息編輯歷史"""
+        """更新訊息編輯紀錄"""
         logs = self.load_message_log()
         msg_key = f"{guild_id}_{message_id}"
 
@@ -164,7 +164,7 @@ class MessageLogger(commands.Cog):
             return False
 
     def get_message_record(self, guild_id: int, message_id: int) -> Optional[dict]:
-        """獲取訊息記錄（優先從快取查詢）"""
+        """取得訊息記錄（優先從快取查詢）"""
         # 先檢查內存快取
         cached_record = self.message_cache.get(guild_id, message_id)
         if cached_record is not None:
@@ -182,7 +182,7 @@ class MessageLogger(commands.Cog):
         return record
 
     def is_image_or_gif(self, url: str) -> bool:
-        """檢查連結是否為圖片或GIF"""
+        """檢查連結是否為圖片或 GIF"""
         if not url:
             return False
         url_lower = url.lower()
@@ -192,7 +192,7 @@ class MessageLogger(commands.Cog):
         )
 
     def get_first_image_url(self, attachment_urls: list) -> Optional[str]:
-        """從附件URL列表中獲取第一個圖片或GIF的URL"""
+        """從附件 URL 列表中取得第一個圖片或 GIF 的 URL"""
         if not attachment_urls:
             return None
         for url in attachment_urls:

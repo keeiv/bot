@@ -180,10 +180,10 @@ class AntiSpam(commands.Cog):
                 elif settings["action"] == "delete":
                     # 刪除最近 10 條訊息
                     try:
-                        deleted = await message.channel.purge(
+                        await message.channel.purge(
                             limit=10, check=lambda m: m.author == message.author
                         )
-                    except:
+                    except discord.HTTPException:
                         # 如果不能刪除所有，就算了
                         pass
             except Exception as e:
