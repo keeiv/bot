@@ -3,21 +3,31 @@ import asyncio
 import discord
 from dotenv import load_dotenv
 import sys
+import signal
 
 from .bot import Bot
 from .utils.config_manager import ensure_data_dir
 from .utils.blacklist_manager import blacklist_manager
+from .utils.api_optimizer import init_api_optimizer, connection_manager
 
 # Load environment variables
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
+
+def signal_handler(signum, frame):
+    print(f"Received signal {signum}, shutting down gracefully...")
+    sys.exit(0)
 
 def main():
     """Main entry point for the bot."""
     if not TOKEN:
         print("Error: DISCORD_TOKEN environment variable not set")
         exit(1)
-    
+
+    # Set up signal handlers for graceful shutdown
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     # Check if bot instance is already running
     lock_file = "bot.lock"
     if os.path.exists(lock_file):
@@ -35,23 +45,32 @@ def main():
                 print("[Info] Old instance has stopped, continuing startup")
         except:
             pass
-    
+
     # Create lock file
     with open(lock_file, 'w') as f:
         f.write(str(os.getpid()))
-    
+
     # Initialize data directory
     ensure_data_dir()
-    
-    # Create and run bot
+
+    # Create and run bot with optimizations
     bot = Bot()
-    
+
+    # Initialize API optimizer
+    init_api_optimizer(bot)
+
     try:
+        print("[Info] Starting bot with performance optimizations...")
         bot.run(TOKEN)
+    except KeyboardInterrupt:
+        print("[Info] Bot shutdown requested by user")
+    except Exception as e:
+        print(f"[Error] Bot startup failed: {e}")
     finally:
         # Clean up lock file
         if os.path.exists(lock_file):
             os.remove(lock_file)
+        print("[Info] Bot shutdown complete")
 
 if __name__ == "__main__":
     main()
