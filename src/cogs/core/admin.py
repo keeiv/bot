@@ -217,10 +217,29 @@ class Admin(commands.Cog):
         )
 
         embed_main.add_field(
-            name="[防刷屏]",
+            name="[防炸群系統]",
             value=(
-                "`/anti_spam_set` - 設置防刷屏功能\n"
-                "`/anti_spam_status` - 查看防刷屏狀態"
+                "`/anti_spam setup` - 啟用/禁用防炸群\n"
+                "`/anti_spam flood` - 訊息洪水偵測設定\n"
+                "`/anti_spam duplicate` - 重複內容偵測\n"
+                "`/anti_spam mention` - 提及轟炸偵測\n"
+                "`/anti_spam link` - 連結/邀請偵測\n"
+                "`/anti_spam raid` - 突襲偵測\n"
+                "`/anti_spam escalation` - 自動升級懲罰\n"
+                "`/anti_spam whitelist` - 白名單管理\n"
+                "`/anti_spam lockdown_off` - 解除封鎖\n"
+                "`/anti_spam status` - 查看完整狀態"
+            ),
+            inline=False,
+        )
+
+        embed_main.add_field(
+            name="[抽獎]",
+            value=(
+                "`/giveaway start` - 建立抽獎活動\n"
+                "`/giveaway end` - 提前結束抽獎\n"
+                "`/giveaway reroll` - 重新抽取得獎者\n"
+                "`/giveaway list` - 查看進行中抽獎"
             ),
             inline=False,
         )
