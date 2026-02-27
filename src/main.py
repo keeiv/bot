@@ -1,25 +1,32 @@
-import os
 import asyncio
+import os
+import signal
+import sys
+
 import discord
 from dotenv import load_dotenv
-import sys
-import signal
 
 from .bot import Bot
-from .utils.config_manager import ensure_data_dir
+from .utils.api_optimizer import connection_manager
+from .utils.api_optimizer import init_api_optimizer
+from .utils.api_optimizer import performance_monitor
 from .utils.blacklist_manager import blacklist_manager
-from .utils.api_optimizer import init_api_optimizer, connection_manager, performance_monitor
-from .utils.database_manager import init_database_manager, get_database_manager
+from .utils.config_manager import ensure_data_dir
 from .utils.config_optimizer import init_config_manager
-from .utils.network_optimizer import init_network_optimizer, NetworkConfig
+from .utils.database_manager import get_database_manager
+from .utils.database_manager import init_database_manager
+from .utils.network_optimizer import init_network_optimizer
+from .utils.network_optimizer import NetworkConfig
 
 # Load environment variables
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 
+
 def signal_handler(signum, frame):
     print(f"Received signal {signum}, shutting down gracefully...")
     sys.exit(0)
+
 
 async def initialize_optimizations():
     print("[Init] Initializing database manager...")
@@ -34,7 +41,7 @@ async def initialize_optimizations():
         connect_timeout=10.0,
         read_timeout=30.0,
         use_http2=True,
-        dns_cache_ttl=300
+        dns_cache_ttl=300,
     )
     init_network_optimizer(network_config)
 
@@ -43,6 +50,7 @@ async def initialize_optimizations():
     await db_manager.start_cleanup_task(interval=300)
 
     print("[Init] All optimizations initialized successfully")
+
 
 def main():
     """Main entry point for the bot."""
@@ -59,13 +67,15 @@ def main():
     if os.path.exists(lock_file):
         print("[Warning] Lock file detected, bot instance may already be running")
         try:
-            with open(lock_file, 'r') as f:
+            with open(lock_file, "r") as f:
                 old_pid = f.read().strip()
             print(f"[Warning] Old instance PID: {old_pid}")
             # Check if process is still running
             try:
                 os.kill(int(old_pid), 0)  # Check if process exists
-                print("[Error] Bot is already running, please stop the old instance first")
+                print(
+                    "[Error] Bot is already running, please stop the old instance first"
+                )
                 exit(1)
             except OSError:
                 print("[Info] Old instance has stopped, continuing startup")
@@ -73,7 +83,7 @@ def main():
             pass
 
     # Create lock file
-    with open(lock_file, 'w') as f:
+    with open(lock_file, "w") as f:
         f.write(str(os.getpid()))
 
     # Initialize data directory
@@ -87,7 +97,7 @@ def main():
         await initialize_optimizations()
         print("[Info] Bot and optimizations ready")
 
-    bot.add_listener(on_ready, 'on_ready')
+    bot.add_listener(on_ready, "on_ready")
 
     # Initialize API optimizer
     init_api_optimizer(bot)
@@ -103,6 +113,7 @@ def main():
         # Clean up resources
         try:
             from .utils.network_optimizer import get_network_optimizer
+
             network_opt = get_network_optimizer()
             asyncio.create_task(network_opt.close())
         except:
@@ -112,6 +123,7 @@ def main():
         if os.path.exists(lock_file):
             os.remove(lock_file)
         print("[Info] Bot shutdown complete")
+
 
 if __name__ == "__main__":
     main()

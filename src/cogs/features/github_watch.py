@@ -1,11 +1,14 @@
-import os
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
 import json
-from datetime import datetime, timezone, timedelta
+import os
 
 import aiohttp
 import discord
-from discord.ext import commands, tasks
 from discord import app_commands
+from discord.ext import commands
+from discord.ext import tasks
 
 from src.utils.github_manager import get_github_manager
 
@@ -22,7 +25,9 @@ def _format_time(dt: datetime) -> str:
 class GithubWatch(commands.Cog):
     """GitHub 推送通知"""
 
-    repo_watch = app_commands.Group(name="repo_watch", description="GitHub 檔案庫更新通知")
+    repo_watch = app_commands.Group(
+        name="repo_watch", description="GitHub 檔案庫更新通知"
+    )
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -96,7 +101,9 @@ class GithubWatch(commands.Cog):
             print(f"[GitHub Watch] Error fetching commit: {e}")
             raise RuntimeError(f"GitHub API 失敗: {e}")
 
-    async def _send_update_message(self, guild_id: int, channel_id: int, owner: str, repo: str, commit: dict):
+    async def _send_update_message(
+        self, guild_id: int, channel_id: int, owner: str, repo: str, commit: dict
+    ):
         guild = self.bot.get_guild(guild_id)
         if guild is None:
             return
@@ -166,7 +173,9 @@ class GithubWatch(commands.Cog):
                 cfg["last_sha"] = sha
                 self._save_config()
 
-                await self._send_update_message(int(guild_key), int(channel_id), owner, repo, commit)
+                await self._send_update_message(
+                    int(guild_key), int(channel_id), owner, repo, commit
+                )
             except Exception as e:
                 print(f"[github_watch] 輪詢失敗 guild={guild_key}: {e}")
 
@@ -175,9 +184,21 @@ class GithubWatch(commands.Cog):
         await self.bot.wait_until_ready()
 
     @repo_watch.command(name="set", description="設定 GitHub 檔案庫更新通知")
-    @app_commands.describe(owner="repo 擁有者 (例如 Finn0)", repo="repo 名稱 (例如 new_bot)", channel="要發通知的頻道", interval_minutes="檢查間隔 (分鐘，最小 2)")
+    @app_commands.describe(
+        owner="repo 擁有者 (例如 Finn0)",
+        repo="repo 名稱 (例如 new_bot)",
+        channel="要發通知的頻道",
+        interval_minutes="檢查間隔 (分鐘，最小 2)",
+    )
     @app_commands.checks.has_permissions(manage_guild=True)
-    async def repo_watch_set(self, interaction: discord.Interaction, owner: str, repo: str, channel: discord.TextChannel, interval_minutes: int = 2):
+    async def repo_watch_set(
+        self,
+        interaction: discord.Interaction,
+        owner: str,
+        repo: str,
+        channel: discord.TextChannel,
+        interval_minutes: int = 2,
+    ):
         await interaction.response.defer(ephemeral=True)
 
         interval_minutes = max(2, min(60, interval_minutes))
@@ -204,7 +225,9 @@ class GithubWatch(commands.Cog):
 
         cfg = self._get_guild_cfg(interaction.guild_id)
         if not cfg or not cfg.get("enabled"):
-            await interaction.followup.send("此伺服器尚未啟用 repo 通知", ephemeral=True)
+            await interaction.followup.send(
+                "此伺服器尚未啟用 repo 通知", ephemeral=True
+            )
             return
 
         owner = cfg.get("owner")
@@ -225,7 +248,9 @@ class GithubWatch(commands.Cog):
 
         cfg = self._get_guild_cfg(interaction.guild_id)
         if not cfg:
-            await interaction.followup.send("此伺服器尚未啟用 repo 通知", ephemeral=True)
+            await interaction.followup.send(
+                "此伺服器尚未啟用 repo 通知", ephemeral=True
+            )
             return
 
         cfg["enabled"] = False

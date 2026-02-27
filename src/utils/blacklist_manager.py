@@ -1,10 +1,13 @@
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
 import json
 import os
-from typing import Set, Dict, Optional
-from datetime import datetime, timezone, timedelta
+from typing import Dict, Optional, Set
 
 # UTC+8 時區
 TZ_OFFSET = timezone(timedelta(hours=8))
+
 
 class BlacklistManager:
     """黑名單管理器"""
@@ -25,10 +28,14 @@ class BlacklistManager:
         """載入黑名單（帶緩存）"""
         try:
             # 檢查緩存是否需要更新
-            current_time = os.path.getmtime(self.blacklist_file) if os.path.exists(self.blacklist_file) else 0
+            current_time = (
+                os.path.getmtime(self.blacklist_file)
+                if os.path.exists(self.blacklist_file)
+                else 0
+            )
 
             if self._blacklist_cache is None or self._last_load_time != current_time:
-                with open(self.blacklist_file, 'r', encoding='utf-8') as f:
+                with open(self.blacklist_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     self._blacklist_cache = set(data.get("blacklisted_users", []))
                     self._last_load_time = current_time
@@ -57,8 +64,13 @@ class BlacklistManager:
     def save_blacklist(self, blacklist: Set[int]):
         """保存黑名單"""
         try:
-            with open(self.blacklist_file, 'w', encoding='utf-8') as f:
-                json.dump({"blacklisted_users": list(blacklist)}, f, ensure_ascii=False, indent=2)
+            with open(self.blacklist_file, "w", encoding="utf-8") as f:
+                json.dump(
+                    {"blacklisted_users": list(blacklist)},
+                    f,
+                    ensure_ascii=False,
+                    indent=2,
+                )
             self._blacklist_cache = blacklist  # 更新緩存
         except Exception as e:
             print(f"[錯誤] 無法保存黑名單: {e}")
@@ -67,7 +79,7 @@ class BlacklistManager:
         """載入申訴記錄"""
         try:
             if os.path.exists(self.appeals_file):
-                with open(self.appeals_file, 'r', encoding='utf-8') as f:
+                with open(self.appeals_file, "r", encoding="utf-8") as f:
                     return json.load(f)
             return {}
         except Exception as e:
@@ -77,7 +89,7 @@ class BlacklistManager:
     def save_appeals(self, appeals: Dict):
         """保存申訴記錄"""
         try:
-            with open(self.appeals_file, 'w', encoding='utf-8') as f:
+            with open(self.appeals_file, "w", encoding="utf-8") as f:
                 json.dump(appeals, f, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"[錯誤] 無法保存申訴記錄: {e}")
@@ -100,7 +112,7 @@ class BlacklistManager:
             "status": "待處理",
             "created_at": datetime.now(TZ_OFFSET).isoformat(),
             "reviewed_at": None,
-            "reviewed_by": None
+            "reviewed_by": None,
         }
 
         self.save_appeals(appeals)
@@ -133,7 +145,10 @@ class BlacklistManager:
     def get_pending_appeals(self) -> list:
         """獲取所有待處理的申訴"""
         appeals = self.load_appeals()
-        return [appeal for appeal in appeals.values() if appeal.get("status") == "待處理"]
+        return [
+            appeal for appeal in appeals.values() if appeal.get("status") == "待處理"
+        ]
+
 
 # 全局黑名單管理器實例
 blacklist_manager = BlacklistManager()
