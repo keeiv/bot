@@ -217,6 +217,16 @@ class Admin(commands.Cog):
         )
 
         embed_main.add_field(
+            name="[舉報系統]",
+            value=(
+                "右鍵訊息 > 應用程式 > `舉報訊息` - 舉報可疑訊息\n"
+                "`/report_channel set` - 設定舉報接收頻道\n"
+                "`/report_channel status` - 查看舉報頻道設定"
+            ),
+            inline=False,
+        )
+
+        embed_main.add_field(
             name="[防炸群系統]",
             value=(
                 "`/anti_spam setup` - 啟用/禁用防炸群\n"

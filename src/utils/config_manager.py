@@ -57,6 +57,27 @@ def set_guild_log_channel(guild_id: int, channel_id: int):
     save_config(config)
 
 
+def get_guild_report_channel(guild_id: int) -> Optional[int]:
+    """獲取伺服器的舉報頻道 ID"""
+    config = load_config()
+    guild_str = str(guild_id)
+    return config.get("guilds", {}).get(guild_str, {}).get("report_channel")
+
+
+def set_guild_report_channel(guild_id: int, channel_id: int):
+    """設置伺服器的舉報頻道 ID"""
+    config = load_config()
+    guild_str = str(guild_id)
+
+    if "guilds" not in config:
+        config["guilds"] = {}
+    if guild_str not in config["guilds"]:
+        config["guilds"][guild_str] = {}
+
+    config["guilds"][guild_str]["report_channel"] = channel_id
+    save_config(config)
+
+
 # ========== 統一訊息日誌 JSON ==========
 
 
