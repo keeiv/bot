@@ -99,7 +99,7 @@ def main():
     init_api_optimizer(bot)
 
     try:
-        print("[信息] 啟動機器人，應用全面優化...")
+        print("[信息] 啟動機器人")
         bot.run(TOKEN)
     except KeyboardInterrupt:
         print("[信息] 用戶請求機器人關閉")
