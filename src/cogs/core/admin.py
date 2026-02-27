@@ -199,6 +199,15 @@ class Admin(commands.Cog):
         )
 
         embed_main.add_field(
+            name="[審計日誌]",
+            value=(
+                "自動記錄以下伺服器事件到日誌頻道:\n"
+                "成員加入/離開、語音頻道異動、角色變更、暱稱變更、頻道建立/刪除/修改"
+            ),
+            inline=False,
+        )
+
+        embed_main.add_field(
             name="[防刷屏]",
             value=(
                 "`/anti_spam_set` - 設置防刷屏功能\n"
