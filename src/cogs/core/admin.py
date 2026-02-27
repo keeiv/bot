@@ -49,10 +49,10 @@ class Admin(commands.Cog):
             f"[Success] Cleared {len(deleted)} messages", ephemeral=True
         )
 
-    @commands.hybrid_command(name="kick", description="踢出成员")
+    @commands.hybrid_command(name="kick", description="踢出成員")
     @commands.has_permissions(kick_members=True)
     async def kick(self, ctx, user: discord.Member, reason: str = "沒有提供原因"):
-        """踢出成员"""
+        """踢出成員"""
         if not ctx.author.guild_permissions.kick_members:
             await ctx.send("[Failed] You need kick members permission", ephemeral=True)
             return
@@ -79,10 +79,10 @@ class Admin(commands.Cog):
         except Exception as e:
             await ctx.send(f"[Failed] Unable to kick member: {str(e)}", ephemeral=True)
 
-    @commands.hybrid_command(name="ban", description="封禁成员")
+    @commands.hybrid_command(name="ban", description="封禁成員")
     @commands.has_permissions(ban_members=True)
     async def ban(self, ctx, user: discord.Member, reason: str = "沒有提供原因"):
-        """封禁成员"""
+        """封禁成員"""
         if not ctx.author.guild_permissions.ban_members:
             await ctx.send("[Failed] You need ban members permission", ephemeral=True)
             return
@@ -109,66 +109,65 @@ class Admin(commands.Cog):
         except Exception as e:
             await ctx.send(f"[Failed] Unable to ban member: {str(e)}", ephemeral=True)
 
-    @commands.hybrid_command(name="mute", description="Mute member")
+    @commands.hybrid_command(name="mute", description="禁言成員")
     @commands.has_permissions(moderate_members=True)
     async def mute(
         self,
         ctx,
         user: discord.Member,
         duration: int = 60,
-        reason: str = "No reason provided",
+        reason: str = "沒有提供原因",
     ):
-        """Mute member"""
+        """禁言成員"""
         if not ctx.author.guild_permissions.moderate_members:
             await ctx.send(
-                "[Failed] You need moderate members permission", ephemeral=True
+                "[失敗] 你需要有管理成員的權限", ephemeral=True
             )
             return
 
         if user == ctx.author:
-            await ctx.send("[Failed] You cannot mute yourself", ephemeral=True)
+            await ctx.send("[失敗] 你不能禁言自己", ephemeral=True)
             return
 
         if user.top_role >= ctx.author.top_role:
             await ctx.send(
-                "[Failed] Your permissions are insufficient to mute this member",
-                ephemeral=True,
+                "[失敗] 你的權限不足以禁言此成員", ephemeral=True
             )
             return
 
         try:
             await user.timeout(timedelta(minutes=duration), reason=reason)
             embed = discord.Embed(
-                title="[Success] Member Muted",
-                description=f"Member: {user.mention}\nDuration: {duration} minutes\nReason: {reason}",
+                title="[成功] 成員已被禁言",
+                description=f"成員: {user.mention}\n持續時間: {duration} 分鐘\n原因: {reason}",
                 color=discord.Color.from_rgb(46, 204, 113),
             )
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"[Failed] Unable to mute member: {str(e)}", ephemeral=True)
+            await ctx.send(f"[失敗] 無法禁言成員: {str(e)}", ephemeral=True)
 
-    @commands.hybrid_command(name="warn", description="Warn member")
+    @commands.hybrid_command(name="warn", description="警告成員")
     @commands.has_permissions(moderate_members=True)
-    async def warn(self, ctx, user: discord.Member, reason: str = "No reason provided"):
-        """Warn member"""
+    async def warn(self, ctx, user: discord.Member, reason: str = "沒有提供原因"):
+        """警告成員"""
         if not ctx.author.guild_permissions.moderate_members:
             await ctx.send(
-                "[Failed] You need moderate members permission", ephemeral=True
+                "[失敗] 你需要有管理成員的權限", ephemeral=True
             )
             return
 
         embed = discord.Embed(
-            title="[Warning] Warning",
-            description=f"{user.mention} has been warned for the following reason:\n{reason}",
+            title="[警告] 警告成員",
+            description=f"{user.mention} 已被警告，原因如下:\n{reason}",
             color=discord.Color.from_rgb(241, 196, 15),
         )
 
         try:
             await user.send(embed=embed)
-            await ctx.send(f"[Success] Warned {user.mention}", ephemeral=True)
+            await ctx.send(f"[成功] 已警告 {user.mention}", ephemeral=True)
         except Exception as e:
             await ctx.send(
-                f"[Warning] Member warned but unable to send DM: {str(e)}",
+                f"[警告] 成員已被警告，但無法發送私訊: {str(e)}",
                 ephemeral=True,
             )
 
@@ -208,11 +207,11 @@ class Admin(commands.Cog):
         )
 
         embed_main.add_field(
-            name="[伺服器外觀]",
+            name="[機器人外觀 (此伺服器)]",
             value=(
-                "`/server_appearance name` - 更改機器人暱稱\n"
-                "`/server_appearance icon` - 申請更改伺服器頭像 (需審核)\n"
-                "`/server_appearance banner` - 申請更改伺服器橫幅 (需審核)"
+                "`/bot_appearance name` - 更改機器人暱稱\n"
+                "`/bot_appearance avatar` - 更改機器人頭像 (需審核)\n"
+                "`/bot_appearance banner` - 更改機器人橫幅 (需審核)"
             ),
             inline=False,
         )
