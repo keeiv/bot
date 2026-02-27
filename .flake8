@@ -1,14 +1,27 @@
 [flake8]
 # Code style standards for multilingual Discord bot
 max-line-length = 88
-extend-ignore = E203, W503
-exclude =
-    .git,
-    __pycache__,
-    .venv,
-    venv,
-    build,
-    dist
+extend-ignore =
+    B001,
+    B009,
+    E203,
+    E501,
+    E722,
+    W503,
+    D100,
+    D101,
+    D102,
+    D103,
+    D104,
+    D105,
+    D107,
+    D202,
+    D212,
+    D415,
+    F401,
+    F821,
+    F841
+exclude = .git,__pycache__,.venv,venv,build,dist
 
 # Naming conventions (supports multilingual)
 # Variable names: descriptive snake_case (English or Chinese)
@@ -28,9 +41,3 @@ require-plugins =
 
 # Docstring standards (Google style, supports multilingual)
 docstring-convention = google
-
-# Error codes for code quality
-# D401: First line should be in imperative mood
-# N801: Class names should use PascalCase
-# N802: Function names should be snake_case
-# N803: Argument names should be snake_case

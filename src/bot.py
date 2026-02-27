@@ -2,9 +2,10 @@ import os
 import pkgutil
 
 import discord
-from discord.ext import commands
 from discord import app_commands
+from discord.ext import commands
 from dotenv import load_dotenv
+
 from src.utils.blacklist_manager import blacklist_manager
 
 load_dotenv()
@@ -24,7 +25,7 @@ class BlacklistCheckTree(app_commands.CommandTree):
             embed = discord.Embed(
                 title="[拒絕] 禁止使用",
                 description="您因被添加到黑名單而無法使用此命令。\n\n如果您認為這是誤會，可以使用 `/申訴` 命令提交申訴。",
-                color=discord.Color.red()
+                color=discord.Color.red(),
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return False
@@ -92,11 +93,13 @@ class Bot(commands.Bot):
         # 檢查黑名單
         if blacklist_manager.is_blacklisted(message.author.id):
             # 允許申訴相關的命令
-            if not any(cmd in message.content.lower() for cmd in ["申訴", "appeal_status"]):
+            if not any(
+                cmd in message.content.lower() for cmd in ["申訴", "appeal_status"]
+            ):
                 embed = discord.Embed(
                     title="[拒絕] 禁止使用",
                     description="您因被添加到黑名單而無法使用此命令。\n\n如果您認為這是誤會，可以使用 `/申訴` 命令提交申訴。",
-                    color=discord.Color.red()
+                    color=discord.Color.red(),
                 )
                 await message.reply(embed=embed, delete_after=10)
                 return
