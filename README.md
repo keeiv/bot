@@ -37,6 +37,11 @@
 - `/giveaway end` 提前結束、`/giveaway reroll` 重新抽取
 - 按鈕式參與，自動到期結算
 
+### 工單系統
+- `>>>ticket setup #頻道 @身份組` 設定工單系統
+- 點擊「開啟工單」按鈕自動建立私人討論串，@通知指定身份組
+- 支援關閉工單 / 有原因關閉工單，使用討論串鎖定保留紀錄
+
 ### 遊戲
 - `/deep_sea_oxygen` 深海氧氣瓶：2 人合作回合制，共享氧氣 + 道具系統
 - `/russian_roulette` 俄羅斯輪盤：2 人對抗，籌碼 + 道具系統
@@ -94,6 +99,7 @@ python -m src.main
 | 防刷屏設定 | 管理員 |
 | 清除/踢出/封禁/禁言/警告 | 對應管理權限 |
 | 舉報頻道設定 | 管理伺服器 |
+| 工單系統設定 | 管理員 |
 | 身份組管理 | 管理角色 |
 | 表情符號上傳 | 管理表情符號 |
 | 歡迎訊息設定 | 管理伺服器 |
@@ -104,7 +110,7 @@ python -m src.main
 ## 資料存放
 
 - `data/config/bot.json`：伺服器設定 (日誌頻道、舉報頻道)
-- `data/storage/`：成就、黑名單、申訴、GitHub 監控、osu! 綁定、抽獎等
+- `data/storage/`：成就、黑名單、申訴、GitHub 監控、osu! 綁定、抽獎、工單等
 - `data/logs/messages/`：訊息編輯/刪除日誌
 
 ## 時區
@@ -130,6 +136,7 @@ python -m src.main
 - ossapi (osu! API)
 - psutil (系統監控)
 - aiohttp (非同步 HTTP)
+- deep-translator (免費多引擎翻譯)
 
 ## 授權
 

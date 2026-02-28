@@ -3,6 +3,7 @@ from datetime import timedelta
 from datetime import timezone
 import json
 import os
+import time
 
 import discord
 from discord.ext import commands
@@ -17,22 +18,39 @@ class AuditLog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.config_file = "data/storage/log_channels.json"
+        # 記憶體快取：避免每個事件都讀磁碟
+        self._channel_cache: dict = {}
+        self._cache_time: float = 0
+        self._CACHE_TTL: float = 60.0  # 60 秒 TTL
 
     def get_current_time_str(self) -> str:
         """取得格式化的當前時間 (月/日 時:分)"""
         now = datetime.now(TZ_OFFSET)
         return now.strftime("%m/%d %H:%M")
 
-    def get_log_channel_id(self, guild_id: int):
-        """取得伺服器的日誌頻道 ID"""
+    def _load_all_log_channels(self) -> dict:
+        """載入所有日誌頻道設定 (帶記憶體快取)"""
+        now = time.monotonic()
+        if self._channel_cache and (now - self._cache_time) < self._CACHE_TTL:
+            return self._channel_cache
+
         if not os.path.exists(self.config_file):
-            return None
+            self._channel_cache = {}
+            self._cache_time = now
+            return self._channel_cache
+
         try:
             with open(self.config_file, "r", encoding="utf-8") as f:
-                channels = json.load(f)
-            return channels.get(str(guild_id))
-        except Exception:
-            return None
+                self._channel_cache = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            self._channel_cache = {}
+        self._cache_time = now
+        return self._channel_cache
+
+    def get_log_channel_id(self, guild_id: int):
+        """取得伺服器的日誌頻道 ID (從快取)"""
+        channels = self._load_all_log_channels()
+        return channels.get(str(guild_id))
 
     async def send_log_embed(self, guild_id: int, embed: discord.Embed):
         """發送日誌 Embed 到設定的日誌頻道"""
@@ -41,7 +59,10 @@ class AuditLog(commands.Cog):
             return
 
         try:
-            log_channel = await self.bot.fetch_channel(log_channel_id)
+            # 優先用 get_channel (記憶體) 避免 API 呼叫
+            log_channel = self.bot.get_channel(log_channel_id)
+            if log_channel is None:
+                log_channel = await self.bot.fetch_channel(log_channel_id)
             if isinstance(log_channel, discord.TextChannel):
                 await log_channel.send(embed=embed)
         except Exception as e:

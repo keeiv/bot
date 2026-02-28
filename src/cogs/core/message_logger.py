@@ -3,16 +3,21 @@ from datetime import timedelta
 from datetime import timezone
 import json
 import os
+import time
 from typing import Optional
 
 import discord
 from discord.ext import commands
+from discord.ext import tasks
 
 from src.utils.config_manager import ensure_data_dir
 from src.utils.message_cache import get_message_cache
 
 # UTC+8 時區
 TZ_OFFSET = timezone(timedelta(hours=8))
+
+# 日誌保留天數
+LOG_RETENTION_DAYS = 30
 
 
 class MessageLogger(commands.Cog):
@@ -24,6 +29,46 @@ class MessageLogger(commands.Cog):
         self.config_file = "data/storage/log_channels.json"
         self.message_cache = get_message_cache()
         ensure_data_dir()
+        # 日誌頻道快取
+        self._log_channels_cache: dict = {}
+        self._log_channels_cache_time: float = 0
+        self._LOG_CHANNELS_TTL: float = 60.0
+        # 訊息日誌快取 (避免每次事件都讀全檔)
+        self._msg_log_cache: Optional[dict] = None
+        self._msg_log_cache_time: float = 0
+        self._MSG_LOG_TTL: float = 120.0  # 2 分鐘 TTL
+        # 啟動定期清理任務
+        self._cleanup_old_logs.start()
+
+    def cog_unload(self):
+        self._cleanup_old_logs.cancel()
+
+    @tasks.loop(hours=24)
+    async def _cleanup_old_logs(self):
+        """定期清理超過保留天數的舊訊息日誌"""
+        await self.bot.wait_until_ready()
+        try:
+            logs = self.load_message_log()
+            if not logs:
+                return
+
+            cutoff = (
+                datetime.now(TZ_OFFSET) - timedelta(days=LOG_RETENTION_DAYS)
+            ).isoformat()
+            keys_to_remove = []
+
+            for key, record in logs.items():
+                created = record.get("created_at", "")
+                if created and created < cutoff:
+                    keys_to_remove.append(key)
+
+            if keys_to_remove:
+                for key in keys_to_remove:
+                    del logs[key]
+                self.save_message_log(logs)
+                print(f"[清理] 已移除 {len(keys_to_remove)} 筆超過 {LOG_RETENTION_DAYS} 天的訊息日誌")
+        except Exception as e:
+            print(f"[清理] 日誌清理失敗: {e}")
 
     def get_current_time_str(self) -> str:
         """取得格式化的當前時間 (月/日 時:分)"""
@@ -31,27 +76,37 @@ class MessageLogger(commands.Cog):
         return now.strftime("%m/%d %H:%M")
 
     def load_log_channels(self) -> dict:
-        """載入日誌頻道設定"""
+        """載入日誌頻道設定 (帶快取)"""
+        now = time.monotonic()
+        if self._log_channels_cache and (now - self._log_channels_cache_time) < self._LOG_CHANNELS_TTL:
+            return self._log_channels_cache
+
         if not os.path.exists(self.config_file):
-            return {}
+            self._log_channels_cache = {}
+            self._log_channels_cache_time = now
+            return self._log_channels_cache
 
         try:
             with open(self.config_file, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception as e:
+                self._log_channels_cache = json.load(f)
+        except (json.JSONDecodeError, OSError) as e:
             print(f"[錯誤] 無法載入日誌頻道設置: {e}")
-            return {}
+            self._log_channels_cache = {}
+        self._log_channels_cache_time = now
+        return self._log_channels_cache
 
     def save_log_channels(self, data: dict):
-        """儲存日誌頻道設定"""
+        """儲存日誌頻道設定並更新快取"""
         try:
             with open(self.config_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
+            self._log_channels_cache = data
+            self._log_channels_cache_time = time.monotonic()
         except Exception as e:
             print(f"[錯誤] 無法保存日誌頻道設置: {e}")
 
     def get_log_channel_id(self, guild_id: int) -> Optional[int]:
-        """取得伺服器的日誌頻道 ID"""
+        """取得伺服器的日誌頻道 ID (從快取)"""
         channels = self.load_log_channels()
         return channels.get(str(guild_id))
 
@@ -62,22 +117,32 @@ class MessageLogger(commands.Cog):
         self.save_log_channels(channels)
 
     def load_message_log(self) -> dict:
-        """載入訊息日誌"""
+        """載入訊息日誌 (帶快取)"""
+        now = time.monotonic()
+        if self._msg_log_cache is not None and (now - self._msg_log_cache_time) < self._MSG_LOG_TTL:
+            return self._msg_log_cache
+
         if not os.path.exists(self.data_file):
-            return {}
+            self._msg_log_cache = {}
+            self._msg_log_cache_time = now
+            return self._msg_log_cache
 
         try:
             with open(self.data_file, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception as e:
+                self._msg_log_cache = json.load(f)
+        except (json.JSONDecodeError, OSError) as e:
             print(f"[錯誤] 無法載入訊息日誌: {e}")
-            return {}
+            self._msg_log_cache = {}
+        self._msg_log_cache_time = now
+        return self._msg_log_cache
 
     def save_message_log(self, data: dict):
-        """儲存訊息日誌"""
+        """儲存訊息日誌並更新快取"""
         try:
             with open(self.data_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
+            self._msg_log_cache = data
+            self._msg_log_cache_time = time.monotonic()
         except Exception as e:
             print(f"[錯誤] 無法保存訊息日誌: {e}")
 
@@ -399,7 +464,9 @@ class MessageLogger(commands.Cog):
                 return
 
             try:
-                log_channel = await self.bot.fetch_channel(log_channel_id)
+                log_channel = self.bot.get_channel(log_channel_id)
+                if log_channel is None:
+                    log_channel = await self.bot.fetch_channel(log_channel_id)
                 if not isinstance(log_channel, discord.TextChannel):
                     return
 
@@ -480,7 +547,9 @@ class MessageLogger(commands.Cog):
                 return
 
             try:
-                log_channel = await self.bot.fetch_channel(log_channel_id)
+                log_channel = self.bot.get_channel(log_channel_id)
+                if log_channel is None:
+                    log_channel = await self.bot.fetch_channel(log_channel_id)
                 if not isinstance(log_channel, discord.TextChannel):
                     return
 

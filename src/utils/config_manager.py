@@ -1,8 +1,10 @@
+import asyncio
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 import json
 import os
+import time
 from typing import Optional
 
 CONFIG_FILE = "data/config/bot.json"
@@ -11,6 +13,19 @@ DATA_DIR = "data"
 
 # UTC+8 時區
 TZ_OFFSET = timezone(timedelta(hours=8))
+
+# ───────────── 記憶體快取層 ─────────────
+_config_cache: Optional[dict] = None
+_config_cache_time: float = 0
+_CONFIG_CACHE_TTL: float = 30.0  # 30 秒 TTL
+_config_lock = asyncio.Lock()
+
+
+def _invalidate_config_cache():
+    """主動使快取失效"""
+    global _config_cache, _config_cache_time
+    _config_cache = None
+    _config_cache_time = 0
 
 
 def ensure_data_dir():
@@ -22,18 +37,29 @@ def ensure_data_dir():
 
 
 def load_config():
-    """載入配置檔案"""
+    """載入配置檔案 (帶記憶體快取)"""
+    global _config_cache, _config_cache_time
+
+    now = time.monotonic()
+    if _config_cache is not None and (now - _config_cache_time) < _CONFIG_CACHE_TTL:
+        return _config_cache
+
     if not os.path.exists(CONFIG_FILE):
         save_config({"guilds": {}})
 
     with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+        _config_cache = json.load(f)
+    _config_cache_time = now
+    return _config_cache
 
 
 def save_config(config):
-    """儲存配置檔案"""
+    """儲存配置檔案並更新快取"""
+    global _config_cache, _config_cache_time
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(config, f, ensure_ascii=False, indent=2)
+    _config_cache = config
+    _config_cache_time = time.monotonic()
 
 
 def get_guild_log_channel(guild_id: int) -> Optional[int]:
@@ -78,22 +104,46 @@ def set_guild_report_channel(guild_id: int, channel_id: int):
     save_config(config)
 
 
-# ========== 統一訊息日誌 JSON ==========
+#  統一訊息日誌 JSON (帶記憶體快取 + 批次寫入)
+
+_messages_cache: Optional[dict] = None
+_messages_cache_time: float = 0
+_MESSAGES_CACHE_TTL: float = 60.0  # 60 秒 TTL
+_messages_dirty: bool = False
 
 
 def load_messages_log() -> dict:
-    """載入統一的訊息紀錄日誌"""
-    if not os.path.exists(MESSAGES_LOG_FILE):
-        return {}
+    """載入統一的訊息紀錄日誌 (帶記憶體快取)"""
+    global _messages_cache, _messages_cache_time
 
-    with open(MESSAGES_LOG_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    now = time.monotonic()
+    if _messages_cache is not None and (now - _messages_cache_time) < _MESSAGES_CACHE_TTL:
+        return _messages_cache
+
+    if not os.path.exists(MESSAGES_LOG_FILE):
+        _messages_cache = {}
+        _messages_cache_time = now
+        return _messages_cache
+
+    try:
+        with open(MESSAGES_LOG_FILE, "r", encoding="utf-8") as f:
+            _messages_cache = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        _messages_cache = {}
+    _messages_cache_time = now
+    return _messages_cache
 
 
 def save_messages_log(data: dict):
-    """儲存統一的訊息紀錄日誌"""
-    with open(MESSAGES_LOG_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    """儲存統一的訊息紀錄日誌並更新快取"""
+    global _messages_cache, _messages_cache_time
+    try:
+        with open(MESSAGES_LOG_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except OSError as e:
+        print(f"[錯誤] 無法保存訊息日誌: {e}")
+    _messages_cache = data
+    _messages_cache_time = time.monotonic()
 
 
 def add_message_record(

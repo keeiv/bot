@@ -28,23 +28,37 @@ GIVEAWAY_FILE = os.path.join(DATA_DIR, "giveaways.json")
 # 抽獎表情
 GIVEAWAY_EMOJI = "\U0001f389"  # 🎉
 
+# 全域鎖：防止並發讀寫競態條件
+_giveaway_lock = asyncio.Lock()
+
+# 記憶體快取
+_giveaway_cache: Optional[dict] = None
+
 
 def _load_giveaways() -> dict:
-    """載入抽獎資料"""
+    """載入抽獎資料 (優先讀取快取)"""
+    global _giveaway_cache
+    if _giveaway_cache is not None:
+        return _giveaway_cache
+
     if os.path.exists(GIVEAWAY_FILE):
         try:
             with open(GIVEAWAY_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                _giveaway_cache = json.load(f)
+                return _giveaway_cache
         except (json.JSONDecodeError, OSError):
             pass
-    return {}
+    _giveaway_cache = {}
+    return _giveaway_cache
 
 
 def _save_giveaways(data: dict):
-    """儲存抽獎資料"""
+    """儲存抽獎資料並更新快取"""
+    global _giveaway_cache
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(GIVEAWAY_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+    _giveaway_cache = data
 
 
 class GiveawayView(ui.View):
@@ -63,34 +77,35 @@ class GiveawayView(ui.View):
     async def enter_button(
         self, interaction: discord.Interaction, button: ui.Button
     ):
-        """參加抽獎"""
-        data = _load_giveaways()
-        ga = data.get(self.giveaway_id)
+        """參加抽獎 (使用鎖防止競態條件)"""
+        async with _giveaway_lock:
+            data = _load_giveaways()
+            ga = data.get(self.giveaway_id)
 
-        if not ga or ga.get("ended"):
-            await interaction.response.send_message(
-                "[提示] 此抽獎已結束", ephemeral=True
-            )
-            return
+            if not ga or ga.get("ended"):
+                await interaction.response.send_message(
+                    "[提示] 此抽獎已結束", ephemeral=True
+                )
+                return
 
-        user_id = str(interaction.user.id)
-        participants = ga.setdefault("participants", [])
+            user_id = str(interaction.user.id)
+            participants = ga.setdefault("participants", [])
 
-        if user_id in participants:
-            participants.remove(user_id)
-            _save_giveaways(data)
-            await interaction.response.send_message(
-                "[提示] 你已退出抽獎", ephemeral=True
-            )
-        else:
-            participants.append(user_id)
-            _save_giveaways(data)
-            await interaction.response.send_message(
-                f"[成功] 你已參加抽獎! 目前共 {len(participants)} 位參與者",
-                ephemeral=True,
-            )
+            if user_id in participants:
+                participants.remove(user_id)
+                _save_giveaways(data)
+                await interaction.response.send_message(
+                    "[提示] 你已退出抽獎", ephemeral=True
+                )
+            else:
+                participants.append(user_id)
+                _save_giveaways(data)
+                await interaction.response.send_message(
+                    f"[成功] 你已參加抽獎! 目前共 {len(participants)} 位參與者",
+                    ephemeral=True,
+                )
 
-        # 更新 Embed 上的參與人數
+        # 更新 Embed 上的參與人數 (鎖外操作，減少持鎖時間)
         try:
             embed = interaction.message.embeds[0] if interaction.message.embeds else None
             if embed:

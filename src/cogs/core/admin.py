@@ -270,6 +270,16 @@ class Admin(commands.Cog):
         )
 
         embed_main.add_field(
+            name="[工單系統]",
+            value=(
+                "`>>>ticket setup #頻道 @身份組` - 設定工單系統\n"
+                "點擊「開啟工單」按鈕建立私人討論串\n"
+                "支援關閉工單 / 有原因關閉工單"
+            ),
+            inline=False,
+        )
+
+        embed_main.add_field(
             name="[遊戲]",
             value=(
                 "`/deep_sea_oxygen` - 深海氧氣瓶遊戲\n"

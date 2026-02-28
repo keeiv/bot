@@ -210,6 +210,7 @@ class Management(commands.Cog):
         session = await self._get_session()
         owner = repo_data["owner"]
         repo = repo_data["repo"]
+        has_changes = False
 
         try:
             # Check commits with error handling
@@ -220,6 +221,7 @@ class Management(commands.Cog):
                     if commits and commits[0]["sha"] != repo_data.get("last_commit"):
                         latest_commit = commits[0]
                         repo_data["last_commit"] = latest_commit["sha"]
+                        has_changes = True
 
                         channel = self.bot.get_channel(repo_data["channel_id"])
                         if channel:
@@ -261,6 +263,7 @@ class Management(commands.Cog):
                     if prs and prs[0]["number"] != repo_data.get("last_pr"):
                         latest_pr = prs[0]
                         repo_data["last_pr"] = latest_pr["number"]
+                        has_changes = True
 
                         channel = self.bot.get_channel(repo_data["channel_id"])
                         if channel:
@@ -292,8 +295,9 @@ class Management(commands.Cog):
                 else:
                     print(f"Failed to fetch PRs for {repo_key}: {response.status}")
 
-            # Only save if there were changes
-            self._save_config()
+            # 只在有變更時才寫入磁碟
+            if has_changes:
+                self._save_config()
 
         except aiohttp.ClientError as e:
             print(f"Network error checking {repo_key}: {e}")
