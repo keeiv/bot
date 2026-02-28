@@ -3,3 +3,4 @@ python-dotenv==1.0.0
 ossapi
 psutil
 aiohttp
+deep-translator

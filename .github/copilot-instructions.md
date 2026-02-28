@@ -28,6 +28,7 @@ src/
       achievements.py # 成就系統
       management.py   # repo_track, role, emoji, welcome 管理
       osu_info.py     # osu! 整合 (bind/best/recent/score)
+      translate.py    # 右鍵翻譯訊息 (deep-translator, 14 種語言)
       github_watch.py # GitHub 倉庫監控
       user_server_info.py  # 用戶/伺服器資訊查詢
     games/            # 遊戲模組
@@ -99,6 +100,7 @@ src/
 - ossapi (osu! API)
 - psutil (系統監控)
 - aiohttp (非同步 HTTP)
+- deep-translator (免費多引擎翻譯)
 
 ## 環境設置
 

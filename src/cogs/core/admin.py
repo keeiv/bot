@@ -227,6 +227,15 @@ class Admin(commands.Cog):
         )
 
         embed_main.add_field(
+            name="[翻譯]",
+            value=(
+                "右鍵訊息 > 應用程式 > `翻譯訊息` - 翻譯任意訊息\n"
+                "支援 14 種語言，自動偵測來源語言"
+            ),
+            inline=False,
+        )
+
+        embed_main.add_field(
             name="[防炸群系統]",
             value=(
                 "`/anti_spam setup` - 啟用/禁用防炸群\n"
@@ -294,58 +303,7 @@ class Admin(commands.Cog):
             inline=False,
         )
 
-        # --- 第二頁：開發者資訊 ---
-        embed_dev = discord.Embed(
-            title="[關於] 開發者資訊",
-            description="本機器人由 **凱伊 (keeiv)** 開發與維護。",
-            color=discord.Color.from_rgb(88, 101, 242),
-        )
-
-        embed_dev.add_field(
-            name="[自我介紹]",
-            value=(
-                "- Discord Bot 開發者 / 小型遊戲開發者\n"
-                "- 追求低延遲設計 / 專業開發\n"
-                "- 喜歡把簡單的事情變複雜\n"
-                "- 具有代碼強迫症"
-            ),
-            inline=False,
-        )
-
-        embed_dev.add_field(
-            name="[關於我]",
-            value=(
-                "- 熟悉多種語言開發\n"
-                "- 注重團隊紀律 (Team Discipline)\n"
-                "- 學習程式語言已有 8 年以上\n"
-                "- UI/UX 具有深度理解\n"
-                "- 希望做出與 osu! 一樣厲害的低延遲音樂遊戲"
-            ),
-            inline=False,
-        )
-
-        embed_dev.add_field(
-            name="[技術棧]",
-            value=(
-                "**主要語言**: C++, C#, Java, Python\n"
-                "**Web / Script**: JS, Lua, PHP, HTML5\n"
-                "**框架與工具**: .NET, Discord, Linux, Git"
-            ),
-            inline=False,
-        )
-
-        embed_dev.add_field(
-            name="[專案]",
-            value=(
-                "**BOT** - 開放大家踴躍提交 PR 的 Discord Bot\n"
-                "**RhythmClicker** - 音樂節奏遊戲 (開發中)"
-            ),
-            inline=False,
-        )
-
-        embed_dev.set_footer(text="GitHub Developer Program Member | PRO")
-
-        # --- 第三頁：貢獻指南 ---
+        # --- 第二頁：貢獻指南 ---
         embed_contrib = discord.Embed(
             title="[貢獻] 如何參與開發",
             description=(
@@ -399,7 +357,7 @@ class Admin(commands.Cog):
             text="倉庫: github.com/keeiv/bot"
         )
 
-        await ctx.send(embeds=[embed_main, embed_dev, embed_contrib])
+        await ctx.send(embeds=[embed_main, embed_contrib])
 
 
 async def setup(bot: commands.Bot):
