@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 
 from src.utils.blacklist_manager import blacklist_manager
@@ -29,6 +30,7 @@ class Admin(commands.Cog):
         return commands.check(predicate)
 
     @commands.hybrid_command(name="clear", description="清除指定數量的訊息")
+    @app_commands.describe(amount="要刪除的訊息數量 (1-100，預設 10)")
     @commands.has_permissions(manage_messages=True)
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def clear(self, ctx, amount: int = 10):
@@ -50,6 +52,7 @@ class Admin(commands.Cog):
         )
 
     @commands.hybrid_command(name="kick", description="踢出成員")
+    @app_commands.describe(user="要踢出的成員", reason="踢出原因")
     @commands.has_permissions(kick_members=True)
     async def kick(self, ctx, user: discord.Member, reason: str = "沒有提供原因"):
         """踢出成員"""
@@ -80,6 +83,7 @@ class Admin(commands.Cog):
             await ctx.send(f"[Failed] Unable to kick member: {str(e)}", ephemeral=True)
 
     @commands.hybrid_command(name="ban", description="封禁成員")
+    @app_commands.describe(user="要封禁的成員", reason="封禁原因")
     @commands.has_permissions(ban_members=True)
     async def ban(self, ctx, user: discord.Member, reason: str = "沒有提供原因"):
         """封禁成員"""
@@ -110,6 +114,7 @@ class Admin(commands.Cog):
             await ctx.send(f"[Failed] Unable to ban member: {str(e)}", ephemeral=True)
 
     @commands.hybrid_command(name="mute", description="禁言成員")
+    @app_commands.describe(user="要禁言的成員", duration="禁言時長 (分鐘，預設 60)", reason="禁言原因")
     @commands.has_permissions(moderate_members=True)
     async def mute(
         self,
@@ -147,6 +152,7 @@ class Admin(commands.Cog):
             await ctx.send(f"[失敗] 無法禁言成員: {str(e)}", ephemeral=True)
 
     @commands.hybrid_command(name="warn", description="警告成員")
+    @app_commands.describe(user="要警告的成員", reason="警告原因")
     @commands.has_permissions(moderate_members=True)
     async def warn(self, ctx, user: discord.Member, reason: str = "沒有提供原因"):
         """警告成員"""
