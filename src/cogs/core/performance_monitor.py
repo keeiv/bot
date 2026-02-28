@@ -1,8 +1,5 @@
-import asyncio
 from datetime import datetime
 from datetime import timezone
-import time
-from typing import Any, Dict, List
 
 import discord
 from discord import app_commands
@@ -33,7 +30,7 @@ class PerformanceMonitorCog(commands.Cog):
         try:
             await self.collect_performance_metrics()
         except Exception as e:
-            print(f"[Performance Monitor] Error collecting metrics: {e}")
+            print(f"[效能監控] 收集指標時發生錯誤: {e}")
 
     async def collect_performance_metrics(self):
         # Database metrics
@@ -85,9 +82,10 @@ class PerformanceMonitorCog(commands.Cog):
                 "dns_cache_size", network_stats.get("dns_cache_size", 0)
             )
 
-    @app_commands.command(name="performance-dashboard", description="綜合性能監控面板")
+    @app_commands.command(name="performance-dashboard", description="綜合效能監控面板")
     @app_commands.checks.has_permissions(administrator=True)
     async def performance_dashboard(self, interaction: discord.Interaction):
+        """效能監控面板"""
         await interaction.response.defer(ephemeral=True)
 
         try:
@@ -97,80 +95,80 @@ class PerformanceMonitorCog(commands.Cog):
             api_optimizer = get_api_optimizer()
 
             embed = discord.Embed(
-                title="Performance Dashboard",
-                color=discord.Color.blue(),
+                title="[效能] 效能監控面板",
+                color=discord.Color.from_rgb(52, 152, 219),
                 timestamp=datetime.now(timezone.utc),
             )
 
-            # Database stats
+            # 資料庫快取統計
             if db_manager:
                 cache_stats = await db_manager.get_cache_stats()
                 embed.add_field(
-                    name="📊 Database Cache",
-                    value=f"Total: {cache_stats['total_entries']}\nValid: {cache_stats['valid_entries']}\nExpired: {cache_stats['expired_entries']}",
+                    name="[資料庫快取]",
+                    value=f"總計: {cache_stats['total_entries']}\n有效: {cache_stats['valid_entries']}\n過期: {cache_stats['expired_entries']}",
                     inline=True,
                 )
             else:
                 embed.add_field(
-                    name="📊 Database Cache", value="Not initialized", inline=True
+                    name="[資料庫快取]", value="尚未初始化", inline=True
                 )
 
-            # Config stats
+            # 設定快取統計
             if config_manager:
                 config_stats = config_manager.get_cache_stats()
                 embed.add_field(
-                    name="⚙️ Config Cache",
-                    value=f"Size: {config_stats['cache_size']}\nLocks: {config_stats['file_locks']}\nWatchers: {config_stats['active_watchers']}",
+                    name="[設定快取]",
+                    value=f"大小: {config_stats['cache_size']}\n檔案鎖: {config_stats['file_locks']}\n監聽器: {config_stats['active_watchers']}",
                     inline=True,
                 )
             else:
                 embed.add_field(
-                    name="⚙️ Config Cache", value="Not initialized", inline=True
+                    name="[設定快取]", value="尚未初始化", inline=True
                 )
 
-            # Network stats
+            # 網路統計
             if network_optimizer:
                 network_stats = network_optimizer.get_network_stats()
                 active_requests = sum(network_stats.get("active_requests", {}).values())
                 embed.add_field(
-                    name="🌐 Network",
-                    value=f"Active: {active_requests}\nDNS Cache: {network_stats.get('dns_cache_size', 0)}",
+                    name="[網路]",
+                    value=f"活躍請求: {active_requests}\nDNS 快取: {network_stats.get('dns_cache_size', 0)}",
                     inline=True,
                 )
             else:
-                embed.add_field(name="🌐 Network", value="Not initialized", inline=True)
+                embed.add_field(name="[網路]", value="尚未初始化", inline=True)
 
-            # API optimizer stats
+            # API 優化統計
             if api_optimizer:
                 api_cache_stats = api_optimizer.get_cache_stats()
                 embed.add_field(
-                    name="🚀 API Optimizer",
-                    value=f"Cache: {api_cache_stats['total_entries']}\nValid: {api_cache_stats['valid_entries']}",
+                    name="[API 優化]",
+                    value=f"快取: {api_cache_stats['total_entries']}\n有效: {api_cache_stats['valid_entries']}",
                     inline=True,
                 )
             else:
                 embed.add_field(
-                    name="🚀 API Optimizer", value="Not initialized", inline=True
+                    name="[API 優化]", value="尚未初始化", inline=True
                 )
 
-            # Recent performance metrics
+            # 近期效能指標
             if db_manager:
                 recent_metrics = await db_manager.get_metrics(limit=10)
                 if recent_metrics:
                     performance_summary = {}
                     for metric in recent_metrics:
-                        name = metric["metric_name"]
-                        if name not in performance_summary:
-                            performance_summary[name] = []
-                        performance_summary[name].append(metric["value"])
+                        metric_name = metric["metric_name"]
+                        if metric_name not in performance_summary:
+                            performance_summary[metric_name] = []
+                        performance_summary[metric_name].append(metric["value"])
 
                     summary_text = []
-                    for name, values in list(performance_summary.items())[:5]:
+                    for metric_name, values in list(performance_summary.items())[:5]:
                         avg_val = sum(values) / len(values)
-                        summary_text.append(f"{name}: {avg_val:.2f}")
+                        summary_text.append(f"{metric_name}: {avg_val:.2f}")
 
                     embed.add_field(
-                        name="📈 Recent Metrics",
+                        name="[近期指標]",
                         value="\n".join(summary_text),
                         inline=False,
                     )
@@ -178,26 +176,28 @@ class PerformanceMonitorCog(commands.Cog):
             await interaction.followup.send(embed=embed)
 
         except Exception as e:
-            await interaction.followup.send(f"Error generating dashboard: {e}")
+            await interaction.followup.send(f"[失敗] 無法產生效能面板: {e}")
 
-    @app_commands.command(name="network-diagnostics", description="網絡連接診斷")
+    @app_commands.command(name="network-diagnostics", description="網路連線診斷")
     @app_commands.checks.has_permissions(administrator=True)
     async def network_diagnostics(self, interaction: discord.Interaction):
+        """網路連線診斷"""
         await interaction.response.defer(ephemeral=True)
 
         try:
             network_optimizer = get_network_optimizer()
             diagnostics = NetworkDiagnostics(network_optimizer)
 
-            await interaction.followup.send("Running network diagnostics...")
+            await interaction.followup.send("正在執行網路診斷...")
 
             results = await diagnostics.run_full_diagnostics()
 
             embed = discord.Embed(
-                title="Network Diagnostics", color=discord.Color.orange()
+                title="[診斷] 網路連線診斷",
+                color=discord.Color.from_rgb(241, 196, 15),
             )
 
-            # Connectivity test results
+            # 連線測試結果
             connectivity = results.get("connectivity_test", {})
             success_count = sum(
                 1
@@ -207,49 +207,51 @@ class PerformanceMonitorCog(commands.Cog):
             total_count = len(connectivity)
 
             embed.add_field(
-                name="🌐 Connectivity Test",
-                value=f"Success: {success_count}/{total_count}",
+                name="[連線測試]",
+                value=f"成功: {success_count}/{total_count}",
                 inline=True,
             )
 
-            # DNS resolution
+            # DNS 解析
             dns_results = results.get("dns_resolution", {})
             dns_text = []
             for host, info in dns_results.items():
-                dns_text.append(f"{host}: {info['count']} IPs")
+                dns_text.append(f"{host}: {info['count']} 個 IP")
 
             embed.add_field(
-                name="🔍 DNS Resolution", value="\n".join(dns_text), inline=True
+                name="[DNS 解析]",
+                value="\n".join(dns_text) if dns_text else "無資料",
+                inline=True,
             )
 
-            # Connection optimization
+            # 連線優化
             conn_results = results.get("connection_optimization", {})
             conn_text = []
             for host, info in conn_results.items():
                 if info.get("status") == "success":
                     conn_text.append(f"{host}: {info.get('connect_time', 0):.3f}s")
                 else:
-                    conn_text.append(f"{host}: Failed")
+                    conn_text.append(f"{host}: 失敗")
 
             embed.add_field(
-                name="⚡ Connection Optimization",
-                value="\n".join(conn_text),
+                name="[連線優化]",
+                value="\n".join(conn_text) if conn_text else "無資料",
                 inline=True,
             )
 
             await interaction.followup.send(embed=embed)
 
         except Exception as e:
-            await interaction.followup.send(f"Network diagnostics failed: {e}")
+            await interaction.followup.send(f"[失敗] 網路診斷失敗: {e}")
 
     @app_commands.command(name="cache-management", description="快取管理工具")
     @app_commands.checks.has_permissions(administrator=True)
     @app_commands.describe(action="管理動作", target="目標快取")
     @app_commands.choices(
         action=[
-            app_commands.Choice(name="清理數據庫快取", value="clear_db"),
-            app_commands.Choice(name="清理配置快取", value="clear_config"),
-            app_commands.Choice(name="清理網絡快取", value="clear_network"),
+            app_commands.Choice(name="清理資料庫快取", value="clear_db"),
+            app_commands.Choice(name="清理設定快取", value="clear_config"),
+            app_commands.Choice(name="清理網路快取", value="clear_network"),
             app_commands.Choice(name="清理所有快取", value="clear_all"),
             app_commands.Choice(name="查看快取統計", value="stats"),
         ]
@@ -257,6 +259,7 @@ class PerformanceMonitorCog(commands.Cog):
     async def cache_management(
         self, interaction: discord.Interaction, action: str, target: str = None
     ):
+        """快取管理工具"""
         await interaction.response.defer(ephemeral=True)
 
         try:
@@ -270,26 +273,26 @@ class PerformanceMonitorCog(commands.Cog):
             if action == "clear_db":
                 if target:
                     count = await db_manager.cache_clear_pattern(target)
-                    results.append(f"Database cache cleared: {count} entries")
+                    results.append(f"[成功] 已清理資料庫快取: {count} 筆")
                 else:
                     count = await db_manager.cleanup_expired_cache()
-                    results.append(f"Database expired cache cleared: {count} entries")
+                    results.append(f"[成功] 已清理過期資料庫快取: {count} 筆")
 
             elif action == "clear_config":
                 if target:
                     config_manager._cache.clear(target)
-                    results.append(f"Config cache cleared for pattern: {target}")
+                    results.append(f"[成功] 已清理設定快取: {target}")
                 else:
                     config_manager._cache.clear()
-                    results.append("All config cache cleared")
+                    results.append("[成功] 已清理所有設定快取")
 
             elif action == "clear_network":
                 if target:
                     network_optimizer.dns_cache.clear(target)
-                    results.append(f"Network DNS cache cleared for: {target}")
+                    results.append(f"[成功] 已清理網路 DNS 快取: {target}")
                 else:
                     network_optimizer.clear_caches()
-                    results.append("All network caches cleared")
+                    results.append("[成功] 已清理所有網路快取")
 
             elif action == "clear_all":
                 await db_manager.cleanup_expired_cache()
@@ -297,7 +300,7 @@ class PerformanceMonitorCog(commands.Cog):
                 network_optimizer.clear_caches()
                 if api_optimizer:
                     api_optimizer.clear_cache()
-                results.append("All caches cleared")
+                results.append("[成功] 已清理所有快取")
 
             elif action == "stats":
                 db_stats = await db_manager.get_cache_stats()
@@ -305,24 +308,25 @@ class PerformanceMonitorCog(commands.Cog):
                 network_stats = network_optimizer.get_network_stats()
 
                 embed = discord.Embed(
-                    title="Cache Statistics", color=discord.Color.green()
+                    title="[快取] 快取統計",
+                    color=discord.Color.from_rgb(46, 204, 113),
                 )
 
                 embed.add_field(
-                    name="Database Cache",
-                    value=f"Total: {db_stats['total_entries']}\nValid: {db_stats['valid_entries']}",
+                    name="[資料庫快取]",
+                    value=f"總計: {db_stats['total_entries']}\n有效: {db_stats['valid_entries']}",
                     inline=True,
                 )
 
                 embed.add_field(
-                    name="Config Cache",
-                    value=f"Size: {config_stats['cache_size']}\nLocks: {config_stats['file_locks']}",
+                    name="[設定快取]",
+                    value=f"大小: {config_stats['cache_size']}\n檔案鎖: {config_stats['file_locks']}",
                     inline=True,
                 )
 
                 embed.add_field(
-                    name="Network Cache",
-                    value=f"DNS: {network_stats.get('dns_cache_size', 0)}\nActive Requests: {sum(network_stats.get('active_requests', {}).values())}",
+                    name="[網路快取]",
+                    value=f"DNS: {network_stats.get('dns_cache_size', 0)}\n活躍請求: {sum(network_stats.get('active_requests', {}).values())}",
                     inline=True,
                 )
 
@@ -333,14 +337,15 @@ class PerformanceMonitorCog(commands.Cog):
                 await interaction.followup.send("\n".join(results))
 
         except Exception as e:
-            await interaction.followup.send(f"Cache management failed: {e}")
+            await interaction.followup.send(f"[失敗] 快取管理失敗: {e}")
 
-    @app_commands.command(name="performance-history", description="性能歷史數據")
+    @app_commands.command(name="performance-history", description="效能歷史數據")
     @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.describe(metric_name="指標名稱", hours="時間範圍（小時）")
+    @app_commands.describe(metric_name="指標名稱", hours="時間範圍 (小時)")
     async def performance_history(
         self, interaction: discord.Interaction, metric_name: str = None, hours: int = 24
     ):
+        """效能歷史數據"""
         await interaction.response.defer(ephemeral=True)
 
         try:
@@ -352,37 +357,38 @@ class PerformanceMonitorCog(commands.Cog):
                 metrics = await db_manager.get_metrics(limit=200)
 
             if not metrics:
-                await interaction.followup.send("No performance data available")
+                await interaction.followup.send("[提示] 目前沒有效能數據")
                 return
 
-            # Group metrics by name
+            # 依名稱分組指標
             grouped_metrics = {}
             for metric in metrics:
-                name = metric["metric_name"]
-                if name not in grouped_metrics:
-                    grouped_metrics[name] = []
-                grouped_metrics[name].append(metric)
+                m_name = metric["metric_name"]
+                if m_name not in grouped_metrics:
+                    grouped_metrics[m_name] = []
+                grouped_metrics[m_name].append(metric)
 
             embed = discord.Embed(
-                title=f"Performance History ({hours}h)", color=discord.Color.purple()
+                title=f"[效能] 歷史數據 ({hours}h)",
+                color=discord.Color.from_rgb(155, 89, 182),
             )
 
-            for name, data in list(grouped_metrics.items())[:10]:
+            for m_name, data in list(grouped_metrics.items())[:10]:
                 values = [d["value"] for d in data]
                 avg_val = sum(values) / len(values)
                 min_val = min(values)
                 max_val = max(values)
 
                 embed.add_field(
-                    name=name,
-                    value=f"Avg: {avg_val:.2f}\nMin: {min_val:.2f}\nMax: {max_val:.2f}\nCount: {len(values)}",
+                    name=m_name,
+                    value=f"平均: {avg_val:.2f}\n最小: {min_val:.2f}\n最大: {max_val:.2f}\n筆數: {len(values)}",
                     inline=True,
                 )
 
             await interaction.followup.send(embed=embed)
 
         except Exception as e:
-            await interaction.followup.send(f"Failed to get performance history: {e}")
+            await interaction.followup.send(f"[失敗] 無法取得效能歷史: {e}")
 
 
 async def setup(bot: commands.Bot):

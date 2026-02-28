@@ -3,7 +3,6 @@ from datetime import datetime
 from datetime import timezone
 import gc
 import time
-from typing import Any, Dict, Optional
 
 import discord
 from discord import app_commands
@@ -17,6 +16,8 @@ from src.utils.api_optimizer import performance_monitor
 
 
 class SystemMaintenance(commands.Cog):
+    """系統維護 Cog"""
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.start_time = time.time()
@@ -40,7 +41,7 @@ class SystemMaintenance(commands.Cog):
             await self.optimize_caches()
             await self.check_system_health()
         except Exception as e:
-            print(f"Maintenance task error: {e}")
+            print(f"[系統維護] 定期任務錯誤: {e}")
 
     @tasks.loop(minutes=5)
     async def _performance_task(self):
@@ -49,7 +50,7 @@ class SystemMaintenance(commands.Cog):
         try:
             await self.collect_performance_metrics()
         except Exception as e:
-            print(f"Performance monitoring error: {e}")
+            print(f"[效能監控] 收集指標錯誤: {e}")
 
     async def perform_system_cleanup(self):
         timing_id = performance_monitor.start_timing("system_cleanup")
@@ -89,11 +90,11 @@ class SystemMaintenance(commands.Cog):
             cpu_percent = psutil.cpu_percent(interval=1)
 
             if memory_percent > self.memory_threshold:
-                print(f"High memory usage detected: {memory_percent}%")
+                print(f"[診斷] 記憶體使用率過高: {memory_percent}%")
                 await self.perform_emergency_cleanup()
 
             if cpu_percent > self.cpu_threshold:
-                print(f"High CPU usage detected: {cpu_percent}%")
+                print(f"[診斷] CPU 使用率過高: {cpu_percent}%")
 
             return {
                 "memory_percent": memory_percent,
@@ -103,7 +104,7 @@ class SystemMaintenance(commands.Cog):
             }
 
         except Exception as e:
-            print(f"Health check error: {e}")
+            print(f"[診斷] 健康檢查錯誤: {e}")
             return None
 
     async def perform_emergency_cleanup(self):
@@ -136,43 +137,49 @@ class SystemMaintenance(commands.Cog):
     @app_commands.command(name="system-status", description="系統狀態監控")
     @app_commands.checks.has_permissions(administrator=True)
     async def system_status(self, interaction: discord.Interaction):
+        """系統狀態監控"""
         await interaction.response.defer(ephemeral=True)
 
         try:
             health = await self.check_system_health()
             if not health:
-                await interaction.followup.send("Unable to retrieve system health")
+                await interaction.followup.send("[失敗] 無法取得系統狀態")
                 return
 
-            embed = discord.Embed(title="System Status", color=discord.Color.blue())
-
-            embed.color = (
-                discord.Color.green()
-                if health["memory_percent"] < self.memory_threshold
+            is_healthy = (
+                health["memory_percent"] < self.memory_threshold
                 and health["cpu_percent"] < self.cpu_threshold
-                else discord.Color.red()
+            )
+            embed = discord.Embed(
+                title="[系統] 系統狀態",
+                color=discord.Color.from_rgb(46, 204, 113) if is_healthy
+                else discord.Color.from_rgb(231, 76, 60),
             )
 
             embed.add_field(
-                name="Memory Usage",
+                name="[記憶體使用率]",
                 value=f"{health['memory_percent']:.1f}%",
                 inline=True,
             )
             embed.add_field(
-                name="CPU Usage", value=f"{health['cpu_percent']:.1f}%", inline=True
+                name="[CPU 使用率]",
+                value=f"{health['cpu_percent']:.1f}%",
+                inline=True,
             )
 
             uptime_hours = health["uptime"] / 3600
             embed.add_field(
-                name="Uptime", value=f"{uptime_hours:.1f} hours", inline=True
+                name="[運行時間]",
+                value=f"{uptime_hours:.1f} 小時",
+                inline=True,
             )
 
             api_optimizer = get_api_optimizer()
             if api_optimizer:
                 cache_stats = api_optimizer.get_cache_stats()
                 embed.add_field(
-                    name="Cache Stats",
-                    value=f"Total: {cache_stats['total_entries']}\nValid: {cache_stats['valid_entries']}",
+                    name="[快取統計]",
+                    value=f"總計: {cache_stats['total_entries']}\n有效: {cache_stats['valid_entries']}",
                     inline=True,
                 )
 
@@ -182,21 +189,22 @@ class SystemMaintenance(commands.Cog):
                     stats["avg"] for stats in performance_stats.values()
                 ) / len(performance_stats)
                 embed.add_field(
-                    name="Avg Response Time",
+                    name="[平均回應時間]",
                     value=f"{avg_response_time:.3f}s",
                     inline=True,
                 )
 
-            embed.set_footer(text=f"Checked at {health['timestamp']}")
+            embed.set_footer(text=f"檢查時間: {health['timestamp']}")
 
             await interaction.followup.send(embed=embed)
 
         except Exception as e:
-            await interaction.followup.send(f"Error retrieving system status: {e}")
+            await interaction.followup.send(f"[失敗] 無法取得系統狀態: {e}")
 
     @app_commands.command(name="system-cleanup", description="執行系統清理")
     @app_commands.checks.has_permissions(administrator=True)
     async def system_cleanup(self, interaction: discord.Interaction):
+        """執行系統清理"""
         await interaction.response.defer(ephemeral=True)
 
         try:
@@ -208,55 +216,57 @@ class SystemMaintenance(commands.Cog):
             duration = performance_monitor.end_timing(timing_id)
 
             embed = discord.Embed(
-                title="System Cleanup Completed",
-                description=f"Cleanup completed in {duration:.2f} seconds",
-                color=discord.Color.green(),
+                title="[成功] 系統清理完成",
+                description=f"清理耗時 {duration:.2f} 秒",
+                color=discord.Color.from_rgb(46, 204, 113),
             )
 
             api_optimizer = get_api_optimizer()
             if api_optimizer:
                 cache_stats = api_optimizer.get_cache_stats()
                 embed.add_field(
-                    name="Cache Status",
-                    value=f"Total entries: {cache_stats['total_entries']}\nValid entries: {cache_stats['valid_entries']}",
+                    name="[快取狀態]",
+                    value=f"總計: {cache_stats['total_entries']}\n有效: {cache_stats['valid_entries']}",
                     inline=True,
                 )
 
             await interaction.followup.send(embed=embed)
 
         except Exception as e:
-            await interaction.followup.send(f"Cleanup failed: {e}")
+            await interaction.followup.send(f"[失敗] 系統清理失敗: {e}")
 
-    @app_commands.command(name="performance-stats", description="性能統計數據")
+    @app_commands.command(name="performance-stats", description="效能統計數據")
     @app_commands.checks.has_permissions(administrator=True)
     async def performance_stats(self, interaction: discord.Interaction):
+        """效能統計數據"""
         await interaction.response.defer(ephemeral=True)
 
         try:
             stats = performance_monitor.get_performance_stats()
 
             if not stats:
-                await interaction.followup.send("No performance data available")
+                await interaction.followup.send("[提示] 目前沒有效能數據")
                 return
 
             embed = discord.Embed(
-                title="Performance Statistics", color=discord.Color.purple()
+                title="[效能] 效能統計",
+                color=discord.Color.from_rgb(155, 89, 182),
             )
 
             for operation, data in stats.items():
                 value = (
-                    f"Count: {data['count']}\n"
-                    f"Avg: {data['avg']:.3f}s\n"
-                    f"Min: {data['min']:.3f}s\n"
-                    f"Max: {data['max']:.3f}s\n"
-                    f"Total: {data['total']:.2f}s"
+                    f"次數: {data['count']}\n"
+                    f"平均: {data['avg']:.3f}s\n"
+                    f"最小: {data['min']:.3f}s\n"
+                    f"最大: {data['max']:.3f}s\n"
+                    f"總計: {data['total']:.2f}s"
                 )
                 embed.add_field(name=operation, value=value, inline=True)
 
             await interaction.followup.send(embed=embed)
 
         except Exception as e:
-            await interaction.followup.send(f"Error retrieving performance stats: {e}")
+            await interaction.followup.send(f"[失敗] 無法取得效能統計: {e}")
 
     @app_commands.command(name="clear-cache", description="清理系統快取")
     @app_commands.checks.has_permissions(administrator=True)
@@ -269,9 +279,10 @@ class SystemMaintenance(commands.Cog):
         pattern: str = "all",
         confirm: bool = False,
     ):
+        """清理系統快取"""
         if not confirm:
             await interaction.response.send_message(
-                "Please set confirm=True to clear cache", ephemeral=True
+                "[提示] 請將 confirm 設為 True 以確認清理", ephemeral=True
             )
             return
 
@@ -280,31 +291,33 @@ class SystemMaintenance(commands.Cog):
         try:
             api_optimizer = get_api_optimizer()
             if not api_optimizer:
-                await interaction.followup.send("API optimizer not available")
+                await interaction.followup.send("[失敗] API 優化器尚未初始化")
                 return
 
             if pattern == "all":
                 api_optimizer.clear_cache()
-                message = "All cache cleared"
+                message = "已清理所有快取"
             elif pattern in ["channel", "user", "guild"]:
                 api_optimizer.clear_cache(f"{pattern}_")
-                message = f"{pattern.capitalize()} cache cleared"
+                message = f"已清理 {pattern} 快取"
             else:
                 await interaction.followup.send(
-                    "Invalid pattern. Use: channel, user, guild, or all"
+                    "[失敗] 無效的模式，請使用: channel, user, guild 或 all"
                 )
                 return
 
             performance_monitor.clear_metrics()
 
             embed = discord.Embed(
-                title="Cache Cleared", description=message, color=discord.Color.green()
+                title="[成功] 快取已清理",
+                description=message,
+                color=discord.Color.from_rgb(46, 204, 113),
             )
 
             await interaction.followup.send(embed=embed)
 
         except Exception as e:
-            await interaction.followup.send(f"Cache clear failed: {e}")
+            await interaction.followup.send(f"[失敗] 快取清理失敗: {e}")
 
 
 async def setup(bot: commands.Bot):
