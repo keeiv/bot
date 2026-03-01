@@ -11,6 +11,7 @@ from discord.ext import commands
 from discord.ext import tasks
 
 from src.utils.github_manager import get_github_manager
+from src.utils.github_manager import init_github_manager
 
 # UTC+8 時區
 TZ_OFFSET = timezone(timedelta(hours=8))
@@ -259,4 +260,6 @@ class GithubWatch(commands.Cog):
 
 
 async def setup(bot: commands.Bot):
+    token = os.getenv("GITHUB_TOKEN")
+    init_github_manager(token)
     await bot.add_cog(GithubWatch(bot))

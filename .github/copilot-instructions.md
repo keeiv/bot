@@ -19,9 +19,8 @@ src/
       report.py       # 右鍵選單舉報系統 + 禁言/封禁/警告 Modal
       message_logger.py  # 訊息編輯/刪除日誌
       developer.py    # 開發者專用指令
-      performance_monitor.py  # 性能監控面板
-      system_maintenance.py   # 系統維護
-      github_diagnostics.py   # GitHub API 診斷
+      performance_monitor.py  # 性能背景監控 (無指令)
+      system_maintenance.py   # 系統背景維護 (無指令)
     features/         # 功能模組
       anti_spam.py    # 7層防刷屏系統 (10 個子指令)
       giveaway.py     # 抽獎系統 (按鈕參與, 自動結算)

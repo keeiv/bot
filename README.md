@@ -57,13 +57,6 @@
 ### GitHub 監控
 - `/repo_watch set` 設定通用倉庫監控、`/repo_watch status` / `disable`
 - `/repo_track add` 專門追蹤 keeiv/bot 倉庫更新 (commits + PRs)
-- `/github-diagnose` GitHub API 診斷、`/github-status` 速率限制查看
-
-### 系統監控
-- `/performance-dashboard` 綜合性能面板
-- `/network-diagnostics` 網路連接診斷
-- `/cache-management` 快取管理
-- `/system-status` 系統狀態、`/system-cleanup` 系統清理
 
 ### 其他
 - `/user_info` 查看用戶資訊 (含 osu! 綁定與成就進度)
