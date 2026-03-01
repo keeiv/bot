@@ -24,7 +24,7 @@ def _format_time(dt: datetime) -> str:
 
 
 class Management(commands.Cog):
-    """Server management commands including repository tracking, role assignment, emoji management, and welcome messages."""
+    """伺服器管理指令，包含倉庫追蹤、身份組分配、表情符號管理和歡迎訊息"""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -61,11 +61,11 @@ class Management(commands.Cog):
                 json.dump(self._config, f, ensure_ascii=False, indent=2)
 
         except Exception as e:
-            print(f"Error saving config: {e}")
-            # Try to restore from backup if main save failed
+            print(f"儲存設定失敗: {e}")
+            # 嘗試從備份還原
             backup_file = f"{self.data_file}.backup"
             if os.path.exists(backup_file):
-                print("Attempting to restore from backup...")
+                print("正在從備份還原...")
                 shutil.copy2(backup_file, self.data_file)
 
     async def _get_session(self) -> aiohttp.ClientSession:
@@ -89,7 +89,7 @@ class Management(commands.Cog):
     ):
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message(
-                "You need 'Manage Channels' permission to use this command.",
+                "[失敗] 你需要「管理頻道」權限",
                 ephemeral=True,
             )
             return
@@ -114,14 +114,14 @@ class Management(commands.Cog):
 
         self._save_config()
         await interaction.response.send_message(
-            f"Now tracking {repo_key} updates in {channel.mention}"
+            f"[成功] 已開始在 {channel.mention} 追蹤 {repo_key} 的更新"
         )
 
     @repo_track.command(name="remove", description="移除 keeiv/bot 倉庫追蹤")
     async def repo_track_remove(self, interaction: discord.Interaction):
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message(
-                "You need 'Manage Channels' permission to use this command.",
+                "[失敗] 你需要「管理頻道」權限",
                 ephemeral=True,
             )
             return
@@ -137,10 +137,10 @@ class Management(commands.Cog):
 
             del self._config[guild_id]["tracked_repos"][repo_key]
             self._save_config()
-            await interaction.response.send_message(f"Stopped tracking {repo_key}")
+            await interaction.response.send_message(f"[成功] 已停止追蹤 {repo_key}")
         else:
             await interaction.response.send_message(
-                f"{repo_key} is not being tracked", ephemeral=True
+                f"[提示] {repo_key} 目前未被追蹤", ephemeral=True
             )
 
     @repo_track.command(name="status", description="顯示追蹤狀態")
@@ -154,12 +154,12 @@ class Management(commands.Cog):
         ):
 
             await interaction.response.send_message(
-                "No repositories are being tracked", ephemeral=True
+                "[提示] 目前沒有追蹤任何倉庫", ephemeral=True
             )
             return
 
         embed = discord.Embed(
-            title="keeiv/bot Repository Tracking Status", color=discord.Color.blue()
+            title="keeiv/bot 倉庫追蹤狀態", color=discord.Color.from_rgb(52, 152, 219)
         )
 
         repo_key = "keeiv/bot"
@@ -174,16 +174,16 @@ class Management(commands.Cog):
             channel_name = (
                 channel.mention
                 if channel
-                else f"Unknown channel ({data['channel_id']})"
+                else f"未知頻道 ({data['channel_id']})"
             )
 
             embed.add_field(
                 name=repo_key,
-                value=f"Channel: {channel_name}\nLast commit: {data.get('last_commit', 'Never')}\nLast PR: {data.get('last_pr', 'Never')}",
+                value=f"頻道: {channel_name}\n最後 Commit: {data.get('last_commit', '尚無')}\n最後 PR: {data.get('last_pr', '尚無')}",
                 inline=False,
             )
         else:
-            embed.description = "keeiv/bot repository is not being tracked"
+            embed.description = "keeiv/bot 倉庫目前未被追蹤"
 
         await interaction.response.send_message(embed=embed)
 
@@ -226,10 +226,10 @@ class Management(commands.Cog):
                         channel = self.bot.get_channel(repo_data["channel_id"])
                         if channel:
                             embed = discord.Embed(
-                                title=f"New Commit in {repo_key}",
+                                title=f"[GitHub] {repo_key} 新 Commit",
                                 description=latest_commit["commit"]["message"][:200],
                                 url=latest_commit["html_url"],
-                                color=discord.Color.green(),
+                                color=discord.Color.from_rgb(46, 204, 113),
                             )
                             embed.set_author(
                                 name=latest_commit["author"]["login"],
@@ -237,10 +237,10 @@ class Management(commands.Cog):
                                 icon_url=latest_commit["author"]["avatar_url"],
                             )
                             embed.add_field(
-                                name="SHA", value=latest_commit["sha"][:7], inline=True
+                                name="[SHA]", value=latest_commit["sha"][:7], inline=True
                             )
                             embed.add_field(
-                                name="Date",
+                                name="[日期]",
                                 value=_format_time(
                                     datetime.fromisoformat(
                                         latest_commit["commit"]["committer"]["date"]
@@ -268,10 +268,10 @@ class Management(commands.Cog):
                         channel = self.bot.get_channel(repo_data["channel_id"])
                         if channel:
                             embed = discord.Embed(
-                                title=f"New Pull Request in {repo_key}",
+                                title=f"[GitHub] {repo_key} 新 Pull Request",
                                 description=latest_pr["title"][:200],
                                 url=latest_pr["html_url"],
-                                color=discord.Color.orange(),
+                                color=discord.Color.from_rgb(230, 126, 34),
                             )
                             embed.set_author(
                                 name=latest_pr["user"]["login"],
@@ -279,12 +279,12 @@ class Management(commands.Cog):
                                 icon_url=latest_pr["user"]["avatar_url"],
                             )
                             embed.add_field(
-                                name="PR Number",
+                                name="[PR 編號]",
                                 value=str(latest_pr["number"]),
                                 inline=True,
                             )
                             embed.add_field(
-                                name="State",
+                                name="[狀態]",
                                 value=latest_pr["state"].title(),
                                 inline=True,
                             )
@@ -411,7 +411,7 @@ class Management(commands.Cog):
                     url = f"https://cdn.discordapp.com/emojis/{emoji_id}.png"
                 else:
                     await interaction.response.send_message(
-                        "Invalid emoji format", ephemeral=True
+                        "[失敗] 無效的表情符號格式", ephemeral=True
                     )
                     return
             elif emoji.startswith("<a:") and emoji.endswith(">"):
@@ -422,22 +422,22 @@ class Management(commands.Cog):
                     url = f"https://cdn.discordapp.com/emojis/{emoji_id}.gif"
                 else:
                     await interaction.response.send_message(
-                        "Invalid emoji format", ephemeral=True
+                        "[失敗] 無效的表情符號格式", ephemeral=True
                     )
                     return
             else:
                 await interaction.response.send_message(
-                    "Please use a custom emoji", ephemeral=True
+                    "[失敗] 請使用自訂表情符號", ephemeral=True
                 )
                 return
 
-            embed = discord.Embed(title="Emoji Image", color=discord.Color.blue())
+            embed = discord.Embed(title="[表情符號] 大圖", color=discord.Color.from_rgb(52, 152, 219))
             embed.set_image(url=url)
             await interaction.response.send_message(embed=embed)
 
         except Exception as e:
             await interaction.response.send_message(
-                f"Error getting emoji: {e}", ephemeral=True
+                f"[失敗] 取得表情符號失敗: {e}", ephemeral=True
             )
 
     @emoji.command(name="upload", description="上傳表情符號到伺服器")
@@ -447,32 +447,32 @@ class Management(commands.Cog):
     ):
         if not interaction.user.guild_permissions.manage_emojis:
             await interaction.response.send_message(
-                "You need 'Manage Emojis' permission to use this command.",
+                "[失敗] 你需要「管理表情符號」權限",
                 ephemeral=True,
             )
             return
 
         if not image.content_type.startswith("image/"):
             await interaction.response.send_message(
-                "Please upload an image file", ephemeral=True
+                "[失敗] 請上傳圖片檔案", ephemeral=True
             )
             return
 
         try:
             image_data = await image.read()
             emoji = await interaction.guild.create_custom_emoji(
-                name=name, image=image_data, reason=f"Uploaded by {interaction.user}"
+                name=name, image=image_data, reason=f"由 {interaction.user} 上傳"
             )
             await interaction.response.send_message(
-                f"Successfully uploaded emoji: {emoji}"
+                f"[成功] 已上傳表情符號: {emoji}"
             )
         except discord.Forbidden:
             await interaction.response.send_message(
-                "I don't have permission to upload emojis", ephemeral=True
+                "[失敗] 機器人沒有權限上傳表情符號", ephemeral=True
             )
         except Exception as e:
             await interaction.response.send_message(
-                f"Error uploading emoji: {e}", ephemeral=True
+                f"[失敗] 上傳表情符號失敗: {e}", ephemeral=True
             )
 
     # Welcome message commands
@@ -491,7 +491,7 @@ class Management(commands.Cog):
         self,
         interaction: discord.Interaction,
         channel: discord.TextChannel,
-        message: str = "Welcome {user} to {server}!",
+        message: str = "歡迎 {user} 來到 {server}！",
         embed_title: str = None,
         embed_color: str = None,
         auto_role: discord.Role = None,
@@ -499,7 +499,7 @@ class Management(commands.Cog):
     ):
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message(
-                "You need 'Manage Channels' permission to use this command.",
+                "[失敗] 你需要「管理頻道」權限",
                 ephemeral=True,
             )
             return
@@ -523,7 +523,7 @@ class Management(commands.Cog):
                 welcome_config["embed_color"] = int(embed_color.lstrip("#"), 16)
             except ValueError:
                 await interaction.response.send_message(
-                    "Invalid color format. Use hex format like #FF5733", ephemeral=True
+                    "[失敗] 無效的顏色格式，請使用十六進位格式，例如 #FF5733", ephemeral=True
                 )
                 return
 
@@ -539,11 +539,11 @@ class Management(commands.Cog):
         self._config[guild_id]["welcome"] = welcome_config
         self._save_config()
 
-        response_msg = f"Welcome messages will be sent to {channel.mention}"
+        response_msg = f"[成功] 歡迎訊息將發送至 {channel.mention}"
         if auto_role:
-            response_msg += f"\nAuto role: {auto_role.mention}"
+            response_msg += f"\n自動角色: {auto_role.mention}"
         if send_dm:
-            response_msg += "\nDM notifications enabled"
+            response_msg += "\n已啟用私訊通知"
 
         await interaction.response.send_message(response_msg)
 
@@ -551,31 +551,31 @@ class Management(commands.Cog):
     async def welcome_templates(self, interaction: discord.Interaction):
         templates = [
             {
-                "name": "Basic",
-                "message": "Welcome {user} to {server}! We now have {count} members!",
+                "name": "基本",
+                "message": "歡迎 {user} 來到 {server}！我們現在有 {count} 位成員！",
             },
             {
-                "name": "Friendly",
-                "message": "Hello {user}! Welcome to {server}! Feel free to introduce yourself.",
+                "name": "友善",
+                "message": "你好 {user}！歡迎來到 {server}！請隨意介紹你自己。",
             },
             {
-                "name": "Formal",
-                "message": "Greetings {user}. Welcome to {server}. Please review the rules and enjoy your stay.",
+                "name": "正式",
+                "message": "{user} 您好，歡迎來到 {server}。請先閱讀規則，祝您在此愚快。",
             },
             {
-                "name": "Gaming",
-                "message": "{user} joined the game! Welcome to {server}! Ready to play?",
+                "name": "遊戲",
+                "message": "{user} 加入了遊戲！歡迎來到 {server}！準備好了嗎？",
             },
             {
-                "name": "Community",
-                "message": "Welcome {user} to our community {server}! You're our {count}th member!",
+                "name": "社群",
+                "message": "歡迎 {user} 加入我們的社群 {server}！你是第 {count} 位成員！",
             },
         ]
 
         embed = discord.Embed(
-            title="Welcome Message Templates",
-            description="Use these templates with variables: {user}, {server}, {count}, {created_at}",
-            color=discord.Color.blue(),
+            title="[歡迎訊息] 預設模板",
+            description="可使用變數: {user}, {server}, {count}, {created_at}",
+            color=discord.Color.from_rgb(52, 152, 219),
         )
 
         for template in templates:
@@ -597,7 +597,7 @@ class Management(commands.Cog):
 
         if guild_id not in self._config or "welcome" not in self._config[guild_id]:
             await interaction.response.send_message(
-                "Welcome messages are not configured", ephemeral=True
+                "[失敗] 尚未設定歡迎訊息", ephemeral=True
             )
             return
 
@@ -622,18 +622,18 @@ class Management(commands.Cog):
             embed.set_thumbnail(
                 url=interaction.guild.icon.url if interaction.guild.icon else None
             )
-            embed.set_footer(text=f"Member #{interaction.guild.member_count}")
+            embed.set_footer(text=f"第 {interaction.guild.member_count} 位成員")
             await interaction.response.send_message(embed=embed, ephemeral=True)
         else:
             await interaction.response.send_message(
-                f"Preview: {message}", ephemeral=True
+                f"[預覽] {message}", ephemeral=True
             )
 
     @welcome.command(name="disable", description="停用歡迎訊息")
     async def welcome_disable(self, interaction: discord.Interaction):
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message(
-                "You need 'Manage Channels' permission to use this command.",
+                "[失敗] 你需要「管理頻道」權限",
                 ephemeral=True,
             )
             return
@@ -643,10 +643,10 @@ class Management(commands.Cog):
         if guild_id in self._config and "welcome" in self._config[guild_id]:
             del self._config[guild_id]["welcome"]
             self._save_config()
-            await interaction.response.send_message("Welcome messages disabled")
+            await interaction.response.send_message("[成功] 已停用歡迎訊息")
         else:
             await interaction.response.send_message(
-                "Welcome messages are not enabled", ephemeral=True
+                "[失敗] 歡迎訊息尚未啟用", ephemeral=True
             )
 
     # Auto role commands
@@ -733,31 +733,31 @@ class Management(commands.Cog):
 
         if guild_id not in self._config or "auto_roles" not in self._config[guild_id]:
             await interaction.response.send_message(
-                "No auto role rules configured", ephemeral=True
+                "[失敗] 尚未設定自動角色規則", ephemeral=True
             )
             return
 
         auto_roles = self._config[guild_id]["auto_roles"]
 
-        embed = discord.Embed(title="Auto Role Rules", color=discord.Color.blue())
+        embed = discord.Embed(title="[自動角色] 規則列表", color=discord.Color.from_rgb(52, 152, 219))
 
         for i, role_config in enumerate(auto_roles, 1):
             role = interaction.guild.get_role(role_config["role_id"])
             role_name = (
-                role.name if role else f"Deleted Role ({role_config['role_id']})"
+                role.name if role else f"已刪除的角色 ({role_config['role_id']})"
             )
 
             rules = []
             if role_config.get("delay", 0) > 0:
-                rules.append(f"Delay: {role_config['delay']}s")
+                rules.append(f"延遲: {role_config['delay']} 秒")
             if role_config.get("min_members", 0) > 0:
-                rules.append(f"Min members: {role_config['min_members']}")
+                rules.append(f"最少成員: {role_config['min_members']}")
             if role_config.get("require_verification", False):
-                rules.append("Verification required")
+                rules.append("需要驗證")
 
-            rule_text = " | ".join(rules) if rules else "Immediate"
+            rule_text = " | ".join(rules) if rules else "立即分配"
             embed.add_field(
-                name=f"Rule {i}: {role_name}", value=rule_text, inline=False
+                name=f"規則 {i}: {role_name}", value=rule_text, inline=False
             )
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -767,7 +767,7 @@ class Management(commands.Cog):
     async def auto_role_remove(self, interaction: discord.Interaction, rule_index: int):
         if not interaction.user.guild_permissions.manage_roles:
             await interaction.response.send_message(
-                "You need 'Manage Roles' permission to use this command.",
+                "[失敗] 你需要「管理身份組」權限",
                 ephemeral=True,
             )
             return
@@ -781,7 +781,7 @@ class Management(commands.Cog):
             or rule_index > len(self._config[guild_id]["auto_roles"])
         ):
             await interaction.response.send_message(
-                "Invalid rule index", ephemeral=True
+                "[失敗] 無效的規則編號", ephemeral=True
             )
             return
 
@@ -789,10 +789,10 @@ class Management(commands.Cog):
         self._save_config()
 
         role = interaction.guild.get_role(removed_role["role_id"])
-        role_name = role.name if role else f"Deleted Role ({removed_role['role_id']})"
+        role_name = role.name if role else f"已刪除的角色 ({removed_role['role_id']})"
 
         await interaction.response.send_message(
-            f"Removed auto role rule for: {role_name}", ephemeral=True
+            f"[成功] 已移除自動角色規則: {role_name}", ephemeral=True
         )
 
     @commands.Cog.listener()
@@ -821,7 +821,7 @@ class Management(commands.Cog):
                     embed.set_thumbnail(
                         url=member.guild.icon.url if member.guild.icon else None
                     )
-                    embed.set_footer(text=f"Member #{member.guild.member_count}")
+                    embed.set_footer(text=f"第 {member.guild.member_count} 位成員")
                     embed.set_author(
                         name=member.name, icon_url=member.display_avatar.url
                     )
@@ -864,7 +864,7 @@ class Management(commands.Cog):
                     if role_config.get("delay", 0) > 0:
                         await asyncio.sleep(role_config["delay"])
 
-                    await member.add_roles(role, reason="Auto role assignment")
+                    await member.add_roles(role, reason="自動角色分配")
 
                 except (discord.Forbidden, discord.HTTPException):
                     continue

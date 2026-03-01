@@ -19,9 +19,9 @@ class Admin(commands.Cog):
         async def predicate(ctx):
             if blacklist_manager.is_blacklisted(ctx.author.id):
                 embed = discord.Embed(
-                    title="[Denied] Access Denied",
-                    description="You have been banned from using bot commands. Please contact an administrator.",
-                    color=discord.Color.red(),
+                    title="[拒絕] 存取被拒",
+                    description="你已被禁止使用機器人指令，請聯繫管理員。",
+                    color=discord.Color.from_rgb(231, 76, 60),
                 )
                 await ctx.send(embed=embed)
                 return False
@@ -37,18 +37,18 @@ class Admin(commands.Cog):
         """清除訊息"""
         if not ctx.author.guild_permissions.manage_messages:
             await ctx.send(
-                "[Failed] You need manage messages permission", ephemeral=True
+                "[失敗] 你需要「管理訊息」權限", ephemeral=True
             )
             return
 
         if amount < 1 or amount > 100:
-            await ctx.send("[Failed] Amount must be between 1-100", ephemeral=True)
+            await ctx.send("[失敗] 數量必須在 1-100 之間", ephemeral=True)
             return
 
         await ctx.defer()
         deleted = await ctx.channel.purge(limit=amount)
         await ctx.followup.send(
-            f"[Success] Cleared {len(deleted)} messages", ephemeral=True
+            f"[成功] 已清除 {len(deleted)} 則訊息", ephemeral=True
         )
 
     @commands.hybrid_command(name="kick", description="踢出成員")
@@ -57,16 +57,16 @@ class Admin(commands.Cog):
     async def kick(self, ctx, user: discord.Member, reason: str = "沒有提供原因"):
         """踢出成員"""
         if not ctx.author.guild_permissions.kick_members:
-            await ctx.send("[Failed] You need kick members permission", ephemeral=True)
+            await ctx.send("[失敗] 你需要「踢出成員」權限", ephemeral=True)
             return
 
         if user == ctx.author:
-            await ctx.send("[Failed] You cannot kick yourself", ephemeral=True)
+            await ctx.send("[失敗] 你不能踢出自己", ephemeral=True)
             return
 
         if user.top_role >= ctx.author.top_role:
             await ctx.send(
-                "[Failed] Your permissions are insufficient to kick this member",
+                "[失敗] 你的權限不足以踢出此成員",
                 ephemeral=True,
             )
             return
@@ -74,13 +74,13 @@ class Admin(commands.Cog):
         try:
             await user.kick(reason=reason)
             embed = discord.Embed(
-                title="[Success] Member Kicked",
-                description=f"Member: {user.mention}\nReason: {reason}",
+                title="[成功] 成員已被踢出",
+                description=f"成員: {user.mention}\n原因: {reason}",
                 color=discord.Color.from_rgb(46, 204, 113),
             )
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"[Failed] Unable to kick member: {str(e)}", ephemeral=True)
+            await ctx.send(f"[失敗] 無法踢出成員: {str(e)}", ephemeral=True)
 
     @commands.hybrid_command(name="ban", description="封禁成員")
     @app_commands.describe(user="要封禁的成員", reason="封禁原因")
@@ -88,16 +88,16 @@ class Admin(commands.Cog):
     async def ban(self, ctx, user: discord.Member, reason: str = "沒有提供原因"):
         """封禁成員"""
         if not ctx.author.guild_permissions.ban_members:
-            await ctx.send("[Failed] You need ban members permission", ephemeral=True)
+            await ctx.send("[失敗] 你需要「封禁成員」權限", ephemeral=True)
             return
 
         if user == ctx.author:
-            await ctx.send("[Failed] You cannot ban yourself", ephemeral=True)
+            await ctx.send("[失敗] 你不能封禁自己", ephemeral=True)
             return
 
         if user.top_role >= ctx.author.top_role:
             await ctx.send(
-                "[Failed] Your permissions are insufficient to ban this member",
+                "[失敗] 你的權限不足以封禁此成員",
                 ephemeral=True,
             )
             return
@@ -105,13 +105,13 @@ class Admin(commands.Cog):
         try:
             await user.ban(reason=reason)
             embed = discord.Embed(
-                title="[Success] Member Banned",
-                description=f"Member: {user.mention}\nReason: {reason}",
+                title="[成功] 成員已被封禁",
+                description=f"成員: {user.mention}\n原因: {reason}",
                 color=discord.Color.from_rgb(46, 204, 113),
             )
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"[Failed] Unable to ban member: {str(e)}", ephemeral=True)
+            await ctx.send(f"[失敗] 無法封禁成員: {str(e)}", ephemeral=True)
 
     @commands.hybrid_command(name="mute", description="禁言成員")
     @app_commands.describe(user="要禁言的成員", duration="禁言時長 (分鐘，預設 60)", reason="禁言原因")
@@ -377,5 +377,5 @@ class Admin(commands.Cog):
 
 
 async def setup(bot: commands.Bot):
-    """Load Cog"""
+    """載入 Cog"""
     await bot.add_cog(Admin(bot))
