@@ -193,7 +193,10 @@ class GithubWatch(commands.Cog):
 
     @_poll_task.before_loop
     async def _before_poll(self):
-        await self.bot.wait_until_ready()
+        try:
+            await self.bot.wait_until_ready()
+        except RuntimeError:
+            self._poll_task.cancel()
 
     @repo_watch.command(name="set", description="設定 GitHub 檔案庫更新通知")
     @app_commands.describe(
