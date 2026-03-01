@@ -1,107 +1,106 @@
 import os
 import pkgutil
-
+import asyncio
 import discord
 from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
-
-from src.utils.blacklist_manager import blacklist_manager
+from src.utils.blacklist_manager import BlacklistManager
 
 load_dotenv()
 
-
 class BlacklistCheckTree(app_commands.CommandTree):
-    """自定義 CommandTree，新增全域黑名單檢查"""
-
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        """全域黑名單檢查"""
-        # 允許 "申訴" 和 "申訴狀態" 命令，即使用戶被黑名單
+        bot: Bot = interaction.client
         if interaction.command and interaction.command.name in ["申訴", "申訴狀態"]:
             return True
-
-        # 檢查用戶是否被黑名單
-        if blacklist_manager.is_blacklisted(interaction.user.id):
-            embed = discord.Embed(
-                title="[拒絕] 禁止使用",
-                description="您因被新增到黑名單而無法使用此命令。\n\n如果您認為這是誤會，可以使用 `/申訴` 命令提交申訴。",
-                color=discord.Color.red(),
-            )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            return False
-
-        return True
-
+        entry = await bot.blacklist_manager.check(interaction.user.id)
+        if not entry:
+            return True
+        mode = entry.get("mode")
+        reason = entry.get("reason", "未提供原因")
+        if mode == "global_ban" and interaction.guild:
+            try:
+                await interaction.guild.ban(
+                    interaction.user,
+                    reason=f"Global Ban: {reason}",
+                )
+            except:
+                pass
+        embed = discord.Embed(
+            title="[拒絕] 禁止使用",
+            description=f"""您已被加入黑名單。\n\n原因: {reason}\n模式: {mode}""",
+            color=discord.Color.red(),
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return False
 
 class Bot(commands.Bot):
-    """包含增強功能的主機器人類別"""
-
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
         intents.guilds = True
         intents.members = True
-
         super().__init__(
             command_prefix=commands.when_mentioned_or("!"),
             intents=intents,
             help_command=None,
             tree_cls=BlacklistCheckTree,
         )
-
+        self.api_key = os.getenv("BLACKLIST_API_KEY")
+        self.api_base = "https://api.cathome.shop/blacklist"
+        self.blacklist_manager = BlacklistManager(self.api_key, self.api_base)
     async def setup_hook(self):
-        """載入所有 cogs 並設置機器人"""
+        await self.blacklist_manager.setup()
         await self.load_cogs()
         await self.tree.sync()
-
+    async def close(self):
+        await self.blacklist_manager.close()
+        await super().close()
     async def load_cogs(self):
-        """自動發現並載入 src.cogs 下的所有 cogs"""
         base_package = "src.cogs"
         cogs_path = os.path.join(os.path.dirname(__file__), "cogs")
-
-        if not os.path.isdir(cogs_path):
-            print(f"找不到 Cog 目錄: {cogs_path}")
-            return
-
         for module_info in pkgutil.walk_packages(
             path=[cogs_path],
             prefix=f"{base_package}.",
         ):
-            module_name = module_info.name
-
             if module_info.ispkg:
                 continue
-
-            try:
-                await self.load_extension(module_name)
-                print(f"已載入 {module_name}")
-            except Exception as error:
-                print(f"載入 {module_name} 失敗: {error}")
-
-    async def on_ready(self):
-        """機器人已連線時觸發"""
-        print(f"{self.user} 已連接到 Discord！")
-        print(f"機器人在 {len(self.guilds)} 個伺服器中")
-
+            await self.load_extension(module_info.name)
     async def on_message(self, message: discord.Message):
-        """檢查訊息中的黑名單用戶"""
-        # 忽略機器人訊息
         if message.author.bot:
             await self.process_commands(message)
             return
-
-        # 檢查黑名單
-        if blacklist_manager.is_blacklisted(message.author.id):
-            # 允許申訴相關的命令
-            if not any(
-                cmd in message.content.lower() for cmd in ["申訴", "appeal_status"]
-            ):
-                embed = discord.Embed(
-                    title="[拒絕] 禁止使用",
-                    description="您因被新增到黑名單而無法使用此命令。\n\n如果您認為這是誤會，可以使用 `/申訴` 命令提交申訴。",
-                    color=discord.Color.red(),
-                )
-                await message.reply(embed=embed, delete_after=10)
-                return
-
+        entry = await self.blacklist_manager.check(message.author.id)
+        if entry:
+            mode = entry.get("mode")
+            reason = entry.get("reason", "未提供原因")
+            if mode == "global_ban" and message.guild:
+                try:
+                    await message.guild.ban(
+                        message.author,
+                        reason=f"Global Ban: {reason}",
+                    )
+                except:
+                    pass
+            embed = discord.Embed(
+                title="[拒絕] 禁止使用",
+                description=f"""您已被加入黑名單。\n\n原因: {reason}\n模式: {mode}""",
+                color=discord.Color.red(),
+            )
+            await message.reply(embed=embed, delete_after=10)
+            return
         await self.process_commands(message)
+    async def on_member_join(self, member: discord.Member):
+        entry = await self.blacklist_manager.check(member.id)
+        if entry:
+            mode = entry.get("mode")
+            reason = entry.get("reason", "未提供原因")
+            if mode == "global_ban":
+                try:
+                    await member.guild.ban(
+                        member,
+                        reason=f"Global Ban: {reason}",
+                    )
+                except Exception:
+                    pass
