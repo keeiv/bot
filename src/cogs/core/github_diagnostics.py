@@ -12,6 +12,8 @@ from src.utils.github_manager import get_github_manager
 from src.utils.github_manager import GitHubDiagnostics
 from src.utils.github_manager import GitHubRequestQueue
 
+DEVELOPER_ID = 241619561760292866
+
 
 class GitHubDiagnosticsCog(commands.Cog):
     """GitHub API 診斷 Cog"""
@@ -219,8 +221,7 @@ class GitHubDiagnosticsCog(commands.Cog):
             await interaction.followup.send(f"[失敗] 無法取得 GitHub 狀態: {e}")
 
     @app_commands.command(name="github-fix", description="嘗試修復 GitHub API 連線問題")
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.describe(action="修復動作", reset_token="重設 API Token")
+    @app_commands.describe(action="修復動作")
     @app_commands.choices(
         action=[
             app_commands.Choice(name="重新初始化連線", value="reinit"),
@@ -230,9 +231,15 @@ class GitHubDiagnosticsCog(commands.Cog):
         ]
     )
     async def github_fix(
-        self, interaction: discord.Interaction, action: str, reset_token: bool = False
+        self, interaction: discord.Interaction, action: str
     ):
-        """GitHub API 連線修復"""
+        """僅開發者可用 — GitHub API 連線修復"""
+        if interaction.user.id != DEVELOPER_ID:
+            await interaction.response.send_message(
+                "[失敗] 此指令僅限機器人開發者使用", ephemeral=True
+            )
+            return
+
         await interaction.response.defer(ephemeral=True)
 
         try:
@@ -261,12 +268,6 @@ class GitHubDiagnosticsCog(commands.Cog):
                 await interaction.followup.send("[成功] 已重設速率限制追蹤")
 
             elif action == "test_token":
-                if reset_token:
-                    await interaction.followup.send(
-                        "[提示] 已請求重設 Token，請使用新 Token 重新啟動機器人"
-                    )
-                    return
-
                 rate_limit = await github_manager.get_rate_limit_status()
                 if "rate" in rate_limit:
                     await interaction.followup.send("[成功] Token 有效且運作正常")

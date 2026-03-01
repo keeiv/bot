@@ -362,6 +362,15 @@ class Ticket(commands.Cog):
         role = message.role_mentions[0]
         guild = message.guild
 
+        # 禁止使用 @everyone 作為通知身份組
+        if role.is_default():
+            await message.reply(
+                "[失敗] 無法使用 @everyone 作為工單通知身份組\n"
+                "請建立專用的工作人員身份組",
+                delete_after=10,
+            )
+            return
+
         # 檢查機器人在目標頻道的權限
         bot_perms = channel.permissions_for(guild.me)
         if not bot_perms.send_messages or not bot_perms.create_private_threads:
