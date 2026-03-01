@@ -352,6 +352,75 @@ class BotAppearance(commands.Cog):
                 f"[失敗] 提交審核失敗: {e}", ephemeral=True
             )
 
+    @appearance_group.command(
+        name="reset", description="將機器人在此伺服器的頭像/橫幅還原為全域預設"
+    )
+    @app_commands.describe(target="要還原的項目")
+    @app_commands.choices(
+        target=[
+            app_commands.Choice(name="頭像", value="avatar"),
+            app_commands.Choice(name="橫幅", value="banner"),
+            app_commands.Choice(name="頭像與橫幅", value="both"),
+        ]
+    )
+    async def reset_appearance(
+        self,
+        interaction: discord.Interaction,
+        target: app_commands.Choice[str],
+    ):
+        """將機器人伺服器級頭像/橫幅還原為全域預設"""
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message(
+                "[失敗] 你需要管理員權限", ephemeral=True
+            )
+            return
+
+        await interaction.response.defer()
+
+        target_name_map = {
+            "avatar": "頭像",
+            "banner": "橫幅",
+            "both": "頭像與橫幅",
+        }
+        target_name = target_name_map[target.value]
+
+        try:
+            route = discord.http.Route(
+                "PATCH",
+                "/guilds/{guild_id}/members/@me",
+                guild_id=interaction.guild_id,
+            )
+
+            payload = {}
+            if target.value in ("avatar", "both"):
+                payload["avatar"] = None
+            if target.value in ("banner", "both"):
+                payload["banner"] = None
+
+            await self.bot.http.request(route, json=payload)
+
+            embed = discord.Embed(
+                title="[成功] 外觀已還原",
+                description=f"機器人在此伺服器的{target_name}已還原為全域預設",
+                color=discord.Color.from_rgb(46, 204, 113),
+                timestamp=datetime.now(TZ_OFFSET),
+            )
+            embed.add_field(
+                name="操作者",
+                value=f"{interaction.user.mention} ({interaction.user.id})",
+                inline=False,
+            )
+            await interaction.followup.send(embed=embed)
+
+        except discord.Forbidden:
+            await interaction.followup.send(
+                "[失敗] 機器人缺少必要權限", ephemeral=True
+            )
+        except discord.HTTPException as e:
+            await interaction.followup.send(
+                f"[失敗] API 請求失敗: {e}", ephemeral=True
+            )
+
 
 async def setup(bot: commands.Bot):
     """載入 Cog"""

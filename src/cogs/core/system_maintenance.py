@@ -81,7 +81,7 @@ class SystemMaintenance(commands.Cog):
     async def check_system_health(self):
         try:
             memory_percent = psutil.virtual_memory().percent
-            cpu_percent = psutil.cpu_percent(interval=1)
+            cpu_percent = await asyncio.to_thread(psutil.cpu_percent, 1)
 
             if memory_percent > self.memory_threshold:
                 print(f"[診斷] 記憶體使用率過高: {memory_percent}%")

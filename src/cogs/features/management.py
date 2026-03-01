@@ -504,6 +504,8 @@ class Management(commands.Cog):
             )
             return
 
+        await interaction.response.defer()
+
         guild_id = str(interaction.guild.id)
 
         if guild_id not in self._config:
@@ -522,14 +524,14 @@ class Management(commands.Cog):
             try:
                 welcome_config["embed_color"] = int(embed_color.lstrip("#"), 16)
             except ValueError:
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     "[失敗] 無效的顏色格式，請使用十六進位格式，例如 #FF5733", ephemeral=True
                 )
                 return
 
         if auto_role:
             if auto_role.is_default():
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     "[失敗] 無法將 @everyone 設為自動角色",
                     ephemeral=True,
                 )
@@ -545,7 +547,7 @@ class Management(commands.Cog):
         if send_dm:
             response_msg += "\n已啟用私訊通知"
 
-        await interaction.response.send_message(response_msg)
+        await interaction.followup.send(response_msg)
 
     @welcome.command(name="templates", description="預設歡迎訊息模板")
     async def welcome_templates(self, interaction: discord.Interaction):
