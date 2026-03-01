@@ -6,7 +6,11 @@ from typing import Optional
 import discord
 from discord import app_commands
 from discord.ext import commands
-from ossapi import Ossapi
+
+try:
+    from ossapi import Ossapi
+except Exception:
+    Ossapi = None
 
 
 class OsuInfo(commands.Cog):
@@ -23,7 +27,9 @@ class OsuInfo(commands.Cog):
         client_secret = os.getenv("OSU_CLIENT_SECRET")
         self.api = None
         self._api_error = None
-        if not client_id or not client_secret:
+        if Ossapi is None:
+            self._api_error = "ossapi 套件無法載入，osu! 功能已禁用"
+        elif not client_id or not client_secret:
             self._api_error = "缺少 OSU_CLIENT_ID 或 OSU_CLIENT_SECRET 環境變數"
         else:
             self.api = Ossapi(int(client_id), client_secret)
