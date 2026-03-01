@@ -314,14 +314,28 @@ class Management(commands.Cog):
     ):
         if not interaction.user.guild_permissions.manage_roles:
             await interaction.response.send_message(
-                "You need 'Manage Roles' permission to use this command.",
+                "[失敗] 你需要「管理身份組」權限",
+                ephemeral=True,
+            )
+            return
+
+        if role.is_default():
+            await interaction.response.send_message(
+                "[失敗] 無法操作 @everyone 身份組",
+                ephemeral=True,
+            )
+            return
+
+        if role.managed:
+            await interaction.response.send_message(
+                "[失敗] 無法操作由機器人/整合管理的身份組",
                 ephemeral=True,
             )
             return
 
         if role.position >= interaction.user.top_role.position:
             await interaction.response.send_message(
-                "You cannot assign a role that is higher than or equal to your highest role.",
+                "[失敗] 你無法分配高於或等於你最高身份組的角色",
                 ephemeral=True,
             )
             return
@@ -329,11 +343,12 @@ class Management(commands.Cog):
         try:
             await user.add_roles(role)
             await interaction.response.send_message(
-                f"Assigned {role.mention} to {user.mention}"
+                f"[成功] 已將 {role.mention} 分配給 {user.mention}",
+                ephemeral=True,
             )
         except discord.Forbidden:
             await interaction.response.send_message(
-                "I don't have permission to assign that role.", ephemeral=True
+                "[失敗] 機器人沒有權限分配該身份組", ephemeral=True
             )
 
     @role.command(name="remove", description="從用戶移除身份組")
@@ -343,14 +358,28 @@ class Management(commands.Cog):
     ):
         if not interaction.user.guild_permissions.manage_roles:
             await interaction.response.send_message(
-                "You need 'Manage Roles' permission to use this command.",
+                "[失敗] 你需要「管理身份組」權限",
+                ephemeral=True,
+            )
+            return
+
+        if role.is_default():
+            await interaction.response.send_message(
+                "[失敗] 無法操作 @everyone 身份組",
+                ephemeral=True,
+            )
+            return
+
+        if role.managed:
+            await interaction.response.send_message(
+                "[失敗] 無法操作由機器人/整合管理的身份組",
                 ephemeral=True,
             )
             return
 
         if role.position >= interaction.user.top_role.position:
             await interaction.response.send_message(
-                "You cannot remove a role that is higher than or equal to your highest role.",
+                "[失敗] 你無法移除高於或等於你最高身份組的角色",
                 ephemeral=True,
             )
             return
@@ -358,11 +387,12 @@ class Management(commands.Cog):
         try:
             await user.remove_roles(role)
             await interaction.response.send_message(
-                f"Removed {role.mention} from {user.mention}"
+                f"[成功] 已從 {user.mention} 移除 {role.mention}",
+                ephemeral=True,
             )
         except discord.Forbidden:
             await interaction.response.send_message(
-                "I don't have permission to remove that role.", ephemeral=True
+                "[失敗] 機器人沒有權限移除該身份組", ephemeral=True
             )
 
     # Emoji management commands
@@ -498,6 +528,12 @@ class Management(commands.Cog):
                 return
 
         if auto_role:
+            if auto_role.is_default():
+                await interaction.response.send_message(
+                    "[失敗] 無法將 @everyone 設為自動角色",
+                    ephemeral=True,
+                )
+                return
             welcome_config["auto_role_id"] = auto_role.id
 
         self._config[guild_id]["welcome"] = welcome_config
@@ -633,14 +669,28 @@ class Management(commands.Cog):
     ):
         if not interaction.user.guild_permissions.manage_roles:
             await interaction.response.send_message(
-                "You need 'Manage Roles' permission to use this command.",
+                "[失敗] 你需要「管理身份組」權限",
+                ephemeral=True,
+            )
+            return
+
+        if role.is_default():
+            await interaction.response.send_message(
+                "[失敗] 無法將 @everyone 設為自動角色",
+                ephemeral=True,
+            )
+            return
+
+        if role.managed:
+            await interaction.response.send_message(
+                "[失敗] 無法設定由機器人/整合管理的身份組為自動角色",
                 ephemeral=True,
             )
             return
 
         if role.position >= interaction.user.top_role.position:
             await interaction.response.send_message(
-                "You cannot assign a role that is higher than or equal to your highest role.",
+                "[失敗] 你無法設定高於或等於你最高身份組的角色",
                 ephemeral=True,
             )
             return
@@ -663,15 +713,15 @@ class Management(commands.Cog):
         self._save_config()
 
         embed = discord.Embed(
-            title="Auto Role Configured",
-            description=f"Role {role.mention} will be automatically assigned",
-            color=discord.Color.green(),
+            title="[成功] 自動角色已設定",
+            description=f"角色 {role.mention} 將自動分配給新成員",
+            color=discord.Color.from_rgb(46, 204, 113),
         )
-        embed.add_field(name="Delay", value=f"{delay} seconds", inline=True)
-        embed.add_field(name="Min Members", value=str(min_members), inline=True)
+        embed.add_field(name="[延遲]", value=f"{delay} 秒", inline=True)
+        embed.add_field(name="[最少成員數]", value=str(min_members), inline=True)
         embed.add_field(
-            name="Require Verification",
-            value="Yes" if require_verification else "No",
+            name="[需要驗證]",
+            value="是" if require_verification else "否",
             inline=True,
         )
 
