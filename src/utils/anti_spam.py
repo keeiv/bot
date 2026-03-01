@@ -1,3 +1,5 @@
+import json
+import os
 import re
 from collections import defaultdict
 from datetime import datetime
@@ -106,9 +108,11 @@ DEFAULT_SETTINGS = {
 class AntiSpamManager:
     """頂級防炸群管理器 — 多層偵測 + 自動升級"""
 
+    SETTINGS_FILE = "data/storage/anti_spam_settings.json"
+
     def __init__(self):
         # {guild_id: settings}
-        self.settings: Dict[int, dict] = {}
+        self.settings: Dict[int, dict] = self._load_all_settings()
         # {guild_id: {user_id: [timestamp]}} — 訊息時間戳
         self.message_log: Dict[int, Dict[int, List[float]]] = defaultdict(
             lambda: defaultdict(list)
@@ -132,6 +136,32 @@ class AntiSpamManager:
 
     # --- 設定管理 ---
 
+    def _load_all_settings(self) -> Dict[int, dict]:
+        """從檔案載入所有伺服器設定"""
+        if not os.path.exists(self.SETTINGS_FILE):
+            return {}
+        try:
+            with open(self.SETTINGS_FILE, "r", encoding="utf-8") as f:
+                raw = json.load(f)
+            return {int(k): v for k, v in raw.items()}
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"[防刷屏] 無法載入設定: {e}")
+            return {}
+
+    def _save_all_settings(self):
+        """儲存所有伺服器設定到檔案"""
+        os.makedirs(os.path.dirname(self.SETTINGS_FILE), exist_ok=True)
+        try:
+            with open(self.SETTINGS_FILE, "w", encoding="utf-8") as f:
+                json.dump(
+                    {str(k): v for k, v in self.settings.items()},
+                    f,
+                    ensure_ascii=False,
+                    indent=2,
+                )
+        except OSError as e:
+            print(f"[防刷屏] 無法儲存設定: {e}")
+
     def get_settings(self, guild_id: int) -> dict:
         """取得伺服器設定 (不存在則建立預設)"""
         if guild_id not in self.settings:
@@ -139,9 +169,10 @@ class AntiSpamManager:
         return self.settings[guild_id]
 
     def update_settings(self, guild_id: int, updates: dict):
-        """更新伺服器設定"""
+        """更新伺服器設定並儲存"""
         s = self.get_settings(guild_id)
         s.update(updates)
+        self._save_all_settings()
 
     def is_whitelisted(
         self, guild_id: int, member: discord.Member, channel_id: int

@@ -29,13 +29,13 @@ class GitHubRateLimitManager:
         rate_info = self.parse_rate_limit_headers(headers)
         self.rate_limits[endpoint] = rate_info
 
-        if rate_info["remaining"] <= 1:
+        if rate_info["remaining"] <= 5:
             current_time = time.time()
             wait_time = max(0, rate_info["reset_time"] - current_time)
 
             if wait_time > 0:
                 print(
-                    f"[GitHub] Rate limit reached for {endpoint}, waiting {wait_time:.1f}s"
+                    f"[GitHub] Rate limit low ({rate_info['remaining']} left) for {endpoint}, waiting {wait_time:.1f}s"
                 )
                 await asyncio.sleep(wait_time)
 
@@ -54,6 +54,8 @@ class GitHubAPIManager:
         self.base_url = "https://api.github.com"
         self.user_agent = "Discord-Bot/1.0"
         self.timeout = aiohttp.ClientTimeout(total=30, connect=10)
+        self._etag_cache: Dict[str, str] = {}
+        self._response_cache: Dict[str, Any] = {}
 
     async def get_session(self) -> aiohttp.ClientSession:
         if self.session is None or self.session.closed:
@@ -70,19 +72,44 @@ class GitHubAPIManager:
 
         return self.session
 
-    async def make_request(self, method: str, endpoint: str, **kwargs) -> Dict:
+    async def make_request(self, method: str, endpoint: str, **kwargs) -> Optional[Dict]:
+        """發送 API 請求，支援 ETag 條件請求。回傳 None 表示 304 無變更"""
         session = await self.get_session()
         url = f"{self.base_url}{endpoint}"
 
+        # 請求前先檢查速率限制，避免白送 403
+        rate_info = self.rate_manager.rate_limits.get(endpoint)
+        if rate_info and rate_info["remaining"] <= 1:
+            wait_time = max(0, rate_info["reset_time"] - time.time())
+            if wait_time > 0:
+                print(f"[GitHub] 預檢: {endpoint} 配額不足，等待 {wait_time:.1f}s")
+                await asyncio.sleep(wait_time)
+
         for attempt in range(self.rate_manager.max_retries):
             try:
-                async with session.request(method, url, **kwargs) as response:
+                # 注入 ETag 條件請求 header
+                req_headers = kwargs.pop("headers", {}) or {}
+                cache_key = f"{method}:{endpoint}"
+                if cache_key in self._etag_cache:
+                    req_headers["If-None-Match"] = self._etag_cache[cache_key]
+
+                async with session.request(method, url, headers=req_headers, **kwargs) as response:
                     await self.rate_manager.wait_for_rate_limit(
                         endpoint, response.headers
                     )
 
+                    # 304 Not Modified — 不消耗配額
+                    if response.status == 304:
+                        return self._response_cache.get(cache_key)
+
                     if response.status == 200:
-                        return await response.json()
+                        data = await response.json()
+                        # 快取 ETag 和回應
+                        etag = response.headers.get("ETag")
+                        if etag:
+                            self._etag_cache[cache_key] = etag
+                            self._response_cache[cache_key] = data
+                        return data
                     elif response.status == 404:
                         raise Exception(f"Resource not found: {endpoint}")
                     elif self.rate_manager.should_retry(response.status):
