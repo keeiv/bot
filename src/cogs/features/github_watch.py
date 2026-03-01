@@ -3,6 +3,7 @@ from datetime import timedelta
 from datetime import timezone
 import json
 import os
+from typing import Optional
 
 import aiohttp
 import discord
@@ -56,17 +57,22 @@ class GithubWatch(commands.Cog):
         with open(self.data_file, "w", encoding="utf-8") as f:
             json.dump(self._config, f, ensure_ascii=False, indent=2)
 
-    def _get_guild_cfg(self, guild_id: int) -> dict | None:
+    def _get_guild_cfg(self, guild_id: int) -> Optional[dict]:
         return self._config.get(str(guild_id))
 
     async def _ensure_session(self) -> aiohttp.ClientSession:
         return get_github_manager()
 
-    async def _fetch_latest_commit(self, owner: str, repo: str) -> dict:
+    async def _fetch_latest_commit(self, owner: str, repo: str) -> Optional[dict]:
+        """取得最新 commit，回傳 None 表示無變更 (304)"""
         github_manager = await self._ensure_session()
 
         try:
             commits = await github_manager.get_commits(owner, repo, per_page=1)
+
+            # 304 Not Modified — 無變更
+            if commits is None:
+                return None
 
             if not commits:
                 raise RuntimeError("GitHub API 回傳空資料")
@@ -164,6 +170,11 @@ class GithubWatch(commands.Cog):
                     continue
 
                 commit = await self._fetch_latest_commit(owner, repo)
+
+                # None = 304 無變更，跳過
+                if commit is None:
+                    continue
+
                 sha = commit.get("sha")
                 if not sha:
                     continue

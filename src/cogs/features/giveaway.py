@@ -371,6 +371,8 @@ class Giveaway(commands.Cog):
     @giveaway_group.command(name="list", description="查看進行中的抽獎")
     async def list_cmd(self, interaction: discord.Interaction):
         """列出伺服器所有進行中的抽獎"""
+        await interaction.response.defer()
+
         data = _load_giveaways()
         guild_id = interaction.guild_id
 
@@ -381,7 +383,7 @@ class Giveaway(commands.Cog):
         ]
 
         if not active:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "[提示] 目前沒有進行中的抽獎", ephemeral=True
             )
             return
@@ -404,7 +406,7 @@ class Giveaway(commands.Cog):
                 inline=False,
             )
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ───────────── 內部方法 ─────────────
 

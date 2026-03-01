@@ -1,6 +1,7 @@
 from datetime import datetime
 import json
 import os
+from typing import Optional
 
 import discord
 from discord import app_commands
@@ -276,13 +277,13 @@ class OsuInfo(commands.Cog):
         with open(self.data_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
-    def get_bound_osu_username(self, discord_user_id: int) -> str | None:
+    def get_bound_osu_username(self, discord_user_id: int) -> Optional[str]:
         bound = self._links.get(str(discord_user_id))
         if not bound:
             return None
         return bound.get("username")
 
-    def _resolve_username(self, discord_user_id: int, username: str | None) -> str:
+    def _resolve_username(self, discord_user_id: int, username: Optional[str]) -> str:
         if username:
             return username
 
