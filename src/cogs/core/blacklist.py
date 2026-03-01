@@ -13,7 +13,7 @@ class AppealModal(ui.Modal, title="黑名單申訴"):
         label="申訴原因",
         style=discord.TextStyle.paragraph,
         max_length=1000,
-    )
+    )  
 
     async def on_submit(self, interaction: discord.Interaction):
         entry = await interaction.client.check_blacklist_api(interaction.user.id)
