@@ -1,11 +1,16 @@
 from datetime import datetime
 import json
 import os
+from typing import Optional
 
 import discord
 from discord import app_commands
 from discord.ext import commands
-from ossapi import Ossapi
+
+try:
+    from ossapi import Ossapi
+except Exception:
+    Ossapi = None
 
 
 class OsuInfo(commands.Cog):
@@ -22,7 +27,9 @@ class OsuInfo(commands.Cog):
         client_secret = os.getenv("OSU_CLIENT_SECRET")
         self.api = None
         self._api_error = None
-        if not client_id or not client_secret:
+        if Ossapi is None:
+            self._api_error = "ossapi 套件無法載入，osu! 功能已禁用"
+        elif not client_id or not client_secret:
             self._api_error = "缺少 OSU_CLIENT_ID 或 OSU_CLIENT_SECRET 環境變數"
         else:
             self.api = Ossapi(int(client_id), client_secret)
@@ -276,13 +283,13 @@ class OsuInfo(commands.Cog):
         with open(self.data_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
-    def get_bound_osu_username(self, discord_user_id: int) -> str | None:
+    def get_bound_osu_username(self, discord_user_id: int) -> Optional[str]:
         bound = self._links.get(str(discord_user_id))
         if not bound:
             return None
         return bound.get("username")
 
-    def _resolve_username(self, discord_user_id: int, username: str | None) -> str:
+    def _resolve_username(self, discord_user_id: int, username: Optional[str]) -> str:
         if username:
             return username
 
