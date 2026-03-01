@@ -10,9 +10,6 @@ from discord.ext import tasks
 
 from src.utils.github_manager import get_github_manager
 from src.utils.github_manager import GitHubDiagnostics
-from src.utils.github_manager import GitHubRequestQueue
-
-DEVELOPER_ID = 241619561760292866
 
 
 class GitHubDiagnosticsCog(commands.Cog):
@@ -220,106 +217,7 @@ class GitHubDiagnosticsCog(commands.Cog):
         except Exception as e:
             await interaction.followup.send(f"[失敗] 無法取得 GitHub 狀態: {e}")
 
-    @app_commands.command(name="github-fix", description="嘗試修復 GitHub API 連線問題")
-    @app_commands.describe(action="修復動作")
-    @app_commands.choices(
-        action=[
-            app_commands.Choice(name="重新初始化連線", value="reinit"),
-            app_commands.Choice(name="清理快取", value="clear_cache"),
-            app_commands.Choice(name="重設速率限制", value="reset_rate"),
-            app_commands.Choice(name="測試 Token", value="test_token"),
-        ]
-    )
-    async def github_fix(
-        self, interaction: discord.Interaction, action: str
-    ):
-        """僅開發者可用 — GitHub API 連線修復"""
-        if interaction.user.id != DEVELOPER_ID:
-            await interaction.response.send_message(
-                "[失敗] 此指令僅限機器人開發者使用", ephemeral=True
-            )
-            return
 
-        await interaction.response.defer(ephemeral=True)
-
-        try:
-            github_manager = get_github_manager()
-            if not github_manager:
-                await interaction.followup.send("[失敗] GitHub 管理器尚未初始化")
-                return
-
-            if action == "reinit":
-                await github_manager.close()
-                await asyncio.sleep(2)
-
-                new_token = os.getenv("GITHUB_TOKEN")
-                from src.utils.github_manager import init_github_manager
-
-                init_github_manager(new_token)
-
-                await interaction.followup.send("[成功] 已重新初始化 GitHub 連線")
-
-            elif action == "clear_cache":
-                github_manager.rate_manager.rate_limits.clear()
-                await interaction.followup.send("[成功] 已清理 GitHub 速率限制快取")
-
-            elif action == "reset_rate":
-                github_manager.rate_manager.rate_limits.clear()
-                await interaction.followup.send("[成功] 已重設速率限制追蹤")
-
-            elif action == "test_token":
-                rate_limit = await github_manager.get_rate_limit_status()
-                if "rate" in rate_limit:
-                    await interaction.followup.send("[成功] Token 有效且運作正常")
-                else:
-                    await interaction.followup.send("[失敗] Token 可能無效或已過期")
-
-        except Exception as e:
-            await interaction.followup.send(f"[失敗] 修復嘗試失敗: {e}")
-
-    @app_commands.command(name="github-config", description="GitHub 設定檢查")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def github_config(self, interaction: discord.Interaction):
-        """GitHub 設定檢查"""
-        await interaction.response.defer(ephemeral=True)
-
-        embed = discord.Embed(
-            title="[GitHub] 設定檢查",
-            color=discord.Color.from_rgb(52, 152, 219),
-        )
-
-        token_present = bool(os.getenv("GITHUB_TOKEN"))
-        embed.add_field(
-            name="[GitHub Token]",
-            value="已設定" if token_present else "未設定",
-            inline=True,
-        )
-
-        github_manager = get_github_manager()
-        if github_manager:
-            embed.add_field(
-                name="[管理器狀態]", value="已初始化", inline=True
-            )
-
-            rate_info = github_manager.get_rate_limit_info("default")
-            if rate_info:
-                embed.add_field(
-                    name="[快取速率限制]",
-                    value=f"剩餘 {rate_info['remaining']}",
-                    inline=True,
-                )
-        else:
-            embed.add_field(
-                name="[管理器狀態]", value="尚未初始化", inline=True
-            )
-
-        embed.add_field(
-            name="[環境]",
-            value=os.getenv("PYTHON_ENV", "development"),
-            inline=True,
-        )
-
-        await interaction.followup.send(embed=embed)
 
 
 async def setup(bot: commands.Bot):
