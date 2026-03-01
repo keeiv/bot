@@ -222,6 +222,8 @@ class Achievements(commands.Cog):
     ):
         """查看成就命令"""
         try:
+            await interaction.response.defer()
+
             if user is None:
                 user = interaction.user
 
@@ -279,13 +281,21 @@ class Achievements(commands.Cog):
                 text=f"更新於 {datetime.now(TZ_OFFSET).strftime('%Y/%m/%d %H:%M:%S')}"
             )
 
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except Exception as e:
             print(f"[achievements_command] 錯誤: {e}")
-            await interaction.response.send_message(
-                f"[錯誤] 無法獲取成就資訊: {str(e)}", ephemeral=True
-            )
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(
+                        f"[錯誤] 無法獲取成就資訊: {str(e)}", ephemeral=True
+                    )
+                else:
+                    await interaction.followup.send(
+                        f"[錯誤] 無法獲取成就資訊: {str(e)}", ephemeral=True
+                    )
+            except Exception:
+                pass
 
     @app_commands.command(name="achievement_codex", description="查看成就圖鑑")
     async def achievement_codex(self, interaction: discord.Interaction):

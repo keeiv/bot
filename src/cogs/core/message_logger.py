@@ -599,6 +599,8 @@ class MessageLogger(commands.Cog):
                 )
                 return
 
+            await interaction.response.defer()
+
             # 設置日誌頻道
             self.set_log_channel_id(interaction.guild_id, channel.id)
 
@@ -607,14 +609,21 @@ class MessageLogger(commands.Cog):
                 description=f"訊息編輯/刪除的日誌將發送到 {channel.mention}",
                 color=discord.Color.from_rgb(46, 204, 113),
             )
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except Exception as e:
             print(f"[設置日誌頻道] 錯誤: {e}")
-            if not interaction.response.is_done():
-                await interaction.response.send_message(
-                    f"[失敗] 錯誤: {str(e)}", ephemeral=True
-                )
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(
+                        f"[失敗] 錯誤: {str(e)}", ephemeral=True
+                    )
+                else:
+                    await interaction.followup.send(
+                        f"[失敗] 錯誤: {str(e)}", ephemeral=True
+                    )
+            except Exception:
+                pass
 
 
 async def setup(bot: commands.Bot):
