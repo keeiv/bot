@@ -103,4 +103,4 @@ class Bot(commands.Bot):
                         reason=f"Global Ban: {reason}",
                     )
                 except Exception:
-                    pass
+                    pass 
