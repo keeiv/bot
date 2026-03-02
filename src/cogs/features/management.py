@@ -225,6 +225,7 @@ class Management(commands.Cog):
 
                         channel = self.bot.get_channel(repo_data["channel_id"])
                         if channel:
+                            author = latest_commit.get("author") or {}
                             embed = discord.Embed(
                                 title=f"[GitHub] {repo_key} 新 Commit",
                                 description=latest_commit["commit"]["message"][:200],
@@ -232,9 +233,9 @@ class Management(commands.Cog):
                                 color=discord.Color.from_rgb(46, 204, 113),
                             )
                             embed.set_author(
-                                name=latest_commit["author"]["login"],
-                                url=latest_commit["author"]["html_url"],
-                                icon_url=latest_commit["author"]["avatar_url"],
+                                name=author.get("login", latest_commit["commit"]["author"]["name"]),
+                                url=author.get("html_url", ""),
+                                icon_url=author.get("avatar_url", ""),
                             )
                             embed.add_field(
                                 name="[SHA]", value=latest_commit["sha"][:7], inline=True
@@ -340,15 +341,15 @@ class Management(commands.Cog):
             )
             return
 
+        await interaction.response.defer(ephemeral=True)
         try:
             await user.add_roles(role)
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"[成功] 已將 {role.mention} 分配給 {user.mention}",
-                ephemeral=True,
             )
         except discord.Forbidden:
-            await interaction.response.send_message(
-                "[失敗] 機器人沒有權限分配該身份組", ephemeral=True
+            await interaction.followup.send(
+                "[失敗] 機器人沒有權限分配該身份組",
             )
 
     @role.command(name="remove", description="從用戶移除身份組")
@@ -384,15 +385,15 @@ class Management(commands.Cog):
             )
             return
 
+        await interaction.response.defer(ephemeral=True)
         try:
             await user.remove_roles(role)
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"[成功] 已從 {user.mention} 移除 {role.mention}",
-                ephemeral=True,
             )
         except discord.Forbidden:
-            await interaction.response.send_message(
-                "[失敗] 機器人沒有權限移除該身份組", ephemeral=True
+            await interaction.followup.send(
+                "[失敗] 機器人沒有權限移除該身份組",
             )
 
     # Emoji management commands

@@ -12,9 +12,20 @@ load_dotenv()
 class BlacklistCheckTree(app_commands.CommandTree):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         bot: Bot = interaction.client
-        if interaction.command and interaction.command.name in ["申訴", "申訴狀態"]:
+        cmd_name = interaction.command.name if interaction.command else None
+        if cmd_name in ["申訴", "申訴狀態"]:
             return True
-        entry = await bot.blacklist_manager.check(interaction.user.id)
+        # 跳過 blacklist 群組指令 (開發者自行檢查權限)
+        top_level = interaction.data.get("name") if interaction.data else None
+        if top_level == "blacklist":
+            return True
+        # API 呼叫加超時，避免佔用 interaction 3 秒窗口
+        try:
+            entry = await asyncio.wait_for(
+                bot.blacklist_manager.check(interaction.user.id), timeout=1.5
+            )
+        except asyncio.TimeoutError:
+            return True  # API 太慢就放行，不要卡住指令
         if not entry:
             return True
         mode = entry.get("mode")
@@ -60,13 +71,20 @@ class Bot(commands.Bot):
     async def load_cogs(self):
         base_package = "src.cogs"
         cogs_path = os.path.join(os.path.dirname(__file__), "cogs")
+        loaded = 0
         for module_info in pkgutil.walk_packages(
             path=[cogs_path],
             prefix=f"{base_package}.",
         ):
             if module_info.ispkg:
                 continue
-            await self.load_extension(module_info.name)
+            try:
+                await self.load_extension(module_info.name)
+                print(f"[Cog] 已載入: {module_info.name}")
+                loaded += 1
+            except Exception as e:
+                print(f"[Cog] 載入失敗: {module_info.name} - {e}")
+        print(f"[Cog] 共載入 {loaded} 個模組")
     async def on_message(self, message: discord.Message):
         if message.author.bot:
             await self.process_commands(message)
@@ -103,4 +121,4 @@ class Bot(commands.Bot):
                         reason=f"Global Ban: {reason}",
                     )
                 except Exception:
-                    pass 
+                    pass

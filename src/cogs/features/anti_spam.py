@@ -17,7 +17,6 @@ from src.utils.anti_spam import DETECT_NAMES
 from src.utils.anti_spam import VALID_ACTIONS
 from src.utils.anti_spam import create_anti_spam_log_embed
 from src.utils.anti_spam import create_raid_alert_embed
-from src.utils.blacklist_manager import blacklist_manager
 from src.utils.config_manager import get_guild_log_channel
 
 
@@ -159,8 +158,6 @@ class AntiSpam(commands.Cog):
     async def on_message(self, message: discord.Message):
         """監聽訊息 — 多層偵測"""
         if message.author.bot or message.guild is None:
-            return
-        if blacklist_manager.is_blacklisted(message.author.id):
             return
 
         # 權限跳過: 管理員與機器人無法懲罰的成員
