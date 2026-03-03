@@ -34,8 +34,10 @@ This Discord bot provides a complete server management solution with:
 - **Message Management**: Bulk deletion, edit/delete logging
 - **User Moderation**: Kick, ban, mute (timeout), warn commands
 - **Audit Logging**: Member join/leave, voice, role, nickname, channel events
-- **Blacklist System**: Global blacklist with appeal system (Modal + View)
+- **Blacklist System**: Dual-track blacklist (local JSON + CatHome API) with appeal system
 - **Bot Appearance**: Per-guild avatar/banner with developer approval
+- **Error Handler**: Centralized slash/prefix error handling with friendly messages
+- **Settings Dashboard**: Interactive select-menu based server settings panel
 
 ### Security & Protection
 - **7-Layer Anti-Spam**: Flood, duplicate, mention, link, emoji, newline, raid detection
@@ -48,6 +50,7 @@ This Discord bot provides a complete server management solution with:
 - **Giveaway System**: Button-based participation, auto-expiry
 - **Welcome Messages**: Customizable messages with auto-role
 - **Role/Emoji Management**: Assign/remove roles, upload emojis
+- **Ticket System**: Button-based ticket opening with thread discussions
 
 ### Entertainment
 - **Deep Sea Oxygen**: 2-player cooperative game with shared oxygen

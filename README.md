@@ -12,7 +12,8 @@
 
 ### 管理指令
 - `/clear` 清除訊息、`/kick` 踢出、`/ban` 封禁、`/mute` 禁言、`/warn` 警告
-- `/黑名單` 黑名單管理 (新增/移除/列表) + 申訴系統
+- `/blacklist add|remove|list|info` 雙軌黑名單管理 (本地 JSON + CatHome API) + 申訴系統
+- `/settings` 伺服器設定儀表板 (日誌/舉報頻道、防刷屏、歡迎訊息一站式管理)
 - `/role assign` / `/role remove` 身份組管理
 - `/emoji get` / `/emoji upload` 表情符號管理
 - `/welcome setup` / `/welcome disable` 歡迎訊息與自動角色
@@ -58,6 +59,16 @@
 - `/repo_watch set` 設定通用倉庫監控、`/repo_watch status` / `disable`
 - `/repo_track add` 專門追蹤 keeiv/bot 倉庫更新 (commits + PRs)
 
+### 錯誤集中處理
+- 全域攔截 Slash / Prefix 指令錯誤，回覆友善中文提示
+- 未預期錯誤自動記錄到指定頻道 + 終端輸出
+- 處理類型：權限不足、冷卻中、參數錯誤、CheckFailure 等
+
+### 伺服器設定儀表板
+- `/settings` 開啟互動式設定面板 (需管理員)
+- 支援設定：日誌頻道、舉報頻道、防刷屏開關、歡迎訊息總覽
+- Select Menu + Button 即時修改，無需記指令
+
 ### 其他
 - `/user_info` 查看用戶資訊 (含 osu! 綁定與成就進度)
 - `/server_info` 查看伺服器資訊
@@ -77,6 +88,7 @@ DISCORD_TOKEN=
 OSU_CLIENT_ID=
 OSU_CLIENT_SECRET=
 GITHUB_TOKEN=
+BLACKLIST_API_KEY=
 ```
 
 3. 執行
@@ -98,6 +110,7 @@ python -m src.main
 | 歡迎訊息設定 | 管理伺服器 |
 | GitHub 監控設定 | 管理伺服器 |
 | 黑名單管理 | 開發者限定 |
+| 設定儀表板 | 管理員 |
 | 其他查詢指令 | 無特殊限制 |
 
 ## 資料存放
@@ -113,7 +126,7 @@ python -m src.main
 ## 開發
 
 - `src/`：核心原始碼，包含機器人主要的 Cogs 模組與邏輯
-- `src/cogs/core/`：核心管理 (admin、audit_log、blacklist、bot_appearance、report 等)
+- `src/cogs/core/`：核心管理 (admin、audit_log、blacklist、bot_appearance、report、error_handler、settings 等)
 - `src/cogs/features/`：功能模組 (anti_spam、giveaway、achievements、osu_info 等)
 - `src/cogs/games/`：遊戲模組
 - `src/utils/`：工具函式庫
