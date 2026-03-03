@@ -14,11 +14,13 @@ src/
     core/             # 核心管理模組
       admin.py        # /clear, /kick, /ban, /mute, /warn, /help
       audit_log.py    # 成員/語音/角色/暱稱/頻道 事件自動記錄
-      blacklist.py    # 黑名單管理 + 申訴系統 (Modal/View)
+      blacklist.py    # 雙軌黑名單 (本地 JSON + CatHome API) + 申訴系統 (Modal/View)
       bot_appearance.py  # 伺服器級頭像/橫幅設定 (開發者審核)
       report.py       # 右鍵選單舉報系統 + 禁言/封禁/警告 Modal
       message_logger.py  # 訊息編輯/刪除日誌
       developer.py    # 開發者專用指令
+      error_handler.py   # 全域錯誤集中處理 (Slash + Prefix)
+      settings.py        # 伺服器設定儀表板 (Select Menu 互動式)
       performance_monitor.py  # 性能背景監控 (無指令)
       system_maintenance.py   # 系統背景維護 (無指令)
     features/         # 功能模組
@@ -29,6 +31,7 @@ src/
       osu_info.py     # osu! 整合 (bind/best/recent/score)
       translate.py    # 右鍵翻譯訊息 (deep-translator, 14 種語言)
       github_watch.py # GitHub 倉庫監控
+      ticket.py       # 工單系統 (按鈕開啟 + 討論串)
       user_server_info.py  # 用戶/伺服器資訊查詢
     games/            # 遊戲模組
       deep_sea_oxygen.py   # 深海氧氣瓶 (2人合作)
@@ -73,17 +76,20 @@ src/
 
 ### data/storage/ 目錄
 - `achievements.json` - 成就數據
-- `blacklist.json` - 黑名單
-- `appeals.json` - 申訴記錄
+- `blacklist.json` - 黑名單 (本地)
+- `appeals.json` - 申訴記錄 (支援 source: local/api)
 - `github_watch.json` - GitHub 監控設定
 - `osu_links.json` - osu! 綁定
 - `management.json` - 倉庫追蹤/歡迎訊息設定
 - `log_channels.json` - 日誌頻道 (審計日誌用)
 - `giveaways.json` - 抽獎數據
+- `tickets.json` - 工單系統設定
 
 ## 關鍵實現細節
 
-- Bot 使用 `BlacklistCheckTree` 自訂 CommandTree，全域攔截黑名單用戶
+- Bot 使用 `BlacklistCheckTree` 自訂 CommandTree，全域攔截黑名單用戶 (本地 + API 雙軌檢查)
+- `ErrorHandler` Cog 集中處理所有 Slash/Prefix 錯誤，未預期錯誤發送到指定頻道
+- `Settings` Cog 提供互動式 Select Menu 設定儀表板
 - Cog 透過 `pkgutil.walk_packages` 自動載入
 - Embed 字段值上限 1024 字符，需截斷處理
 - 權限檢查使用 `guild_permissions` 屬性
@@ -107,8 +113,4 @@ src/
 - `DISCORD_TOKEN`: Discord bot token
 - `OSU_CLIENT_ID` / `OSU_CLIENT_SECRET`: osu! API (選填)
 - `GITHUB_TOKEN`: GitHub API (選填)
-
-## 環境設置
-
-需要以下環境變數：
-- `DISCORD_TOKEN`: Discord bot token
+- `BLACKLIST_API_KEY`: CatHome 黑名單 API (選填)
