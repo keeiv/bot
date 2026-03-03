@@ -1,10 +1,12 @@
+import asyncio
 import os
 import pkgutil
-import asyncio
+
 import discord
 from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
+
 from src.utils.blacklist_manager import BlacklistManager
 
 load_dotenv()
@@ -36,14 +38,24 @@ class BlacklistCheckTree(app_commands.CommandTree):
                     interaction.user,
                     reason=f"Global Ban: {reason}",
                 )
-            except:
+            except Exception:
                 pass
+        source = entry.get("source", "api")
+        source_label = "本地黑名單" if source == "local" else "CatHome API"
         embed = discord.Embed(
             title="[拒絕] 禁止使用",
-            description=f"""您已被加入黑名單。\n\n原因: {reason}\n模式: {mode}""",
+            description=(
+                f"您已被加入黑名單。\n\n"
+                f"原因: {reason}\n"
+                f"來源: {source_label}"
+            ),
             color=discord.Color.red(),
         )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        # 動態載入申訴按鈕 (避免循環 import)
+        from src.cogs.core.blacklist import BlockedNoticeView
+        blacklist_cog = bot.get_cog("Blacklist")
+        view = BlockedNoticeView(blacklist_cog) if blacklist_cog else None
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
         return False
 
 class Bot(commands.Bot):
@@ -99,14 +111,23 @@ class Bot(commands.Bot):
                         message.author,
                         reason=f"Global Ban: {reason}",
                     )
-                except:
+                except Exception:
                     pass
+            source = entry.get("source", "api")
+            source_label = "本地黑名單" if source == "local" else "CatHome API"
             embed = discord.Embed(
                 title="[拒絕] 禁止使用",
-                description=f"""您已被加入黑名單。\n\n原因: {reason}\n模式: {mode}""",
+                description=(
+                    f"您已被加入黑名單。\n\n"
+                    f"原因: {reason}\n"
+                    f"來源: {source_label}"
+                ),
                 color=discord.Color.red(),
             )
-            await message.reply(embed=embed, delete_after=10)
+            from src.cogs.core.blacklist import BlockedNoticeView
+            blacklist_cog = self.get_cog("Blacklist")
+            view = BlockedNoticeView(blacklist_cog) if blacklist_cog else None
+            await message.reply(embed=embed, view=view, delete_after=30)
             return
         await self.process_commands(message)
     async def on_member_join(self, member: discord.Member):
@@ -122,3 +143,6 @@ class Bot(commands.Bot):
                     )
                 except Exception:
                     pass
+            elif mode == "block":
+                # block 模式只擋指令，不踢人
+                pass
