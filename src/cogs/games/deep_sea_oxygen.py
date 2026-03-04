@@ -6,6 +6,7 @@ import discord
 from discord import app_commands
 from discord import ui
 from discord.ext import commands
+from src.utils.economy_manager import economy_manager
 
 
 class DeepSeaOxygen(commands.Cog):
@@ -433,6 +434,12 @@ class DeepSeaOxygen(commands.Cog):
 
             if self.game.channel.id in self.cog.active_games:
                 del self.cog.active_games[self.game.channel.id]
+            # 將勝利者的遊戲內 CT 寫入全域經濟系統
+            try:
+                if winner is not None:
+                    await economy_manager.add_balance(winner.id, winner_coins)
+            except Exception:
+                pass
 
     class ItemSelectView(ui.View):
         """道具選擇視圖"""
