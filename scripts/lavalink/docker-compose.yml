@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  lavalink:
+    image: openjdk:17-slim
+    container_name: lavalink
+    restart: unless-stopped
+    working_dir: /opt/lavalink
+    ports:
+      - "2333:2333"
+    volumes:
+      - ./application.yml:/opt/lavalink/application.yml:ro
+    command: sh -c "apt-get update -y && apt-get install -y wget && if [ ! -f Lavalink.jar ]; then wget -O Lavalink.jar https://github.com/freyacodes/Lavalink/releases/latest/download/Lavalink.jar; fi && java -jar Lavalink.jar"
