@@ -46,6 +46,20 @@ class EconomyManager:
         self._write(data)
         return new
 
+    async def deduct_balance(self, user_id: int, amount: int) -> Tuple[bool, int]:
+        """Attempt to deduct amount from user. Returns (success, new_balance)."""
+        if amount <= 0:
+            return False, await self.get_balance(user_id)
+        data = self._read()
+        key = str(user_id)
+        current = int(data.get(key, 0))
+        if current < amount:
+            return False, current
+        new = current - int(amount)
+        data[key] = new
+        self._write(data)
+        return True, new
+
     async def transfer(self, from_id: int, to_id: int, amount: int) -> Tuple[bool, int, int]:
         if amount <= 0:
             return False, await self.get_balance(from_id), await self.get_balance(to_id)
