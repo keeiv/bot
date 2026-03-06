@@ -132,7 +132,6 @@ python -m src.main
 - `src/utils/`：工具函式庫
 - `services/`：外部服務整合
 - `tests/`：自動化測試
-- `scripts/`：開發維護腳本
 - `docs/`：說明文件
 
 ## 依賴
