@@ -4,3 +4,4 @@ ossapi
 psutil
 aiohttp
 deep-translator
+wavelink>=3.0.0
