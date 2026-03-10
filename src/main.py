@@ -14,7 +14,7 @@ from .utils.database_manager import init_database_manager
 from .utils.network_optimizer import init_network_optimizer
 from .utils.network_optimizer import NetworkConfig
 
-# Load environment variables
+
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 
@@ -56,7 +56,7 @@ def main():
         print("錯誤：未設置 DISCORD_TOKEN 環境變數")
         exit(1)
 
-    # 設置信號處理器用於優雅關閉
+    # 設置信號處理器用於關閉
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
@@ -111,7 +111,12 @@ def main():
             from .utils.network_optimizer import get_network_optimizer
 
             network_opt = get_network_optimizer()
-            asyncio.create_task(network_opt.close())
+            if network_opt is not None:
+                # 在同步關閉流程中執行 async close
+                try:
+                    asyncio.run(network_opt.close())
+                except Exception:
+                    pass
         except Exception:
             pass
 
