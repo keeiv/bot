@@ -96,7 +96,7 @@ src/
 - 右鍵選單使用 `app_commands.ContextMenu`
 - Modal 表單使用 `discord.ui.Modal` + `TextInput`
 - 持久化按鈕使用 `discord.ui.View(timeout=None)`
-- DEVELOPER_ID = 241619561760292866
+- DEVELOPER_IDS = {241619561760292866, 964849855396741130}
 
 ## 依賴
 

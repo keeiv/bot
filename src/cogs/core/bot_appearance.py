@@ -13,7 +13,7 @@ from discord.ext import commands
 TZ_OFFSET = timezone(timedelta(hours=8))
 
 # 開發者 ID
-DEVELOPER_ID = 241619561760292866
+DEVELOPER_IDS = {241619561760292866, 964849855396741130}
 
 # 圖片大小限制 8MB
 MAX_IMAGE_SIZE = 8 * 1024 * 1024
@@ -32,7 +32,7 @@ class AppearanceApprovalView(ui.View):
         self, interaction: discord.Interaction, button: ui.Button
     ):
         """核准變更"""
-        if interaction.user.id != DEVELOPER_ID:
+        if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
                 "[拒絕] 你沒有權限審核", ephemeral=True
             )
@@ -44,7 +44,7 @@ class AppearanceApprovalView(ui.View):
         self, interaction: discord.Interaction, button: ui.Button
     ):
         """拒絕變更"""
-        if interaction.user.id != DEVELOPER_ID:
+        if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
                 "[拒絕] 你沒有權限審核", ephemeral=True
             )
@@ -109,9 +109,10 @@ class BotAppearance(commands.Cog):
         embed.set_footer(text="請審核此變更請求")
 
         try:
-            developer = await self.bot.fetch_user(DEVELOPER_ID)
-            view = AppearanceApprovalView(request_id, self)
-            await developer.send(embed=embed, view=view)
+            for dev_id in DEVELOPER_IDS:
+                developer = await self.bot.fetch_user(dev_id)
+                view = AppearanceApprovalView(request_id, self)
+                await developer.send(embed=embed, view=view)
         except Exception as e:
             del self.pending_requests[request_id]
             raise RuntimeError(f"無法通知開發者: {e}")

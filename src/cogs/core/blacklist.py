@@ -9,7 +9,7 @@ from discord import ui
 from discord.ext import commands
 
 TZ_OFFSET = timezone(timedelta(hours=8))
-DEVELOPER_ID = 241619561760292866
+DEVELOPER_IDS = {241619561760292866, 964849855396741130}
 
 
 # ==================== 審核接受表單 ====================
@@ -99,7 +99,7 @@ class AppealReviewView(ui.View):
         self, interaction: discord.Interaction, button: ui.Button
     ):
         """接受申訴 - 開啟表單"""
-        if interaction.user.id != DEVELOPER_ID:
+        if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
                 "[拒絕] 你沒有權限審核", ephemeral=True
             )
@@ -112,7 +112,7 @@ class AppealReviewView(ui.View):
         self, interaction: discord.Interaction, button: ui.Button
     ):
         """駁回申訴"""
-        if interaction.user.id != DEVELOPER_ID:
+        if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
                 "[拒絕] 你沒有權限審核", ephemeral=True
             )
@@ -196,8 +196,6 @@ class BlockedNoticeView(ui.View):
 
         # 發送審核通知到開發者私訊
         try:
-            developer = await self.cog.bot.fetch_user(DEVELOPER_ID)
-
             source_label = "本地黑名單" if source == "local" else "CatHome API"
             review_embed = discord.Embed(
                 title="[審核] 黑名單申訴",
@@ -220,9 +218,14 @@ class BlockedNoticeView(ui.View):
             )
 
             review_view = AppealReviewView(interaction.user.id, self.cog)
-            await developer.send(embed=review_embed, view=review_view)
+            for dev_id in DEVELOPER_IDS:
+                try:
+                    developer = await self.cog.bot.fetch_user(dev_id)
+                    await developer.send(embed=review_embed, view=review_view)
+                except (discord.Forbidden, discord.HTTPException):
+                    pass
 
-        except (discord.Forbidden, discord.HTTPException):
+        except Exception:
             await interaction.response.send_message(
                 "[失敗] 無法送出申訴，請稍後再試", ephemeral=True
             )
@@ -274,8 +277,6 @@ class Blacklist(commands.Cog):
         manager.add_appeal(interaction.user.id, reason, source=source)
 
         try:
-            developer = await self.bot.fetch_user(DEVELOPER_ID)
-
             source_label = "本地黑名單" if source == "local" else "CatHome API"
             review_embed = discord.Embed(
                 title="[審核] 黑名單申訴",
@@ -295,7 +296,12 @@ class Blacklist(commands.Cog):
             )
 
             review_view = AppealReviewView(interaction.user.id, self)
-            await developer.send(embed=review_embed, view=review_view)
+            for dev_id in DEVELOPER_IDS:
+                try:
+                    developer = await self.bot.fetch_user(dev_id)
+                    await developer.send(embed=review_embed, view=review_view)
+                except (discord.Forbidden, discord.HTTPException):
+                    pass
 
         except (discord.Forbidden, discord.HTTPException):
             await interaction.response.send_message(
@@ -369,7 +375,7 @@ class Blacklist(commands.Cog):
         mode: app_commands.Choice[str] = None,
     ):
         """加入本地黑名單"""
-        if interaction.user.id != DEVELOPER_ID:
+        if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
                 "[拒絕] 此指令僅限開發者使用", ephemeral=True
             )
@@ -403,7 +409,7 @@ class Blacklist(commands.Cog):
         user: discord.User,
     ):
         """移除本地黑名單"""
-        if interaction.user.id != DEVELOPER_ID:
+        if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
                 "[拒絕] 此指令僅限開發者使用", ephemeral=True
             )
@@ -425,7 +431,7 @@ class Blacklist(commands.Cog):
     @blacklist_group.command(name="list", description="查看本地黑名單")
     async def bl_list(self, interaction: discord.Interaction):
         """列出所有本地黑名單"""
-        if interaction.user.id != DEVELOPER_ID:
+        if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
                 "[拒絕] 此指令僅限開發者使用", ephemeral=True
             )
@@ -470,7 +476,7 @@ class Blacklist(commands.Cog):
         user: discord.User,
     ):
         """查詢特定用戶的封鎖狀態 (本地 + API)"""
-        if interaction.user.id != DEVELOPER_ID:
+        if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
                 "[拒絕] 此指令僅限開發者使用", ephemeral=True
             )
