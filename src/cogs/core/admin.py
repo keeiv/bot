@@ -4,8 +4,6 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from src.utils.blacklist_manager import blacklist_manager
-
 
 class Admin(commands.Cog):
     """管理員命令 Cog"""
@@ -17,7 +15,7 @@ class Admin(commands.Cog):
         """黑名單檢查裝飾器"""
 
         async def predicate(ctx):
-            if blacklist_manager.is_blacklisted(ctx.author.id):
+            if self.bot.blacklist_manager.local_check(ctx.author.id):
                 embed = discord.Embed(
                     title="[拒絕] 存取被拒",
                     description="你已被禁止使用機器人指令，請聯繫管理員。",
