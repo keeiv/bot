@@ -845,6 +845,17 @@ class Management(commands.Cog):
                     except discord.Forbidden:
                         pass
 
+                # Apply welcome auto-role if configured
+                try:
+                    auto_role_id = welcome_config.get("auto_role_id")
+                    if auto_role_id:
+                        role = member.guild.get_role(auto_role_id)
+                        if role and not role.is_default() and not role.managed:
+                            await member.add_roles(role, reason="歡迎自動分配")
+                except (discord.Forbidden, discord.HTTPException):
+                    # 忽略權限或 API 錯誤，避免中斷歡迎流程
+                    pass
+
         # Handle auto roles
         if guild_id in self._config and "auto_roles" in self._config[guild_id]:
             auto_roles = self._config[guild_id]["auto_roles"]
