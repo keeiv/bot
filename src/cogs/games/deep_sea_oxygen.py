@@ -1,6 +1,5 @@
-from datetime import datetime
 import random
-from typing import Dict, List, Tuple
+from typing import Dict
 
 import discord
 from discord import app_commands

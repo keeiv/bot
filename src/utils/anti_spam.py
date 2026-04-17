@@ -8,7 +8,6 @@ from datetime import timezone
 from typing import Dict
 from typing import List
 from typing import Optional
-from typing import Set
 from typing import Tuple
 
 import discord

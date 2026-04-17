@@ -1,12 +1,10 @@
 import asyncio
-from functools import wraps
 import hashlib
 import json
 from pathlib import Path
 import threading
 import time
-from typing import Any, Callable, Dict, Optional, Union
-import weakref
+from typing import Any, Callable, Dict, Optional
 
 
 class ConfigFileWatcher:

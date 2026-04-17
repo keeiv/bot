@@ -1,9 +1,7 @@
-import asyncio
 from collections import OrderedDict
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
-import json
 from typing import Any, Dict, Optional
 
 # UTC+8 時區

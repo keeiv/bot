@@ -1,6 +1,6 @@
 """Type definitions for bot components."""
 
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Union
 
 import discord
 

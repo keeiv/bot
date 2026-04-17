@@ -1,13 +1,11 @@
 import asyncio
 import contextlib
-from datetime import datetime
-from datetime import timezone
 import json
 from pathlib import Path
 import sqlite3
 import threading
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 
 class DatabaseConnectionPool:

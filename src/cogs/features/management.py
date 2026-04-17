@@ -5,7 +5,6 @@ from datetime import timezone
 import json
 import os
 import shutil
-from typing import Any, Dict, Optional
 
 import aiohttp
 import discord
