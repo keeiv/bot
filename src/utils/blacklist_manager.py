@@ -132,29 +132,42 @@ class BlacklistManager:
         if not self.api_key or not self.api_base:
             return None
 
+        if not self.session:
+            await self.setup()
+
         now = asyncio.get_event_loop().time()
         if user_id in self._api_cache:
             if now - self._api_cache_time.get(user_id, 0) < 10:
                 return self._api_cache[user_id]
 
-        url = f"{self.api_base}?id={user_id}"
-        headers = {"X-API-Key": self.api_key}
+        url = f"{self.api_base}/{user_id}"
+        headers = {
+            "X-API-Key": self.api_key,
+            "Content-Type": "application/json",
+        }
+
+        data = {}
 
         async with self._rate_limit_lock:
             try:
                 async with self.session.get(url, headers=headers) as resp:
-                    if resp.status != 200:
+                    if resp.status == 404:
+                        data = {}
+                    elif resp.status != 200:
                         return None
-                    data = await resp.json()
+                    else:
+                        data = await resp.json(content_type=None)
             except Exception:
                 return None
 
-        users_list = data.get("users", [])
-        if not users_list:
-            result = None
-        else:
-            entries = data.get("entries", {})
-            result = entries.get(str(user_id))
+        result = None
+        if isinstance(data, dict):
+            item = data.get("item")
+            if isinstance(item, dict):
+                result = item
+
+        if isinstance(result, dict):
+            result.setdefault("user_id", str(user_id))
 
         self._api_cache[user_id] = result
         self._api_cache_time[user_id] = now

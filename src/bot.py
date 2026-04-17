@@ -71,7 +71,7 @@ class Bot(commands.Bot):
             tree_cls=BlacklistCheckTree,
         )
         self.api_key = os.getenv("BLACKLIST_API_KEY")
-        self.api_base = "https://api.cathome.shop/blacklist"
+        self.api_base = "https://api.cathome.shop/v1/blacklist"
         self.blacklist_manager = BlacklistManager(self.api_key, self.api_base)
     async def setup_hook(self):
         await self.blacklist_manager.setup()
