@@ -1,7 +1,6 @@
 """GitHub API client for repository monitoring."""
 
 import aiohttp
-import json
 from typing import Dict, Any, Optional
 
 class GitHubClient:

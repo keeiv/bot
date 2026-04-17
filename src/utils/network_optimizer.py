@@ -1,11 +1,8 @@
 import asyncio
 from dataclasses import dataclass
-import hashlib
 import socket
-import ssl
-import struct
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List
 from urllib.parse import urlparse
 
 import aiohttp

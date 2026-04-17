@@ -1,7 +1,6 @@
 from discord.ext import commands
 from discord.ext import tasks
 
-from src.utils.api_optimizer import get_api_optimizer
 from src.utils.config_optimizer import get_config_manager
 from src.utils.database_manager import get_database_manager
 from src.utils.network_optimizer import get_network_optimizer

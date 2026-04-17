@@ -11,7 +11,6 @@ from src.utils.anti_spam import ACTION_LOCKDOWN
 from src.utils.anti_spam import ACTION_MUTE
 from src.utils.anti_spam import ACTION_NAMES
 from src.utils.anti_spam import ACTION_WARN
-from src.utils.anti_spam import ALL_DETECTIONS
 from src.utils.anti_spam import AntiSpamManager
 from src.utils.anti_spam import DETECT_NAMES
 from src.utils.anti_spam import VALID_ACTIONS
@@ -724,7 +723,7 @@ class AntiSpam(commands.Cog):
 
         embed = discord.Embed(
             title="[查詢] 防炸群狀態",
-            description=f"使用 `/anti_spam status` 查看完整設定",
+            description="使用 `/anti_spam status` 查看完整設定",
             color=discord.Color.from_rgb(52, 152, 219),
         )
         embed.add_field(name="狀態", value=status, inline=True)

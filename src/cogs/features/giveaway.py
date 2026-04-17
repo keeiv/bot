@@ -5,7 +5,6 @@ import random
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
-from typing import Dict
 from typing import Optional
 
 import discord
