@@ -13,13 +13,6 @@
 
 Bot 啟動後會同時檢查兩個來源，任一命中即觸發攔截。
 
-### Cat Blacklist API (2026/04)
-
-- 健康檢查：`GET /health`（不需 token）
-- Bot 查詢用戶：`GET /v1/blacklist/{user_id}`
-- `/v1/*` 需帶 header：`X-API-Key`、`Content-Type: application/json`
-- Bot 會使用回傳 `item` 內的欄位（如 `reason`、`mode`、`operator_id`、`created_at`、`updated_at`、`last_modified_at`）
-
 ## 開發者指令
 
 ### 黑名單管理指令
