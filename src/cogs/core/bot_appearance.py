@@ -9,6 +9,8 @@ from discord import app_commands
 from discord import ui
 from discord.ext import commands
 
+from src.services.appearance_service import AppearanceService
+
 # UTC+8 時區
 TZ_OFFSET = timezone(timedelta(hours=8))
 
@@ -57,7 +59,7 @@ class BotAppearance(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.pending_requests = {}
+        self.service = AppearanceService()
 
     appearance_group = app_commands.Group(
         name="bot_appearance",
@@ -76,7 +78,7 @@ class BotAppearance(commands.Cog):
         """發送審核請求給開發者"""
         request_id = str(uuid.uuid4())[:8]
 
-        self.pending_requests[request_id] = {
+        self.service.add_request(request_id, {
             "guild_id": interaction.guild_id,
             "guild_name": interaction.guild.name,
             "type": change_type,
@@ -85,7 +87,7 @@ class BotAppearance(commands.Cog):
             "requester_id": interaction.user.id,
             "channel_id": interaction.channel_id,
             "created_at": datetime.now(TZ_OFFSET).isoformat(),
-        }
+        })
 
         type_name = "頭像" if change_type == "avatar" else "橫幅"
         embed = discord.Embed(
@@ -114,7 +116,7 @@ class BotAppearance(commands.Cog):
                 view = AppearanceApprovalView(request_id, self)
                 await developer.send(embed=embed, view=view)
         except Exception as e:
-            del self.pending_requests[request_id]
+            self.service.remove_request(request_id)
             raise RuntimeError(f"無法通知開發者: {e}")
 
     async def handle_approval(
@@ -124,7 +126,7 @@ class BotAppearance(commands.Cog):
         approved: bool,
     ):
         """處理審核結果"""
-        request = self.pending_requests.pop(request_id, None)
+        request = self.service.remove_request(request_id)
         if not request:
             await interaction.response.send_message(
                 "[失敗] 此請求已過期或不存在", ephemeral=True

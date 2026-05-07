@@ -1,25 +1,14 @@
-import asyncio
+﻿import asyncio
 from datetime import datetime
-from datetime import timedelta
 from datetime import timezone
-import json
-import os
-import shutil
 
-import aiohttp
 import discord
 from discord import app_commands
 from discord.ext import commands
 from discord.ext import tasks
 
-# UTC+8 時區
-TZ_OFFSET = timezone(timedelta(hours=8))
-
-
-def _format_time(dt: datetime) -> str:
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(TZ_OFFSET).strftime("%Y/%m/%d %H:%M:%S")
+from src.services.management_service import ManagementService
+from src.services.management_service import _format_time
 
 
 class Management(commands.Cog):
@@ -27,54 +16,12 @@ class Management(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.data_file = "data/storage/management.json"
-        os.makedirs("data/storage", exist_ok=True)
-
-        self._config = self._load_config()
-        self._session: aiohttp.ClientSession | None = None
+        self.service = ManagementService()
 
         self._repo_poll_task.start()
 
     def cog_unload(self):
         self._repo_poll_task.cancel()
-
-    def _load_config(self) -> dict:
-        if not os.path.exists(self.data_file):
-            return {}
-        try:
-            with open(self.data_file, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return {}
-
-    def _save_config(self):
-        """Save configuration with backup mechanism"""
-        try:
-            # Create backup before saving
-            if os.path.exists(self.data_file):
-                backup_file = f"{self.data_file}.backup"
-                shutil.copy2(self.data_file, backup_file)
-
-            # Save main config
-            with open(self.data_file, "w", encoding="utf-8") as f:
-                json.dump(self._config, f, ensure_ascii=False, indent=2)
-
-        except Exception as e:
-            print(f"儲存設定失敗: {e}")
-            # 嘗試從備份還原
-            backup_file = f"{self.data_file}.backup"
-            if os.path.exists(backup_file):
-                print("正在從備份還原...")
-                shutil.copy2(backup_file, self.data_file)
-
-    async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create HTTP session with timeout and retry logic"""
-        if self._session is None or self._session.closed:
-            timeout = aiohttp.ClientTimeout(total=30, connect=10)
-            self._session = aiohttp.ClientSession(
-                timeout=timeout, headers={"User-Agent": "Discord-Bot/1.0"}
-            )
-        return self._session
 
     # Repository tracking commands
     repo_track = app_commands.Group(
@@ -98,12 +45,12 @@ class Management(commands.Cog):
         owner = "keeiv"
         repo = "bot"
 
-        if guild_id not in self._config:
-            self._config[guild_id] = {}
-        if "tracked_repos" not in self._config[guild_id]:
-            self._config[guild_id]["tracked_repos"] = {}
+        if guild_id not in self.service.config:
+            self.service.config[guild_id] = {}
+        if "tracked_repos" not in self.service.config[guild_id]:
+            self.service.config[guild_id]["tracked_repos"] = {}
 
-        self._config[guild_id]["tracked_repos"][repo_key] = {
+        self.service.config[guild_id]["tracked_repos"][repo_key] = {
             "owner": owner,
             "repo": repo,
             "channel_id": channel.id,
@@ -111,7 +58,7 @@ class Management(commands.Cog):
             "last_pr": None,
         }
 
-        self._save_config()
+        self.service.save()
         await interaction.response.send_message(
             f"[成功] 已開始在 {channel.mention} 追蹤 {repo_key} 的更新"
         )
@@ -129,13 +76,13 @@ class Management(commands.Cog):
         repo_key = "keeiv/bot"
 
         if (
-            guild_id in self._config
-            and "tracked_repos" in self._config[guild_id]
-            and repo_key in self._config[guild_id]["tracked_repos"]
+            guild_id in self.service.config
+            and "tracked_repos" in self.service.config[guild_id]
+            and repo_key in self.service.config[guild_id]["tracked_repos"]
         ):
 
-            del self._config[guild_id]["tracked_repos"][repo_key]
-            self._save_config()
+            del self.service.config[guild_id]["tracked_repos"][repo_key]
+            self.service.save()
             await interaction.response.send_message(f"[成功] 已停止追蹤 {repo_key}")
         else:
             await interaction.response.send_message(
@@ -147,9 +94,9 @@ class Management(commands.Cog):
         guild_id = str(interaction.guild.id)
 
         if (
-            guild_id not in self._config
-            or "tracked_repos" not in self._config[guild_id]
-            or not self._config[guild_id]["tracked_repos"]
+            guild_id not in self.service.config
+            or "tracked_repos" not in self.service.config[guild_id]
+            or not self.service.config[guild_id]["tracked_repos"]
         ):
 
             await interaction.response.send_message(
@@ -163,12 +110,12 @@ class Management(commands.Cog):
 
         repo_key = "keeiv/bot"
         if (
-            guild_id in self._config
-            and "tracked_repos" in self._config[guild_id]
-            and repo_key in self._config[guild_id]["tracked_repos"]
+            guild_id in self.service.config
+            and "tracked_repos" in self.service.config[guild_id]
+            and repo_key in self.service.config[guild_id]["tracked_repos"]
         ):
 
-            data = self._config[guild_id]["tracked_repos"][repo_key]
+            data = self.service.config[guild_id]["tracked_repos"][repo_key]
             channel = self.bot.get_channel(data["channel_id"])
             channel_name = (
                 channel.mention
@@ -188,121 +135,54 @@ class Management(commands.Cog):
 
     @tasks.loop(minutes=5)
     async def _repo_poll_task(self):
-        """Check for repository updates every 5 minutes with error handling"""
-        if not self._config:
+        """每 5 分鐘檢查倉庫更新"""
+        if not self.service.config:
             return
 
-        for guild_id, guild_config in self._config.items():
+        for guild_id, guild_config in list(self.service.config.items()):
             if "tracked_repos" not in guild_config or not guild_config["tracked_repos"]:
                 continue
 
-            for repo_key, repo_data in guild_config["tracked_repos"].items():
+            for repo_key, repo_data in list(guild_config["tracked_repos"].items()):
                 try:
-                    await self._check_repo_updates(guild_id, repo_key, repo_data)
-                except Exception as e:
-                    print(f"Error checking {repo_key}: {e}")
-                    # Continue with other repos even if one fails
-                    continue
-
-    async def _check_repo_updates(self, guild_id: str, repo_key: str, repo_data: dict):
-        """Check repository updates with improved error handling"""
-        session = await self._get_session()
-        owner = repo_data["owner"]
-        repo = repo_data["repo"]
-        has_changes = False
-
-        try:
-            # Check commits with error handling
-            commits_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
-            async with session.get(commits_url) as response:
-                if response.status == 200:
-                    commits = await response.json()
-                    if commits and commits[0]["sha"] != repo_data.get("last_commit"):
-                        latest_commit = commits[0]
-                        repo_data["last_commit"] = latest_commit["sha"]
-                        has_changes = True
-
-                        channel = self.bot.get_channel(repo_data["channel_id"])
-                        if channel:
-                            author = latest_commit.get("author") or {}
+                    events = await self.service.check_repo_updates(guild_id, repo_key, repo_data)
+                    for event in events:
+                        channel = self.bot.get_channel(event["channel_id"])
+                        if not channel:
+                            continue
+                        if event["type"] == "commit":
                             embed = discord.Embed(
-                                title=f"[GitHub] {repo_key} 新 Commit",
-                                description=latest_commit["commit"]["message"][:200],
-                                url=latest_commit["html_url"],
+                                title=event["title"],
+                                description=event["description"],
+                                url=event["url"],
                                 color=discord.Color.from_rgb(46, 204, 113),
                             )
                             embed.set_author(
-                                name=author.get("login", latest_commit["commit"]["author"]["name"]),
-                                url=author.get("html_url", ""),
-                                icon_url=author.get("avatar_url", ""),
+                                name=event["author_name"],
+                                url=event["author_url"],
+                                icon_url=event["author_avatar"],
                             )
-                            embed.add_field(
-                                name="[SHA]", value=latest_commit["sha"][:7], inline=True
-                            )
-                            embed.add_field(
-                                name="[日期]",
-                                value=_format_time(
-                                    datetime.fromisoformat(
-                                        latest_commit["commit"]["committer"]["date"]
-                                    )
-                                ),
-                                inline=True,
-                            )
-
+                            embed.add_field(name="[SHA]", value=event["sha"], inline=True)
+                            embed.add_field(name="[日期]", value=event["date"], inline=True)
                             await channel.send(embed=embed)
-                elif response.status == 403:
-                    print(f"Rate limited for {repo_key}, skipping this check")
-                else:
-                    print(f"Failed to fetch commits for {repo_key}: {response.status}")
-
-            # Check pull requests with error handling
-            prs_url = f"https://api.github.com/repos/{owner}/{repo}/pulls"
-            async with session.get(prs_url) as response:
-                if response.status == 200:
-                    prs = await response.json()
-                    if prs and prs[0]["number"] != repo_data.get("last_pr"):
-                        latest_pr = prs[0]
-                        repo_data["last_pr"] = latest_pr["number"]
-                        has_changes = True
-
-                        channel = self.bot.get_channel(repo_data["channel_id"])
-                        if channel:
+                        elif event["type"] == "pr":
                             embed = discord.Embed(
-                                title=f"[GitHub] {repo_key} 新 Pull Request",
-                                description=latest_pr["title"][:200],
-                                url=latest_pr["html_url"],
+                                title=event["title"],
+                                description=event["description"],
+                                url=event["url"],
                                 color=discord.Color.from_rgb(230, 126, 34),
                             )
                             embed.set_author(
-                                name=latest_pr["user"]["login"],
-                                url=latest_pr["user"]["html_url"],
-                                icon_url=latest_pr["user"]["avatar_url"],
+                                name=event["author_name"],
+                                url=event["author_url"],
+                                icon_url=event["author_avatar"],
                             )
-                            embed.add_field(
-                                name="[PR 編號]",
-                                value=str(latest_pr["number"]),
-                                inline=True,
-                            )
-                            embed.add_field(
-                                name="[狀態]",
-                                value=latest_pr["state"].title(),
-                                inline=True,
-                            )
-
+                            embed.add_field(name="[PR 編號]", value=event["pr_number"], inline=True)
+                            embed.add_field(name="[狀態]", value=event["state"], inline=True)
                             await channel.send(embed=embed)
-                elif response.status == 403:
-                    print(f"Rate limited for {repo_key} PRs, skipping this check")
-                else:
-                    print(f"Failed to fetch PRs for {repo_key}: {response.status}")
-
-            # 只在有變更時才寫入磁碟
-            if has_changes:
-                self._save_config()
-
-        except aiohttp.ClientError as e:
-            print(f"Network error checking {repo_key}: {e}")
-        except Exception as e:
-            print(f"Unexpected error checking {repo_key}: {e}")
+                except Exception as e:
+                    print(f"Error checking {repo_key}: {e}")
+                    continue
 
     # Role management commands
     role = app_commands.Group(name="role", description="身份組管理指令")
@@ -508,8 +388,8 @@ class Management(commands.Cog):
 
         guild_id = str(interaction.guild.id)
 
-        if guild_id not in self._config:
-            self._config[guild_id] = {}
+        if guild_id not in self.service.config:
+            self.service.config[guild_id] = {}
 
         welcome_config = {
             "channel_id": channel.id,
@@ -538,8 +418,8 @@ class Management(commands.Cog):
                 return
             welcome_config["auto_role_id"] = auto_role.id
 
-        self._config[guild_id]["welcome"] = welcome_config
-        self._save_config()
+        self.service.config[guild_id]["welcome"] = welcome_config
+        self.service.save()
 
         response_msg = f"[成功] 歡迎訊息將發送至 {channel.mention}"
         if auto_role:
@@ -597,13 +477,13 @@ class Management(commands.Cog):
     ):
         guild_id = str(interaction.guild.id)
 
-        if guild_id not in self._config or "welcome" not in self._config[guild_id]:
+        if guild_id not in self.service.config or "welcome" not in self.service.config[guild_id]:
             await interaction.response.send_message(
                 "[失敗] 尚未設定歡迎訊息", ephemeral=True
             )
             return
 
-        welcome_config = self._config[guild_id]["welcome"]
+        welcome_config = self.service.config[guild_id]["welcome"]
 
         user_mention = test_user or interaction.user.mention
         server_name = test_server or interaction.guild.name
@@ -619,7 +499,7 @@ class Management(commands.Cog):
             embed = discord.Embed(
                 title=welcome_config.get("embed_title"),
                 description=message,
-                color=welcome_config.get("embed_color", discord.Color.blue()),
+                color=welcome_config.get("embed_color", discord.Color.from_rgb(52, 152, 219)),
             )
             embed.set_thumbnail(
                 url=interaction.guild.icon.url if interaction.guild.icon else None
@@ -642,9 +522,9 @@ class Management(commands.Cog):
 
         guild_id = str(interaction.guild.id)
 
-        if guild_id in self._config and "welcome" in self._config[guild_id]:
-            del self._config[guild_id]["welcome"]
-            self._save_config()
+        if guild_id in self.service.config and "welcome" in self.service.config[guild_id]:
+            del self.service.config[guild_id]["welcome"]
+            self.service.save()
             await interaction.response.send_message("[成功] 已停用歡迎訊息")
         else:
             await interaction.response.send_message(
@@ -699,10 +579,10 @@ class Management(commands.Cog):
 
         guild_id = str(interaction.guild.id)
 
-        if guild_id not in self._config:
-            self._config[guild_id] = {}
-        if "auto_roles" not in self._config[guild_id]:
-            self._config[guild_id]["auto_roles"] = []
+        if guild_id not in self.service.config:
+            self.service.config[guild_id] = {}
+        if "auto_roles" not in self.service.config[guild_id]:
+            self.service.config[guild_id]["auto_roles"] = []
 
         role_config = {
             "role_id": role.id,
@@ -711,8 +591,8 @@ class Management(commands.Cog):
             "require_verification": require_verification,
         }
 
-        self._config[guild_id]["auto_roles"].append(role_config)
-        self._save_config()
+        self.service.config[guild_id]["auto_roles"].append(role_config)
+        self.service.save()
 
         embed = discord.Embed(
             title="[成功] 自動角色已設定",
@@ -733,13 +613,13 @@ class Management(commands.Cog):
     async def auto_role_list(self, interaction: discord.Interaction):
         guild_id = str(interaction.guild.id)
 
-        if guild_id not in self._config or "auto_roles" not in self._config[guild_id]:
+        if guild_id not in self.service.config or "auto_roles" not in self.service.config[guild_id]:
             await interaction.response.send_message(
                 "[失敗] 尚未設定自動角色規則", ephemeral=True
             )
             return
 
-        auto_roles = self._config[guild_id]["auto_roles"]
+        auto_roles = self.service.config[guild_id]["auto_roles"]
 
         embed = discord.Embed(title="[自動角色] 規則列表", color=discord.Color.from_rgb(52, 152, 219))
 
@@ -777,18 +657,18 @@ class Management(commands.Cog):
         guild_id = str(interaction.guild.id)
 
         if (
-            guild_id not in self._config
-            or "auto_roles" not in self._config[guild_id]
+            guild_id not in self.service.config
+            or "auto_roles" not in self.service.config[guild_id]
             or rule_index < 1
-            or rule_index > len(self._config[guild_id]["auto_roles"])
+            or rule_index > len(self.service.config[guild_id]["auto_roles"])
         ):
             await interaction.response.send_message(
                 "[失敗] 無效的規則編號", ephemeral=True
             )
             return
 
-        removed_role = self._config[guild_id]["auto_roles"].pop(rule_index - 1)
-        self._save_config()
+        removed_role = self.service.config[guild_id]["auto_roles"].pop(rule_index - 1)
+        self.service.save()
 
         role = interaction.guild.get_role(removed_role["role_id"])
         role_name = role.name if role else f"已刪除的角色 ({removed_role['role_id']})"
@@ -802,8 +682,8 @@ class Management(commands.Cog):
         guild_id = str(member.guild.id)
 
         # Handle welcome messages
-        if guild_id in self._config and "welcome" in self._config[guild_id]:
-            welcome_config = self._config[guild_id]["welcome"]
+        if guild_id in self.service.config and "welcome" in self.service.config[guild_id]:
+            welcome_config = self.service.config[guild_id]["welcome"]
             channel = member.guild.get_channel(welcome_config["channel_id"])
 
             if channel:
@@ -818,7 +698,7 @@ class Management(commands.Cog):
                     embed = discord.Embed(
                         title=welcome_config.get("embed_title"),
                         description=message,
-                        color=welcome_config.get("embed_color", discord.Color.blue()),
+                        color=welcome_config.get("embed_color", discord.Color.from_rgb(52, 152, 219)),
                     )
                     embed.set_thumbnail(
                         url=member.guild.icon.url if member.guild.icon else None
@@ -856,8 +736,8 @@ class Management(commands.Cog):
                     pass
 
         # Handle auto roles
-        if guild_id in self._config and "auto_roles" in self._config[guild_id]:
-            auto_roles = self._config[guild_id]["auto_roles"]
+        if guild_id in self.service.config and "auto_roles" in self.service.config[guild_id]:
+            auto_roles = self.service.config[guild_id]["auto_roles"]
 
             for role_config in auto_roles:
                 try:

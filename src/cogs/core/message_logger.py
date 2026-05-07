@@ -1,23 +1,16 @@
-from datetime import datetime
+﻿"""訊息編輯/刪除日誌 Cog"""
+
 from datetime import timedelta
 from datetime import timezone
-import json
-import os
-import time
-from typing import Optional
 
 import discord
 from discord.ext import commands
 from discord.ext import tasks
 
+from src.services.message_log_service import MessageLogService
 from src.utils.config_manager import ensure_data_dir
-from src.utils.message_cache import get_message_cache
 
-# UTC+8 時區
 TZ_OFFSET = timezone(timedelta(hours=8))
-
-# 日誌保留天數
-LOG_RETENTION_DAYS = 30
 
 
 class MessageLogger(commands.Cog):
@@ -25,409 +18,46 @@ class MessageLogger(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.data_file = "data/logs/messages/message_log.json"
-        self.config_file = "data/storage/log_channels.json"
-        self.message_cache = get_message_cache()
+        self.service = MessageLogService()
         ensure_data_dir()
-        # 日誌頻道快取
-        self._log_channels_cache: dict = {}
-        self._log_channels_cache_time: float = 0
-        self._LOG_CHANNELS_TTL: float = 60.0
-        # 訊息日誌快取 (避免每次事件都讀全檔)
-        self._msg_log_cache: Optional[dict] = None
-        self._msg_log_cache_time: float = 0
-        self._MSG_LOG_TTL: float = 120.0  # 2 分鐘 TTL
-        # 啟動定期清理任務
-        self._cleanup_old_logs.start()
+        self._cleanup_task.start()
 
     def cog_unload(self):
-        self._cleanup_old_logs.cancel()
+        self._cleanup_task.cancel()
 
     @tasks.loop(hours=24)
-    async def _cleanup_old_logs(self):
+    async def _cleanup_task(self):
         """定期清理超過保留天數的舊訊息日誌"""
         await self.bot.wait_until_ready()
         try:
-            logs = self.load_message_log()
-            if not logs:
-                return
-
-            cutoff = (
-                datetime.now(TZ_OFFSET) - timedelta(days=LOG_RETENTION_DAYS)
-            ).isoformat()
-            keys_to_remove = []
-
-            for key, record in logs.items():
-                created = record.get("created_at", "")
-                if created and created < cutoff:
-                    keys_to_remove.append(key)
-
-            if keys_to_remove:
-                for key in keys_to_remove:
-                    del logs[key]
-                self.save_message_log(logs)
-                print(f"[清理] 已移除 {len(keys_to_remove)} 筆超過 {LOG_RETENTION_DAYS} 天的訊息日誌")
+            removed = self.service.cleanup_old_logs()
+            if removed:
+                print(f"[清理] 已移除 {removed} 筆舊訊息日誌")
         except Exception as e:
             print(f"[清理] 日誌清理失敗: {e}")
 
-    def get_current_time_str(self) -> str:
-        """取得格式化的當前時間 (月/日 時:分)"""
-        now = datetime.now(TZ_OFFSET)
-        return now.strftime("%m/%d %H:%M")
-
-    def load_log_channels(self) -> dict:
-        """載入日誌頻道設定 (帶快取)"""
-        now = time.monotonic()
-        if self._log_channels_cache and (now - self._log_channels_cache_time) < self._LOG_CHANNELS_TTL:
-            return self._log_channels_cache
-
-        if not os.path.exists(self.config_file):
-            self._log_channels_cache = {}
-            self._log_channels_cache_time = now
-            return self._log_channels_cache
-
-        try:
-            with open(self.config_file, "r", encoding="utf-8") as f:
-                self._log_channels_cache = json.load(f)
-        except (json.JSONDecodeError, OSError) as e:
-            print(f"[錯誤] 無法載入日誌頻道設置: {e}")
-            self._log_channels_cache = {}
-        self._log_channels_cache_time = now
-        return self._log_channels_cache
-
-    def save_log_channels(self, data: dict):
-        """儲存日誌頻道設定並更新快取"""
-        try:
-            with open(self.config_file, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            self._log_channels_cache = data
-            self._log_channels_cache_time = time.monotonic()
-        except Exception as e:
-            print(f"[錯誤] 無法保存日誌頻道設置: {e}")
-
-    def get_log_channel_id(self, guild_id: int) -> Optional[int]:
-        """取得伺服器的日誌頻道 ID (從快取)"""
-        channels = self.load_log_channels()
-        return channels.get(str(guild_id))
-
-    def set_log_channel_id(self, guild_id: int, channel_id: int):
-        """設定伺服器的日誌頻道 ID"""
-        channels = self.load_log_channels()
-        channels[str(guild_id)] = channel_id
-        self.save_log_channels(channels)
-
-    def load_message_log(self) -> dict:
-        """載入訊息日誌 (帶快取)"""
-        now = time.monotonic()
-        if self._msg_log_cache is not None and (now - self._msg_log_cache_time) < self._MSG_LOG_TTL:
-            return self._msg_log_cache
-
-        if not os.path.exists(self.data_file):
-            self._msg_log_cache = {}
-            self._msg_log_cache_time = now
-            return self._msg_log_cache
-
-        try:
-            with open(self.data_file, "r", encoding="utf-8") as f:
-                self._msg_log_cache = json.load(f)
-        except (json.JSONDecodeError, OSError) as e:
-            print(f"[錯誤] 無法載入訊息日誌: {e}")
-            self._msg_log_cache = {}
-        self._msg_log_cache_time = now
-        return self._msg_log_cache
-
-    def save_message_log(self, data: dict):
-        """儲存訊息日誌並更新快取"""
-        try:
-            with open(self.data_file, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            self._msg_log_cache = data
-            self._msg_log_cache_time = time.monotonic()
-        except Exception as e:
-            print(f"[錯誤] 無法保存訊息日誌: {e}")
-
-    def add_message_record(
-        self,
-        guild_id: int,
-        message_id: int,
-        content: str,
-        author_id: int,
-        channel_id: int,
-        attachments: list = None,
-    ):
-        """新增訊息記錄"""
-        logs = self.load_message_log()
-        msg_key = f"{guild_id}_{message_id}"
-
-        # 萃取附件 URL
-        attachment_urls = []
-        if attachments:
-            for attachment in attachments:
-                attachment_urls.append(attachment.url)
-
-        record = {
-            "message_id": message_id,
-            "guild_id": guild_id,
-            "channel_id": channel_id,
-            "author_id": author_id,
-            "original_content": content,
-            "edit_history": [],
-            "deleted": False,
-            "attachments": attachment_urls,
-            "created_at": datetime.now(TZ_OFFSET).isoformat(),
-        }
-
-        logs[msg_key] = record
-        self.save_message_log(logs)
-
-        # 存儲到內存快取
-        self.message_cache.set(guild_id, message_id, record)
-
-    def update_message_edit(self, guild_id: int, message_id: int, new_content: str):
-        """更新訊息編輯紀錄"""
-        logs = self.load_message_log()
-        msg_key = f"{guild_id}_{message_id}"
-
-        if msg_key in logs:
-            logs[msg_key]["edit_history"].append(new_content)
-            logs[msg_key]["last_edited_at"] = datetime.now(TZ_OFFSET).isoformat()
-            self.save_message_log(logs)
-
-            # 更新快取
-            self.message_cache.update(
-                guild_id,
-                message_id,
-                {
-                    "edit_history": logs[msg_key]["edit_history"],
-                    "last_edited_at": logs[msg_key]["last_edited_at"],
-                },
-            )
-            return True
-        else:
-            print(f"[警告] 未找到訊息記錄: {msg_key}")
-            return False
-
-    def mark_message_deleted(self, guild_id: int, message_id: int):
-        """標記訊息為已刪除"""
-        logs = self.load_message_log()
-        msg_key = f"{guild_id}_{message_id}"
-
-        if msg_key in logs:
-            logs[msg_key]["deleted"] = True
-            logs[msg_key]["deleted_at"] = datetime.now(TZ_OFFSET).isoformat()
-            self.save_message_log(logs)
-
-            # 更新快取
-            self.message_cache.update(
-                guild_id,
-                message_id,
-                {"deleted": True, "deleted_at": logs[msg_key]["deleted_at"]},
-            )
-            return True
-        else:
-            print(f"[警告] 未找到訊息記錄: {msg_key}")
-            return False
-
-    def get_message_record(self, guild_id: int, message_id: int) -> Optional[dict]:
-        """取得訊息記錄（優先從快取查詢）"""
-        # 先檢查內存快取
-        cached_record = self.message_cache.get(guild_id, message_id)
-        if cached_record is not None:
-            return cached_record
-
-        # 快取未命中，查詢 JSON
-        logs = self.load_message_log()
-        msg_key = f"{guild_id}_{message_id}"
-        record = logs.get(msg_key)
-
-        # 如果找到，保存到快取
-        if record:
-            self.message_cache.set(guild_id, message_id, record)
-
-        return record
-
-    def is_image_or_gif(self, url: str) -> bool:
-        """檢查連結是否為圖片或 GIF"""
-        if not url:
-            return False
-        url_lower = url.lower()
-        image_extensions = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg")
-        return any(url_lower.endswith(ext) for ext in image_extensions) or any(
-            ext in url_lower for ext in ("media", "image", "cdn")
-        )
-
-    def get_first_image_url(self, attachment_urls: list) -> Optional[str]:
-        """從附件 URL 列表中取得第一個圖片或 GIF 的 URL"""
-        if not attachment_urls:
-            return None
-        for url in attachment_urls:
-            if self.is_image_or_gif(url):
-                return url
-        return None
-
-    def create_edit_embed(
-        self,
-        guild_id: int,
-        channel_id: int,
-        message_id: int,
-        user_id: int,
-        user_name: str,
-        guild_name: str,
-        before_content: str,
-        after_content: str,
-        edit_count: int,
-        before_attachments: list = None,
-        after_attachments: list = None,
-    ) -> discord.Embed:
-        """建立編輯訊息的 embed"""
-        embed = discord.Embed(
-            title="[編輯] 訊息已編輯",
-            color=discord.Color.from_rgb(52, 152, 219),
-            timestamp=datetime.now(TZ_OFFSET),
-        )
-
-        # 新增基本資訊
-        embed.add_field(name="用戶ID", value=f"{user_id}", inline=True)
-        embed.add_field(name="原始頻道ID", value=f"{channel_id}", inline=True)
-        embed.add_field(
-            name="伺服器名稱", value=f"{guild_name} ({guild_id})", inline=False
-        )
-        embed.add_field(name="訊息ID", value=str(message_id), inline=False)
-        embed.add_field(name="時間", value=self.get_current_time_str(), inline=True)
-
-        # 檢查編輯前的附件
-        before_image_url = (
-            self.get_first_image_url(before_attachments) if before_attachments else None
-        )
-
-        # 新增編輯前內容
-        if before_image_url:
-            # 如果有圖片，不用代碼框
-            before_text = before_content[:1024] if before_content else "(空)"
-            if before_text and before_text != "(空)":
-                embed.add_field(name="編輯前 (文字)", value=before_text, inline=False)
-        else:
-            # 如果沒有圖片，用代碼框包裹文字
-            before_text = before_content[:1024] if before_content else "(空)"
-            embed.add_field(
-                name="編輯前", value=f"```\n{before_text}\n```", inline=False
-            )
-
-        # 檢查編輯後的附件
-        after_image_url = (
-            self.get_first_image_url(after_attachments) if after_attachments else None
-        )
-
-        # 新增編輯後內容
-        if after_image_url:
-            # 如果有圖片，不用代碼框
-            after_text = after_content[:1024] if after_content else "(空)"
-            if after_text and after_text != "(空)":
-                embed.add_field(name="編輯後 (文字)", value=after_text, inline=False)
-        else:
-            # 如果沒有圖片，用代碼框包裹文字
-            after_text = after_content[:1024] if after_content else "(空)"
-            embed.add_field(
-                name="編輯後", value=f"```\n{after_text}\n```", inline=False
-            )
-
-        # 如果有編輯後的圖片，新增到embed
-        if after_image_url:
-            embed.set_image(url=after_image_url)
-
-        embed.add_field(name="編輯次數", value=str(edit_count), inline=True)
-
-        embed.set_footer(text=f"用戶 {user_name}")
-
-        return embed
-
-    def create_delete_embed(
-        self,
-        guild_id: int,
-        channel_id: int,
-        message_id: int,
-        user_id: int,
-        user_name: str,
-        guild_name: str,
-        content: str,
-        attachments: list = None,
-    ) -> discord.Embed:
-        """建立刪除訊息的 embed"""
-        embed = discord.Embed(
-            title="[刪除] 訊息已刪除",
-            color=discord.Color.from_rgb(231, 76, 60),
-            timestamp=datetime.now(TZ_OFFSET),
-        )
-
-        # 新增基本資訊
-        embed.add_field(name="用戶ID", value=f"{user_id}", inline=True)
-        embed.add_field(name="原始頻道ID", value=f"{channel_id}", inline=True)
-        embed.add_field(
-            name="伺服器名稱", value=f"{guild_name} ({guild_id})", inline=False
-        )
-        embed.add_field(name="訊息ID", value=str(message_id), inline=False)
-        embed.add_field(name="時間", value=self.get_current_time_str(), inline=True)
-
-        # 檢查是否有圖片附件
-        image_url = self.get_first_image_url(attachments) if attachments else None
-
-        # 新增刪除前的訊息內容
-        if image_url:
-            # 如果有圖片，不用代碼框
-            content_text = content[:1024] if content else "(空)"
-            if content_text and content_text != "(空)":
-                embed.add_field(
-                    name="刪除前的訊息 (文字)", value=content_text, inline=False
-                )
-        else:
-            # 如果沒有圖片，用代碼框包裹文字
-            content_text = content[:1024] if content else "(空)"
-            embed.add_field(
-                name="刪除前的訊息", value=f"```\n{content_text}\n```", inline=False
-            )
-
-        # 如果有圖片，新增到embed
-        if image_url:
-            embed.set_image(url=image_url)
-
-        embed.set_footer(text=f"用戶 {user_name}")
-
-        return embed
+    # ─────────────── 事件監聽 ───────────────
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        """監聽所有訊息 - 記錄內容以備後用"""
-        # 忽略bot訊息
-        if message.author.bot:
+        """監聽所有訊息，記錄內容以備後用"""
+        if message.author.bot or message.guild is None:
             return
-
-        # 忽略私人訊息
-        if message.guild is None:
-            return
-
-        # 記錄訊息內容
-        record = self.get_message_record(message.guild.id, message.id)
-        if not record:
-            self.add_message_record(
+        if not self.service.get_record(message.guild.id, message.id):
+            self.service.add_record(
                 message.guild.id,
                 message.id,
                 message.content,
                 message.author.id,
                 message.channel.id,
-                message.attachments if message.attachments else None,
+                message.attachments or None,
             )
 
     @commands.Cog.listener()
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
         """監聽訊息編輯"""
-        # 忽略bot訊息
-        if before.author.bot:
+        if before.author.bot or before.content == after.content:
             return
-
-        # 內容相同，忽略
-        if before.content == after.content:
-            return
-
         try:
             guild_id = before.guild.id
             channel_id = before.channel.id
@@ -435,80 +65,63 @@ class MessageLogger(commands.Cog):
             user_id = before.author.id
             user_name = str(before.author)
 
-            # 獲取或創建記錄
-            record = self.get_message_record(guild_id, message_id)
+            record = self.service.get_record(guild_id, message_id)
             if not record:
-                # 如果沒有記錄，先創建
-                self.add_message_record(
-                    guild_id,
-                    message_id,
-                    before.content,
-                    user_id,
-                    channel_id,
-                    before.attachments if before.attachments else None,
+                self.service.add_record(
+                    guild_id, message_id, before.content, user_id, channel_id,
+                    before.attachments or None,
                 )
                 before_content = before.content
-                before_attachments = before.attachments if before.attachments else None
+                before_attachment_urls: list[str] = []
                 edit_count = 1
             else:
                 before_content = record.get("original_content", before.content)
-                before_attachments = record.get("attachments", [])
+                before_attachment_urls = record.get("attachments", [])
                 edit_count = 1 + len(record.get("edit_history", []))
 
-            # 更新編輯歷史
-            self.update_message_edit(guild_id, message_id, after.content)
+            self.service.record_edit(guild_id, message_id, after.content)
 
-            # 獲取日誌頻道
-            log_channel_id = self.get_log_channel_id(guild_id)
+            log_channel_id = self.service.get_log_channel_id(guild_id)
             if not log_channel_id:
                 return
 
+            log_channel = self.bot.get_channel(log_channel_id)
+            if log_channel is None:
+                log_channel = await self.bot.fetch_channel(log_channel_id)
+            if not isinstance(log_channel, discord.TextChannel):
+                return
+
+            after_attachment_urls = [a.url for a in after.attachments]
+            embed = self.service.build_edit_embed(
+                guild_id=guild_id,
+                channel_id=channel_id,
+                message_id=message_id,
+                user_id=user_id,
+                user_name=user_name,
+                guild_name=before.guild.name,
+                before_content=before_content,
+                after_content=after.content,
+                edit_count=edit_count,
+                before_attachments=before_attachment_urls,
+                after_attachments=after_attachment_urls,
+            )
+            await log_channel.send(embed=embed)
+
             try:
-                log_channel = self.bot.get_channel(log_channel_id)
-                if log_channel is None:
-                    log_channel = await self.bot.fetch_channel(log_channel_id)
-                if not isinstance(log_channel, discord.TextChannel):
-                    return
-
-                # 創建並發送 embed
-                embed = self.create_edit_embed(
-                    guild_id=guild_id,
-                    channel_id=channel_id,
-                    message_id=message_id,
-                    user_id=user_id,
-                    user_name=user_name,
-                    guild_name=before.guild.name,
-                    before_content=before_content,
-                    after_content=after.content,
-                    edit_count=edit_count,
-                    before_attachments=before_attachments,
-                    after_attachments=after.attachments if after.attachments else None,
-                )
-
-                await log_channel.send(embed=embed)
-                print(f"[✓] 編輯日誌已發送到頻道 {log_channel_id}")
-
-                # 觸發成就
-                try:
-                    achievements_cog = self.bot.get_cog("Achievements")
-                    if achievements_cog:
-                        achievements_cog.trigger_edit_achievement(user_id, guild_id)
-                except Exception as e:
-                    print(f"[成就] 編輯成就觸發失敗: {e}")
-
+                achievements_cog = self.bot.get_cog("Achievements")
+                if achievements_cog:
+                    achievements_cog.trigger_edit_achievement(user_id, guild_id)
             except Exception as e:
-                print(f"[✗] 發送編輯日誌失敗: {e}")
+                print(f"[成就] 編輯成就觸發失敗: {e}")
 
         except Exception as e:
-            print(f"[✗] 編輯監聽出錯: {e}")
+            print(f"[失敗] 編輯監聽出錯: {e}")
 
     @commands.Cog.listener()
     async def on_message_delete(self, message: discord.Message):
         """監聽訊息刪除"""
-        # 忽略bot訊息
         if message.author.bot:
             return
-
         try:
             guild_id = message.guild.id
             channel_id = message.channel.id
@@ -516,71 +129,53 @@ class MessageLogger(commands.Cog):
             user_id = message.author.id
             user_name = str(message.author)
 
-            # 獲取訊息記錄
-            record = self.get_message_record(guild_id, message_id)
+            record = self.service.get_record(guild_id, message_id)
             if record:
                 original_content = record.get("original_content", message.content)
-                attachments = record.get("attachments", [])
+                attachment_urls: list[str] = record.get("attachments", [])
             else:
                 original_content = message.content
-                attachments = (
-                    [attachment.url for attachment in message.attachments]
-                    if message.attachments
-                    else []
-                )
-                # 如果沒有記錄，創建一個
-                self.add_message_record(
-                    guild_id,
-                    message_id,
-                    original_content,
-                    user_id,
-                    channel_id,
-                    message.attachments if message.attachments else None,
+                attachment_urls = [a.url for a in message.attachments]
+                self.service.add_record(
+                    guild_id, message_id, original_content, user_id, channel_id,
+                    message.attachments or None,
                 )
 
-            # 標記為已刪除
-            self.mark_message_deleted(guild_id, message_id)
+            self.service.mark_deleted(guild_id, message_id)
 
-            # 獲取日誌頻道
-            log_channel_id = self.get_log_channel_id(guild_id)
+            log_channel_id = self.service.get_log_channel_id(guild_id)
             if not log_channel_id:
                 return
 
+            log_channel = self.bot.get_channel(log_channel_id)
+            if log_channel is None:
+                log_channel = await self.bot.fetch_channel(log_channel_id)
+            if not isinstance(log_channel, discord.TextChannel):
+                return
+
+            embed = self.service.build_delete_embed(
+                guild_id=guild_id,
+                channel_id=channel_id,
+                message_id=message_id,
+                user_id=user_id,
+                user_name=user_name,
+                guild_name=message.guild.name,
+                content=original_content,
+                attachments=attachment_urls,
+            )
+            await log_channel.send(embed=embed)
+
             try:
-                log_channel = self.bot.get_channel(log_channel_id)
-                if log_channel is None:
-                    log_channel = await self.bot.fetch_channel(log_channel_id)
-                if not isinstance(log_channel, discord.TextChannel):
-                    return
-
-                # 創建並發送 embed
-                embed = self.create_delete_embed(
-                    guild_id=guild_id,
-                    channel_id=channel_id,
-                    message_id=message_id,
-                    user_id=user_id,
-                    user_name=user_name,
-                    guild_name=message.guild.name,
-                    content=original_content,
-                    attachments=attachments,
-                )
-
-                await log_channel.send(embed=embed)
-                print(f"[✓] 刪除日誌已發送到頻道 {log_channel_id}")
-
-                # 觸發成就
-                try:
-                    achievements_cog = self.bot.get_cog("Achievements")
-                    if achievements_cog:
-                        achievements_cog.trigger_delete_achievement(user_id, guild_id)
-                except Exception as e:
-                    print(f"[成就] 刪除成就觸發失敗: {e}")
-
+                achievements_cog = self.bot.get_cog("Achievements")
+                if achievements_cog:
+                    achievements_cog.trigger_delete_achievement(user_id, guild_id)
             except Exception as e:
-                print(f"[✗] 發送刪除日誌失敗: {e}")
+                print(f"[成就] 刪除成就觸發失敗: {e}")
 
         except Exception as e:
-            print(f"[✗] 刪除監聽出錯: {e}")
+            print(f"[失敗] 刪除監聽出錯: {e}")
+
+    # ─────────────── 指令 ───────────────
 
     @discord.app_commands.command(
         name="編刪紀錄設定", description="設置訊息編輯/刪除的日誌頻道"
@@ -591,39 +186,19 @@ class MessageLogger(commands.Cog):
         self, interaction: discord.Interaction, channel: discord.TextChannel
     ):
         """設置日誌頻道"""
-        try:
-            # 檢查權限
-            if not interaction.user.guild_permissions.administrator:
-                await interaction.response.send_message(
-                    "[失敗] 你需要管理員權限才能使用此命令", ephemeral=True
-                )
-                return
-
-            await interaction.response.defer()
-
-            # 設置日誌頻道
-            self.set_log_channel_id(interaction.guild_id, channel.id)
-
-            embed = discord.Embed(
-                title="[成功] 設置成功",
-                description=f"訊息編輯/刪除的日誌將發送到 {channel.mention}",
-                color=discord.Color.from_rgb(46, 204, 113),
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message(
+                "[失敗] 你需要管理員權限才能使用此指令", ephemeral=True
             )
-            await interaction.followup.send(embed=embed)
-
-        except Exception as e:
-            print(f"[設置日誌頻道] 錯誤: {e}")
-            try:
-                if not interaction.response.is_done():
-                    await interaction.response.send_message(
-                        f"[失敗] 錯誤: {str(e)}", ephemeral=True
-                    )
-                else:
-                    await interaction.followup.send(
-                        f"[失敗] 錯誤: {str(e)}", ephemeral=True
-                    )
-            except Exception:
-                pass
+            return
+        await interaction.response.defer()
+        self.service.set_log_channel_id(interaction.guild_id, channel.id)
+        embed = discord.Embed(
+            title="[成功] 設置成功",
+            description=f"訊息編輯/刪除的日誌將發送到 {channel.mention}",
+            color=discord.Color.from_rgb(46, 204, 113),
+        )
+        await interaction.followup.send(embed=embed)
 
 
 async def setup(bot: commands.Bot):

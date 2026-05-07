@@ -1,4 +1,4 @@
-from datetime import datetime
+﻿from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 
@@ -497,7 +497,7 @@ class Report(commands.Cog):
         embed = discord.Embed(
             title="[舉報系統] 頻道設定",
             description=desc,
-            color=discord.Color.blue(),
+            color=discord.Color.from_rgb(52, 152, 219),
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 

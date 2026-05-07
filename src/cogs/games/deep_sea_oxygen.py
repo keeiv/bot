@@ -1,10 +1,12 @@
-import random
+﻿import random
 from typing import Dict
 
 import discord
 from discord import app_commands
 from discord import ui
 from discord.ext import commands
+
+from src.services.game_service import OxygenGame
 
 
 class DeepSeaOxygen(commands.Cog):
@@ -13,63 +15,6 @@ class DeepSeaOxygen(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.active_games: Dict[int, "OxygenGame"] = {}  # channel_id -> game
-
-    class OxygenGame:
-        """遊戲實例"""
-
-        def __init__(
-            self,
-            channel: discord.TextChannel,
-            player1: discord.Member,
-            player2: discord.Member,
-        ):
-            self.channel = channel
-            self.player1 = player1
-            self.player2 = player2
-            self.round = 1
-            self.max_rounds = 5
-
-            # 氧氣系統
-            self.total_oxygen = 10000  # 共享氧氣瓶
-            self.round_oxygen_usage = {}  # 每輪玩家吸氧量
-            self.round_choices = {}  # 每輪玩家選擇（隱藏）
-
-            # CT 獎勵系統
-            self.player1_coins = 0
-            self.player2_coins = 0
-
-            # 道具系統
-            self.player1_items = ["側錄器", "漏氣針"]
-            self.player2_items = ["側錄器", "漏氣針"]
-
-            # 遊戲狀態
-            self.game_active = True
-            self.eliminated_player = None
-            self.current_phase = "waiting"  # waiting, choosing, reveal
-
-        def calculate_coins(self, oxygen_amount: int) -> int:
-            """計算 CT 獎勵"""
-            # 吸得越少，獎勵越高
-            if oxygen_amount <= 500:
-                return 2000
-            elif oxygen_amount <= 800:
-                return 1500
-            elif oxygen_amount <= 1200:
-                return 1000
-            elif oxygen_amount <= 1500:
-                return 500
-            elif oxygen_amount <= 1800:
-                return 200
-            else:
-                return 0
-
-        def get_last_round_oxygen(self, player: discord.Member) -> int:
-            """獲取玩家上一輪吸氧量"""
-            if self.round <= 1:
-                return 0
-
-            # 返回上一輪的吸氧量
-            return self.round_oxygen_usage.get(player.id, 0)
 
     class GameView(ui.View):
         """遊戲主視圖"""
@@ -86,7 +31,7 @@ class DeepSeaOxygen(commands.Cog):
                 embed = discord.Embed(
                     title="[遊戲結束] 超時",
                     description="遊戲因超時而結束",
-                    color=discord.Color.red(),
+                    color=discord.Color.from_rgb(231, 76, 60),
                 )
                 await self.game.channel.send(embed=embed)
                 if self.game.channel.id in self.cog.active_games:
@@ -120,7 +65,7 @@ class DeepSeaOxygen(commands.Cog):
                 description=f"{interaction.user.mention} 請選擇這輪要吸多少氧氣\n"
                 f"範圍：500~2000 單位\n"
                 f"吸得越少，CT 獎勵越高",
-                color=discord.Color.blue(),
+                color=discord.Color.from_rgb(52, 152, 219),
             )
 
             embed.add_field(
@@ -175,7 +120,7 @@ class DeepSeaOxygen(commands.Cog):
             embed = discord.Embed(
                 title="[道具選擇] 深海工具",
                 description=f"{interaction.user.mention} 請選擇要使用的道具",
-                color=discord.Color.purple(),
+                color=discord.Color.from_rgb(155, 89, 182),
             )
 
             for item in items:
@@ -206,7 +151,7 @@ class DeepSeaOxygen(commands.Cog):
             embed = discord.Embed(
                 title="[遊戲狀態] 深海氧氣瓶",
                 description=f"第 {self.game.round}/{self.game.max_rounds} 輪",
-                color=discord.Color.teal(),
+                color=discord.Color.from_rgb(26, 188, 156),
             )
 
             embed.add_field(
@@ -282,7 +227,7 @@ class DeepSeaOxygen(commands.Cog):
                 embed = discord.Embed(
                     title="[選擇確認] 氧氣抉擇",
                     description=f"你選擇了吸 {oxygen} 單位氧氣\n將獲得 {coins} CT",
-                    color=discord.Color.green(),
+                    color=discord.Color.from_rgb(46, 204, 113),
                 )
 
                 await interaction.response.edit_message(embed=embed, view=None)
@@ -321,7 +266,7 @@ class DeepSeaOxygen(commands.Cog):
             embed = discord.Embed(
                 title=f"[第 {self.game.round} 輪結果] 氧氣抉擇",
                 description=f"本輪總消耗：{total_used} 單位",
-                color=discord.Color.orange(),
+                color=discord.Color.from_rgb(230, 126, 34),
             )
 
             embed.add_field(
@@ -373,7 +318,7 @@ class DeepSeaOxygen(commands.Cog):
                 embed = discord.Embed(
                     title="[缺氧死亡] 深海悲劇",
                     description=f"氧氣瓶見底！{self.game.eliminated_player.mention} 因吸氧最少而缺氧出局",
-                    color=discord.Color.red(),
+                    color=discord.Color.from_rgb(231, 76, 60),
                 )
                 await self.game.channel.send(embed=embed)
 
@@ -398,7 +343,7 @@ class DeepSeaOxygen(commands.Cog):
                 embed = discord.Embed(
                     title="[遊戲結束] 深海倖存者",
                     description=f"{winner.mention} 獲勝！\n對手因缺氧出局",
-                    color=discord.Color.gold(),
+                    color=discord.Color.from_rgb(241, 196, 15),
                 )
             else:
                 # 無人被淘汰，比較 CT
@@ -412,7 +357,7 @@ class DeepSeaOxygen(commands.Cog):
                 embed = discord.Embed(
                     title="[遊戲結束] 最終結果",
                     description=f"遊戲結束！{'平局' if winner is None else f'{winner.mention} 獲勝！'}",
-                    color=discord.Color.gold(),
+                    color=discord.Color.from_rgb(241, 196, 15),
                 )
 
             # 顯示最終結果
@@ -483,7 +428,7 @@ class DeepSeaOxygen(commands.Cog):
                 embed = discord.Embed(
                     title="[側錄器] 氧氣記錄",
                     description=f"{opponent.mention} 上一輪吸了 {last_oxygen} 單位氧氣",
-                    color=discord.Color.blue(),
+                    color=discord.Color.from_rgb(52, 152, 219),
                 )
                 await interaction.response.edit_message(embed=embed, view=None)
 
@@ -500,7 +445,7 @@ class DeepSeaOxygen(commands.Cog):
                 embed = discord.Embed(
                     title="[漏氣針] 氧氣洩漏",
                     description="共享氧氣瓶額外損耗 1000 單位！\n氧氣正在快速減少...",
-                    color=discord.Color.red(),
+                    color=discord.Color.from_rgb(231, 76, 60),
                 )
                 await interaction.response.edit_message(embed=embed, view=None)
 
@@ -537,7 +482,7 @@ class DeepSeaOxygen(commands.Cog):
                     embed = discord.Embed(
                         title="[緊急死亡] 氧氣耗盡",
                         description=f"氧氣瓶完全見底！{self.game.eliminated_player.mention} 因吸氧最少而立即出局",
-                        color=discord.Color.red(),
+                        color=discord.Color.from_rgb(231, 76, 60),
                     )
                     await self.game.channel.send(embed=embed)
 
@@ -574,7 +519,7 @@ class DeepSeaOxygen(commands.Cog):
             return
 
         # 創建遊戲
-        game = self.OxygenGame(interaction.channel, interaction.user, opponent)
+        game = OxygenGame(interaction.channel, interaction.user, opponent)
         self.active_games[interaction.channel.id] = game
 
         # 發送邀請
@@ -588,7 +533,7 @@ class DeepSeaOxygen(commands.Cog):
             f"• 每輪秘密選擇吸氧量（500~2000）\n"
             f"• 吸得越少，CT 獎勵越高\n"
             f"• 氧氣見底時，吸最少者出局",
-            color=discord.Color.teal(),
+            color=discord.Color.from_rgb(26, 188, 156),
         )
 
         await interaction.response.send_message(embed=embed, view=view)
@@ -599,7 +544,7 @@ class GameInviteView(ui.View):
 
     def __init__(
         self,
-        game: DeepSeaOxygen.OxygenGame,
+        game: OxygenGame,
         cog: DeepSeaOxygen,
         opponent: discord.Member,
     ):
@@ -616,7 +561,7 @@ class GameInviteView(ui.View):
         embed = discord.Embed(
             title="[邀請過期] 遊戲取消",
             description="遊戲邀請已過期",
-            color=discord.Color.red(),
+            color=discord.Color.from_rgb(231, 76, 60),
         )
         await self.game.channel.send(embed=embed)
 
@@ -636,7 +581,7 @@ class GameInviteView(ui.View):
             title="[遊戲開始] 深海氧氣瓶",
             description="遊戲開始！兩位深海潛水員必須在氧氣耗盡前做出抉擇\n"
             "每輪秘密選擇吸氧量，平衡生存與貪婪",
-            color=discord.Color.green(),
+            color=discord.Color.from_rgb(46, 204, 113),
         )
 
         embed.add_field(
@@ -676,7 +621,7 @@ class GameInviteView(ui.View):
         embed = discord.Embed(
             title="[邀請拒絕] 遊戲取消",
             description=f"{self.opponent.mention} 拒絕了遊戲邀請",
-            color=discord.Color.red(),
+            color=discord.Color.from_rgb(231, 76, 60),
         )
 
         await interaction.response.send_message(embed=embed)

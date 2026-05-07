@@ -1,55 +1,19 @@
-import asyncio
-import json
-import os
+﻿"""工單系統 Cog"""
+
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
-from typing import Optional
 
 import discord
 from discord import ui
 from discord.ext import commands
 
-# UTC+8 時區
+from src.services.ticket_service import TicketService
+
 TZ_OFFSET = timezone(timedelta(hours=8))
 
-# 資料檔案路徑
-DATA_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
-    "data",
-    "storage",
-)
-TICKET_FILE = os.path.join(DATA_DIR, "tickets.json")
-
-# 全域鎖 + 快取
-_ticket_lock = asyncio.Lock()
-_ticket_cache: Optional[dict] = None
-
-
-def _load_tickets() -> dict:
-    """載入工單資料 (帶記憶體快取)"""
-    global _ticket_cache
-    if _ticket_cache is not None:
-        return _ticket_cache
-
-    if os.path.exists(TICKET_FILE):
-        try:
-            with open(TICKET_FILE, "r", encoding="utf-8") as f:
-                _ticket_cache = json.load(f)
-                return _ticket_cache
-        except (json.JSONDecodeError, OSError):
-            pass
-    _ticket_cache = {"guilds": {}, "tickets": {}}
-    return _ticket_cache
-
-
-def _save_tickets(data: dict):
-    """儲存工單資料並更新快取"""
-    global _ticket_cache
-    os.makedirs(DATA_DIR, exist_ok=True)
-    with open(TICKET_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    _ticket_cache = data
+# 模組級單例，讓持久化 View 與 Cog 共享同一個 service 實例
+_service = TicketService()
 
 
 class CloseReasonModal(ui.Modal, title="關閉工單"):
@@ -85,19 +49,8 @@ class CloseReasonModal(ui.Modal, title="關閉工單"):
 
         await interaction.response.send_message(embed=embed)
 
-        # 更新工單資料
-        data = _load_tickets()
-        ticket_id = str(thread.id)
-        if ticket_id in data.get("tickets", {}):
-            data["tickets"][ticket_id]["status"] = "closed"
-            data["tickets"][ticket_id]["closed_by"] = interaction.user.id
-            data["tickets"][ticket_id]["close_reason"] = reason_text
-            data["tickets"][ticket_id]["closed_at"] = datetime.now(
-                TZ_OFFSET
-            ).isoformat()
-            _save_tickets(data)
+        _service.close_ticket(thread.id, interaction.user.id, reason=reason_text)
 
-        # 鎖定並封存討論串
         try:
             await thread.edit(locked=True, archived=True)
         except discord.Forbidden:
@@ -121,14 +74,8 @@ class TicketCloseView(ui.View):
             )
             return False
 
-        data = _load_tickets()
-        ticket_id = str(thread.id)
-        ticket_info = data.get("tickets", {}).get(ticket_id, {})
-
         is_staff = interaction.user.guild_permissions.manage_threads
-        is_creator = ticket_info.get("creator_id") == interaction.user.id
-
-        if not is_staff and not is_creator:
+        if not _service.can_close(thread.id, interaction.user.id, is_staff):
             await interaction.response.send_message(
                 "[失敗] 只有管理員或工單建立者可以關閉工單", ephemeral=True
             )
@@ -160,18 +107,8 @@ class TicketCloseView(ui.View):
 
         await interaction.response.send_message(embed=embed)
 
-        # 更新工單資料
-        data = _load_tickets()
-        ticket_id = str(thread.id)
-        if ticket_id in data.get("tickets", {}):
-            data["tickets"][ticket_id]["status"] = "closed"
-            data["tickets"][ticket_id]["closed_by"] = interaction.user.id
-            data["tickets"][ticket_id]["closed_at"] = datetime.now(
-                TZ_OFFSET
-            ).isoformat()
-            _save_tickets(data)
+        _service.close_ticket(thread.id, interaction.user.id)
 
-        # 鎖定並封存討論串
         try:
             await thread.edit(locked=True, archived=True)
         except discord.Forbidden:
@@ -211,9 +148,7 @@ class TicketOpenView(ui.View):
         if not guild:
             return
 
-        data = _load_tickets()
-        guild_config = data.get("guilds", {}).get(str(guild.id), {})
-
+        guild_config = _service.get_guild_config(guild.id)
         if not guild_config:
             await interaction.response.send_message(
                 "[失敗] 工單系統尚未設定", ephemeral=True
@@ -223,26 +158,18 @@ class TicketOpenView(ui.View):
         role_id = guild_config.get("role_id")
 
         # 檢查是否已有開啟中的工單
-        for tid, tinfo in data.get("tickets", {}).items():
-            if (
-                tinfo.get("creator_id") == interaction.user.id
-                and tinfo.get("guild_id") == guild.id
-                and tinfo.get("status") == "open"
-            ):
-                await interaction.response.send_message(
-                    f"[失敗] 你已有一個開啟中的工單: <#{tid}>",
-                    ephemeral=True,
-                )
-                return
+        existing_tid = _service.find_open_ticket(guild.id, interaction.user.id)
+        if existing_tid:
+            await interaction.response.send_message(
+                f"[失敗] 你已有一個開啟中的工單: <#{existing_tid}>",
+                ephemeral=True,
+            )
+            return
 
-        # 工單編號
-        ticket_count = guild_config.get("ticket_count", 0) + 1
-        guild_config["ticket_count"] = ticket_count
-        data.setdefault("guilds", {})[str(guild.id)] = guild_config
+        # 遞增工單編號
+        ticket_count = _service.increment_ticket_count(guild.id)
 
-        thread_name = (
-            f"工單-{ticket_count:04d}-{interaction.user.display_name}"
-        )
+        thread_name = f"工單-{ticket_count:04d}-{interaction.user.display_name}"
 
         # 建立私人討論串
         channel = interaction.channel
@@ -264,18 +191,13 @@ class TicketOpenView(ui.View):
             return
 
         # 儲存工單資料
-        data.setdefault("tickets", {})[str(thread.id)] = {
-            "guild_id": guild.id,
-            "channel_id": channel.id,
-            "creator_id": interaction.user.id,
-            "ticket_number": ticket_count,
-            "created_at": datetime.now(TZ_OFFSET).isoformat(),
-            "status": "open",
-            "closed_by": None,
-            "close_reason": None,
-            "closed_at": None,
-        }
-        _save_tickets(data)
+        _service.create_ticket(
+            guild_id=guild.id,
+            thread_id=thread.id,
+            channel_id=channel.id,
+            creator_id=interaction.user.id,
+            ticket_number=ticket_count,
+        )
 
         # 歡迎 Embed
         embed = discord.Embed(
@@ -298,7 +220,6 @@ class TicketOpenView(ui.View):
             text=f"工單ID: {thread.id} | 伺服器: {guild.name}"
         )
 
-        # @身份組 + 發送 Embed 和關閉按鈕
         role_mention = f"<@&{role_id}>" if role_id else ""
         await thread.send(
             content=f"{interaction.user.mention} {role_mention}",
@@ -316,6 +237,7 @@ class Ticket(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.service = _service
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -331,7 +253,6 @@ class Ticket(commands.Cog):
         if not message.content.startswith(">>>ticket"):
             return
 
-        # 檢查管理員權限
         if not message.author.guild_permissions.administrator:
             await message.reply(
                 "[失敗] 你需要管理員權限才能使用此指令", delete_after=5
@@ -361,7 +282,6 @@ class Ticket(commands.Cog):
         role = message.role_mentions[0]
         guild = message.guild
 
-        # 禁止使用 @everyone 作為通知身份組
         if role.is_default():
             await message.reply(
                 "[失敗] 無法使用 @everyone 作為工單通知身份組\n"
@@ -370,7 +290,6 @@ class Ticket(commands.Cog):
             )
             return
 
-        # 檢查機器人在目標頻道的權限
         bot_perms = channel.permissions_for(guild.me)
         if not bot_perms.send_messages or not bot_perms.create_private_threads:
             await message.reply(
@@ -380,7 +299,6 @@ class Ticket(commands.Cog):
             )
             return
 
-        # 在目標頻道發送工單面板
         panel_embed = discord.Embed(
             title="[工單] 支援工單系統",
             description=(
@@ -396,18 +314,15 @@ class Ticket(commands.Cog):
             embed=panel_embed, view=TicketOpenView()
         )
 
-        # 儲存設定
-        data = _load_tickets()
-        existing = data.get("guilds", {}).get(str(guild.id), {})
-        data.setdefault("guilds", {})[str(guild.id)] = {
-            "channel_id": channel.id,
-            "role_id": role.id,
-            "panel_message_id": panel_message.id,
-            "ticket_count": existing.get("ticket_count", 0),
-        }
-        _save_tickets(data)
+        existing = self.service.get_guild_config(guild.id) or {}
+        self.service.save_guild_config(
+            guild_id=guild.id,
+            channel_id=channel.id,
+            role_id=role.id,
+            panel_message_id=panel_message.id,
+            ticket_count=existing.get("ticket_count", 0),
+        )
 
-        # 確認訊息
         embed = discord.Embed(
             title="[成功] 工單系統已設定",
             description=(

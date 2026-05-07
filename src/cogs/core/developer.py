@@ -1,4 +1,4 @@
-import discord
+﻿import discord
 from discord import app_commands
 from discord.ext import commands
 
@@ -23,7 +23,7 @@ class Developer(commands.Cog):
             )
             return
 
-        embed = discord.Embed(title="[開發者] 系統狀態", color=discord.Color.purple())
+        embed = discord.Embed(title="[開發者] 系統狀態", color=discord.Color.from_rgb(155, 89, 182))
         embed.add_field(name="開發者ID", value=f"`{', '.join(str(d) for d in self.developer_ids)}`", inline=True)
         embed.add_field(name="機器人狀態", value="運行中", inline=True)
         embed.set_footer(text=f"請求者: {interaction.user.name}")
@@ -34,7 +34,7 @@ class Developer(commands.Cog):
     @commands.check(lambda ctx: ctx.author.id in {241619561760292866, 964849855396741130})
     async def dev_status_command(self, ctx):
         """開發者狀態檢查"""
-        embed = discord.Embed(title="[開發者] 系統狀態", color=discord.Color.purple())
+        embed = discord.Embed(title="[開發者] 系統狀態", color=discord.Color.from_rgb(155, 89, 182))
         embed.add_field(name="開發者ID", value=f"`{', '.join(str(d) for d in self.developer_ids)}`", inline=True)
         embed.add_field(name="機器人狀態", value="運行中", inline=True)
         embed.set_footer(text=f"請求者: {ctx.author.name}")

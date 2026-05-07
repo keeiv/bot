@@ -1,16 +1,11 @@
 from datetime import datetime
-import json
-import os
 from typing import Optional
 
 import discord
 from discord import app_commands
 from discord.ext import commands
 
-try:
-    from ossapi import Ossapi
-except Exception:
-    Ossapi = None
+from src.services.osu_service import OsuService
 
 
 class OsuInfo(commands.Cog):
@@ -20,26 +15,7 @@ class OsuInfo(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.data_file = "data/storage/osu_links.json"
-        os.makedirs("data/storage", exist_ok=True)
-
-        client_id = os.getenv("OSU_CLIENT_ID")
-        client_secret = os.getenv("OSU_CLIENT_SECRET")
-        self.api = None
-        self._api_error = None
-        if Ossapi is None:
-            self._api_error = "ossapi 套件無法載入，osu! 功能已禁用"
-        elif not client_id or not client_secret:
-            self._api_error = "缺少 OSU_CLIENT_ID 或 OSU_CLIENT_SECRET 環境變數"
-        else:
-            self.api = Ossapi(int(client_id), client_secret)
-        self._links = self._load_links()
-
-    def _ensure_api(self):
-        if self.api is None:
-            raise RuntimeError(
-                "osu 功能尚未啟用。請在專案根目錄的 .env 加上 OSU_CLIENT_ID 與 OSU_CLIENT_SECRET，然後重啟 bot。"
-            )
+        self.service = OsuService()
 
     @app_commands.command(name="user_info_osu", description="查詢 osu! 用戶資訊")
     @app_commands.describe(username="osu! 用戶名")
@@ -48,15 +24,15 @@ class OsuInfo(commands.Cog):
         try:
             await interaction.response.defer()
 
-            self._ensure_api()
+            self.service.ensure_api()
 
             # 抓取玩家資料
-            user = self.api.user(username)
+            user = self.service.api.user(username)
 
             # 創建嵌入消息
             embed = discord.Embed(
                 title=f"osu! 用戶資訊 - {user.username}",
-                color=discord.Color.pink(),
+                color=discord.Color.from_rgb(255, 105, 180),
                 url=f"https://osu.ppy.sh/users/{user.id}",
             )
 
@@ -80,7 +56,7 @@ class OsuInfo(commands.Cog):
             basic_info += f"**PP**: {user.statistics.pp:,.2f}\n"
             basic_info += f"**準確度**: {user.statistics.hit_accuracy:.2f}%\n"
             basic_info += (
-                f"**遊戲時間**: {self._format_playtime(user.statistics.play_time)}\n"
+                f"**遇戲時間**: {OsuService.format_playtime(user.statistics.play_time)}\n"
             )
             basic_info += f"**是否為 Supporter**: {'是' if user.is_supporter else '否'}"
 
@@ -132,15 +108,10 @@ class OsuInfo(commands.Cog):
         try:
             await interaction.response.defer(ephemeral=True)
 
-            self._ensure_api()
+            self.service.ensure_api()
 
-            osu_user = self.api.user(username)
-            self._links[str(interaction.user.id)] = {
-                "username": osu_user.username,
-                "osu_user_id": osu_user.id,
-                "bound_at": datetime.utcnow().isoformat(),
-            }
-            self._save_links(self._links)
+            osu_user = self.service.api.user(username)
+            self.service.bind(interaction.user.id, osu_user.username)
 
             await interaction.followup.send(
                 f"已綁定 osu! 帳號: {osu_user.username}", ephemeral=True
@@ -152,15 +123,13 @@ class OsuInfo(commands.Cog):
     async def osu_unbind(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
-        key = str(interaction.user.id)
-        if key not in self._links:
+        unbound_username = self.service.get_bound_username(interaction.user.id)
+        if not self.service.unbind(interaction.user.id):
             await interaction.followup.send("你尚未綁定 osu! 帳號", ephemeral=True)
             return
 
-        old = self._links.pop(key)
-        self._save_links(self._links)
         await interaction.followup.send(
-            f"已解除綁定 osu! 帳號: {old.get('username', '未知')}", ephemeral=True
+            f"已解除綁定 osu! 帳號: {unbound_username or '未知'}", ephemeral=True
         )
 
     @osu.command(name="best", description="查看 osu! BP")
@@ -173,13 +142,13 @@ class OsuInfo(commands.Cog):
         try:
             await interaction.response.defer()
 
-            self._ensure_api()
+            self.service.ensure_api()
 
             limit = max(1, min(10, limit))
             username = self._resolve_username(interaction.user.id, username)
 
-            osu_user = self.api.user(username)
-            scores = self.api.user_scores(osu_user.id, type="best", limit=limit)
+            osu_user = self.service.api.user(username)
+            scores = self.service.api.user_scores(osu_user.id, type="best", limit=limit)
 
             embed = discord.Embed(
                 title=f"osu! BP - {osu_user.username}",
@@ -211,13 +180,13 @@ class OsuInfo(commands.Cog):
         try:
             await interaction.response.defer()
 
-            self._ensure_api()
+            self.service.ensure_api()
 
             limit = max(1, min(10, limit))
             username = self._resolve_username(interaction.user.id, username)
 
-            osu_user = self.api.user(username)
-            scores = self.api.user_scores(osu_user.id, type="recent", limit=limit)
+            osu_user = self.service.api.user(username)
+            scores = self.service.api.user_scores(osu_user.id, type="recent", limit=limit)
 
             embed = discord.Embed(
                 title=f"osu! 最近遊玩 - {osu_user.username}",
@@ -257,43 +226,10 @@ class OsuInfo(commands.Cog):
         except Exception:
             return str(value)
 
-    def _format_playtime(self, seconds: int) -> str:
-        """格式化遊戲時間"""
-        if seconds is None:
-            return "未知"
-        hours = seconds // 3600
-        days = hours // 24
-        remaining_hours = hours % 24
-
-        if days > 0:
-            return f"{days} 天 {remaining_hours} 小時"
-        else:
-            return f"{hours} 小時"
-
-    def _load_links(self) -> dict:
-        if not os.path.exists(self.data_file):
-            return {}
-        try:
-            with open(self.data_file, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return {}
-
-    def _save_links(self, data: dict):
-        with open(self.data_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-
-    def get_bound_osu_username(self, discord_user_id: int) -> Optional[str]:
-        bound = self._links.get(str(discord_user_id))
-        if not bound:
-            return None
-        return bound.get("username")
-
     def _resolve_username(self, discord_user_id: int, username: Optional[str]) -> str:
         if username:
             return username
-
-        bound = self.get_bound_osu_username(discord_user_id)
+        bound = self.service.get_bound_username(discord_user_id)
         if not bound:
             raise ValueError("你尚未綁定 osu! 帳號，請先使用 /osu bind <username>")
         return bound

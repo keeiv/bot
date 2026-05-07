@@ -20,6 +20,7 @@ SETTING_CATEGORIES = [
     discord.SelectOption(label="舉報頻道", value="report_channel", description="設定舉報訊息接收頻道"),
     discord.SelectOption(label="防刷屏系統", value="anti_spam", description="查看/切換防刷屏開關"),
     discord.SelectOption(label="歡迎訊息", value="welcome", description="查看歡迎訊息設定"),
+    discord.SelectOption(label="年齡守門員", value="age_guard", description="查看年齡守門員設定狀態"),
     discord.SelectOption(label="總覽", value="overview", description="查看所有設定摘要"),
 ]
 
@@ -191,6 +192,10 @@ class SettingsMenuView(ui.View):
             embed = self.cog.build_welcome_embed(guild_id)
             await interaction.response.send_message(embed=embed, ephemeral=True)
 
+        elif value == "age_guard":
+            embed = self.cog.build_age_guard_embed(guild_id)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+
 
 # ==================== Cog 主體 ====================
 
@@ -243,6 +248,10 @@ class Settings(commands.Cog):
         # 倉庫追蹤
         repo_count = self._get_repo_count(guild_id)
         embed.add_field(name="倉庫追蹤", value=f"{repo_count} 個倉庫", inline=True)
+
+        # 年齡守門員
+        age_guard_status = self._get_age_guard_status(guild_id)
+        embed.add_field(name="年齡守門員", value=age_guard_status, inline=True)
 
         embed.set_footer(text="使用下方選單修改設定")
         return embed
@@ -386,6 +395,57 @@ class Settings(commands.Cog):
         config = getattr(management_cog, "_config", {})
         guild_config = config.get(str(guild_id), {})
         return len(guild_config.get("tracked_repos", {}))
+
+    def _get_age_guard_status(self, guild_id: int) -> str:
+        """取得年齡守門員狀態文字"""
+        from src.cogs.features.age_guard import _load as _ag_load
+        cfg = _ag_load().get(str(guild_id), {})
+        if not cfg.get("enabled", False):
+            return "[停用]"
+        has_adult = bool(cfg.get("adult_role_id"))
+        has_punish = bool(cfg.get("punishment_role_id"))
+        if has_adult and has_punish:
+            return "[啟用]"
+        return "[啟用/設定不完整]"
+
+    def build_age_guard_embed(self, guild_id: int) -> discord.Embed:
+        """產生年齡守門員設定面板"""
+        from src.cogs.features.age_guard import _load as _ag_load
+        cfg = _ag_load().get(str(guild_id), {})
+        enabled = cfg.get("enabled", False)
+        adult_role_id = cfg.get("adult_role_id")
+        punishment_role_id = cfg.get("punishment_role_id")
+
+        guild = self.bot.get_guild(guild_id)
+        adult_role = guild.get_role(adult_role_id) if guild and adult_role_id else None
+        punishment_role = (
+            guild.get_role(punishment_role_id) if guild and punishment_role_id else None
+        )
+
+        embed = discord.Embed(
+            title="[設定] 年齡守門員",
+            color=(
+                discord.Color.from_rgb(46, 204, 113)
+                if enabled
+                else discord.Color.from_rgb(231, 76, 60)
+            ),
+            timestamp=datetime.now(TZ_OFFSET),
+        )
+        embed.add_field(
+            name="狀態", value="[啟用]" if enabled else "[停用]", inline=True
+        )
+        embed.add_field(
+            name="成人身份組",
+            value=adult_role.mention if adult_role else "[未設定]",
+            inline=True,
+        )
+        embed.add_field(
+            name="懲罰身份組",
+            value=punishment_role.mention if punishment_role else "[未設定]",
+            inline=True,
+        )
+        embed.set_footer(text="使用 /age_guard 指令修改設定")
+        return embed
 
 
 async def setup(bot: commands.Bot):

@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -334,7 +334,7 @@ class Blacklist(commands.Cog):
 
         embed = discord.Embed(
             title="[資訊] 申訴狀態",
-            color=color_map.get(status, discord.Color.greyple()),
+            color=color_map.get(status, discord.Color.from_rgb(153, 170, 181)),
         )
         embed.add_field(name="狀態", value=status, inline=True)
         source_label = "本地黑名單" if appeal.get("source") == "local" else "CatHome API"
