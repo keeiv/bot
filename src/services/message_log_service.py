@@ -4,15 +4,13 @@ import json
 import os
 import time
 from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
 from typing import Optional
 
 import discord
 
 from src.utils.message_cache import get_message_cache
-
-TZ_OFFSET = timezone(timedelta(hours=8))
+from src.utils.time_utils import TZ_OFFSET
+from src.utils.time_utils import get_current_time_str
 _LOG_FILE = "data/logs/messages/message_log.json"
 _CHANNELS_FILE = "data/storage/log_channels.json"
 _CACHE_TTL = 120.0
@@ -238,7 +236,7 @@ class MessageLogService:
         embed.add_field(name="頻道ID", value=str(channel_id), inline=True)
         embed.add_field(name="伺服器", value=f"{guild_name} ({guild_id})", inline=False)
         embed.add_field(name="訊息ID", value=str(message_id), inline=False)
-        embed.add_field(name="時間", value=self.get_current_time_str(), inline=True)
+        embed.add_field(name="時間", value=get_current_time_str(), inline=True)
 
         before_image = self._get_first_image_url(before_attachments or [])
         before_text = (before_content[:1024] if before_content else "(空)")
@@ -286,7 +284,7 @@ class MessageLogService:
         embed.add_field(name="頻道ID", value=str(channel_id), inline=True)
         embed.add_field(name="伺服器", value=f"{guild_name} ({guild_id})", inline=False)
         embed.add_field(name="訊息ID", value=str(message_id), inline=False)
-        embed.add_field(name="時間", value=self.get_current_time_str(), inline=True)
+        embed.add_field(name="時間", value=get_current_time_str(), inline=True)
 
         image_url = self._get_first_image_url(attachments or [])
         content_text = content[:1024] if content else "(空)"

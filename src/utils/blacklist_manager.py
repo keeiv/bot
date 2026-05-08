@@ -2,14 +2,12 @@ import asyncio
 import json
 import os
 from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
 from typing import Dict
 from typing import Optional
 
 import aiohttp
 
-TZ_OFFSET = timezone(timedelta(hours=8))
+from src.utils.time_utils import TZ_OFFSET
 
 DATA_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),

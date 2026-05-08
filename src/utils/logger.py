@@ -1,18 +1,11 @@
 from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
 from typing import Optional
 
 import discord
 
-# UTC+8 時區
-TZ_OFFSET = timezone(timedelta(hours=8))
-
-
-def get_current_time_str() -> str:
-    """取得格式化的當前時間 (月/日 時:分)"""
-    now = datetime.now(TZ_OFFSET)
-    return now.strftime("%m/%d %H:%M")
+from src.utils.time_utils import TZ_OFFSET
+from src.utils.time_utils import get_current_time_str
+from src.utils.time_utils import get_now
 
 
 def is_image_or_gif(url: str) -> bool:

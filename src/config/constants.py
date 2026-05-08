@@ -1,0 +1,8 @@
+"""專案全域常數"""
+
+# 開發者 Discord 用戶 ID
+DEVELOPER_IDS: frozenset[int] = frozenset({241619561760292866, 964849855396741130})
+
+# 錯誤日誌伺服器與頻道
+ERROR_LOG_GUILD_ID: int = 1476182659054047282
+ERROR_LOG_CHANNEL_ID: int = 1476182661352652891

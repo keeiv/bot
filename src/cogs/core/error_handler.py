@@ -1,16 +1,14 @@
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
 import traceback
+from datetime import datetime
 
 import discord
 from discord import app_commands
 from discord.ext import commands
 
-TZ_OFFSET = timezone(timedelta(hours=8))
-DEVELOPER_IDS = {241619561760292866, 964849855396741130}
-ERROR_LOG_GUILD_ID = 1476182659054047282
-ERROR_LOG_CHANNEL_ID = 1476182661352652891
+from src.config.constants import DEVELOPER_IDS
+from src.config.constants import ERROR_LOG_CHANNEL_ID
+from src.config.constants import ERROR_LOG_GUILD_ID
+from src.utils.time_utils import TZ_OFFSET
 
 
 class ErrorHandler(commands.Cog):

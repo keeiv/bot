@@ -1,13 +1,12 @@
 from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
 
 import discord
 from discord.ext import commands
 
 from src.services.audit_log_service import AuditLogService
-
-TZ_OFFSET = timezone(timedelta(hours=8))
+from src.utils.time_utils import TZ_OFFSET
+from src.utils.time_utils import get_current_time_str
+from src.utils.time_utils import get_now
 
 
 class AuditLog(commands.Cog):
@@ -16,10 +15,6 @@ class AuditLog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.service = AuditLogService()
-
-    def get_current_time_str(self) -> str:
-        """取得格式化當前時間 (月/日 時:分)"""
-        return datetime.now(TZ_OFFSET).strftime("%m/%d %H:%M")
 
     async def send_log_embed(self, guild_id: int, embed: discord.Embed):
         """發送日誌 Embed 到設定的日誌頻道"""
@@ -66,7 +61,7 @@ class AuditLog(commands.Cog):
             inline=True,
         )
         embed.add_field(
-            name="時間", value=self.get_current_time_str(), inline=True
+            name="時間", value=get_current_time_str(), inline=True
         )
         embed.set_thumbnail(url=member.display_avatar.url)
         embed.set_footer(text=f"用戶 {member}")
@@ -120,7 +115,7 @@ class AuditLog(commands.Cog):
             inline=True,
         )
         embed.add_field(
-            name="時間", value=self.get_current_time_str(), inline=True
+            name="時間", value=get_current_time_str(), inline=True
         )
         embed.set_thumbnail(url=member.display_avatar.url)
         embed.set_footer(text=f"用戶 {member}")
@@ -160,7 +155,7 @@ class AuditLog(commands.Cog):
                 inline=False,
             )
             embed.add_field(
-                name="時間", value=self.get_current_time_str(), inline=True
+                name="時間", value=get_current_time_str(), inline=True
             )
             embed.set_footer(text=f"用戶 {member}")
             await self.send_log_embed(guild_id, embed)
@@ -183,7 +178,7 @@ class AuditLog(commands.Cog):
                 inline=False,
             )
             embed.add_field(
-                name="時間", value=self.get_current_time_str(), inline=True
+                name="時間", value=get_current_time_str(), inline=True
             )
             embed.set_footer(text=f"用戶 {member}")
             await self.send_log_embed(guild_id, embed)
@@ -215,7 +210,7 @@ class AuditLog(commands.Cog):
                 inline=True,
             )
             embed.add_field(
-                name="時間", value=self.get_current_time_str(), inline=True
+                name="時間", value=get_current_time_str(), inline=True
             )
             embed.set_footer(text=f"用戶 {member}")
             await self.send_log_embed(guild_id, embed)
@@ -252,7 +247,7 @@ class AuditLog(commands.Cog):
                 )
                 embed.add_field(
                     name="時間",
-                    value=self.get_current_time_str(),
+                    value=get_current_time_str(),
                     inline=True,
                 )
                 embed.set_footer(text=f"用戶 {after}")
@@ -275,7 +270,7 @@ class AuditLog(commands.Cog):
                 )
                 embed.add_field(
                     name="時間",
-                    value=self.get_current_time_str(),
+                    value=get_current_time_str(),
                     inline=True,
                 )
                 embed.set_footer(text=f"用戶 {after}")
@@ -304,7 +299,7 @@ class AuditLog(commands.Cog):
                 inline=True,
             )
             embed.add_field(
-                name="時間", value=self.get_current_time_str(), inline=True
+                name="時間", value=get_current_time_str(), inline=True
             )
             embed.set_footer(text=f"用戶 {after}")
             await self.send_log_embed(guild_id, embed)
@@ -346,7 +341,7 @@ class AuditLog(commands.Cog):
                 name="分類", value=channel.category.name, inline=True
             )
         embed.add_field(
-            name="時間", value=self.get_current_time_str(), inline=True
+            name="時間", value=get_current_time_str(), inline=True
         )
         embed.set_footer(text=f"伺服器 {channel.guild.name}")
 
@@ -375,7 +370,7 @@ class AuditLog(commands.Cog):
                 name="分類", value=channel.category.name, inline=True
             )
         embed.add_field(
-            name="時間", value=self.get_current_time_str(), inline=True
+            name="時間", value=get_current_time_str(), inline=True
         )
         embed.set_footer(text=f"伺服器 {channel.guild.name}")
 
@@ -467,7 +462,7 @@ class AuditLog(commands.Cog):
             )
 
         embed.add_field(
-            name="時間", value=self.get_current_time_str(), inline=True
+            name="時間", value=get_current_time_str(), inline=True
         )
         embed.set_footer(text=f"伺服器 {after.guild.name}")
 

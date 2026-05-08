@@ -1,17 +1,16 @@
 ﻿from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
 
 import discord
 from discord import app_commands
 from discord import ui
 from discord.ext import commands
 
+from src.services.report_service import ReportService
 from src.utils.config_manager import get_guild_report_channel
 from src.utils.config_manager import set_guild_report_channel
+from src.utils.time_utils import TZ_OFFSET
 
-# UTC+8 時區
-TZ_OFFSET = timezone(timedelta(hours=8))
+_service = ReportService()
 
 
 # ========== 禁言表單 ==========
@@ -67,54 +66,17 @@ class MuteModal(ui.Modal, title="禁言處理"):
             )
             return
 
-        if d == 0 and h == 0 and m == 0:
-            await interaction.response.send_message(
-                "[失敗] 禁言時間不能為零", ephemeral=True
-            )
+        success, error_msg = await _service.execute_mute(
+            self.target, interaction.user, d, h, m, self.reason.value
+        )
+        if not success:
+            await interaction.response.send_message(error_msg, ephemeral=True)
             return
 
-        duration = timedelta(days=d, hours=h, minutes=m)
-
-        # Discord timeout 上限 28 天
-        if duration.total_seconds() > 28 * 24 * 3600:
-            await interaction.response.send_message(
-                "[失敗] 禁言時間不能超過 28 天", ephemeral=True
-            )
-            return
-
-        reason_text = self.reason.value
-
-        try:
-            await self.target.timeout(duration, reason=reason_text)
-
-            time_str = ""
-            if d > 0:
-                time_str += f"{d} 天 "
-            if h > 0:
-                time_str += f"{h} 小時 "
-            if m > 0:
-                time_str += f"{m} 分鐘"
-
-            embed = discord.Embed(
-                title="[禁言] 舉報處理完成",
-                description=(
-                    f"**被處理成員:** {self.target.mention} ({self.target.id})\n"
-                    f"**處理人:** {interaction.user.mention}\n"
-                    f"**禁言時長:** {time_str.strip()}\n"
-                    f"**原因:** {reason_text}"
-                ),
-                color=discord.Color.from_rgb(230, 126, 34),
-                timestamp=datetime.now(TZ_OFFSET),
-            )
-            await interaction.response.send_message(embed=embed)
-        except discord.Forbidden:
-            await interaction.response.send_message(
-                "[失敗] 機器人權限不足，無法禁言此成員", ephemeral=True
-            )
-        except Exception as e:
-            await interaction.response.send_message(
-                f"[失敗] 禁言失敗: {e}", ephemeral=True
-            )
+        embed = _service.build_mute_embed(
+            self.target, interaction.user, d, h, m, self.reason.value
+        )
+        await interaction.response.send_message(embed=embed)
 
 
 # ========== Ban 表單 ==========
@@ -167,48 +129,22 @@ class BanModal(ui.Modal, title="封禁處理"):
         except ValueError:
             del_days = 0
 
+        success, error_msg = await _service.execute_ban(
+            self.target, interaction.user, reason_text, del_days
+        )
+        if not success:
+            await interaction.response.send_message(error_msg, ephemeral=True)
+            return
+
         try:
-            await self.target.ban(
-                reason=reason_text,
-                delete_message_seconds=del_days * 86400,
-            )
+            temp_seconds = int(self.temp_duration.value or "0") if is_temp else 0
+        except ValueError:
+            temp_seconds = 0
 
-            embed = discord.Embed(
-                title="[封禁] 舉報處理完成",
-                description=(
-                    f"**被處理成員:** {self.target.mention} ({self.target.id})\n"
-                    f"**處理人:** {interaction.user.mention}\n"
-                    f"**封禁類型:** {'暫時封禁' if is_temp else '永久封禁'}\n"
-                    f"**刪除訊息:** {del_days} 天內\n"
-                    f"**原因:** {reason_text}"
-                ),
-                color=discord.Color.from_rgb(231, 76, 60),
-                timestamp=datetime.now(TZ_OFFSET),
-            )
-
-            if is_temp:
-                try:
-                    temp_seconds = int(self.temp_duration.value or "0")
-                except ValueError:
-                    temp_seconds = 0
-
-                if temp_seconds > 0:
-                    embed.add_field(
-                        name="暫時封禁時長",
-                        value=f"{temp_seconds} 秒 ({temp_seconds / 3600:.1f} 小時)",
-                        inline=False,
-                    )
-                    embed.set_footer(text="注意: 暫時封禁需手動解除或使用排程")
-
-            await interaction.response.send_message(embed=embed)
-        except discord.Forbidden:
-            await interaction.response.send_message(
-                "[失敗] 機器人權限不足，無法封禁此成員", ephemeral=True
-            )
-        except Exception as e:
-            await interaction.response.send_message(
-                f"[失敗] 封禁失敗: {e}", ephemeral=True
-            )
+        embed = _service.build_ban_embed(
+            self.target, interaction.user, reason_text, is_temp, del_days, temp_seconds
+        )
+        await interaction.response.send_message(embed=embed)
 
 
 # ========== 警告表單 ==========
@@ -239,45 +175,18 @@ class WarnModal(ui.Modal, title="警告處理"):
     async def on_submit(self, interaction: discord.Interaction):
         """執行警告"""
         try:
-            count = int(self.warn_count.value or "1")
-            count = max(1, count)
+            count = max(1, int(self.warn_count.value or "1"))
         except ValueError:
             count = 1
 
         reason_text = self.reason.value
-
-        # 發送警告 DM 給被舉報者
-        warn_embed = discord.Embed(
-            title="[警告] 你已被警告",
-            description=(
-                f"**伺服器:** {interaction.guild.name}\n"
-                f"**警告次數:** {count} 次\n"
-                f"**原因:** {reason_text}"
-            ),
-            color=discord.Color.from_rgb(241, 196, 15),
-            timestamp=datetime.now(TZ_OFFSET),
+        dm_sent = await _service.execute_warn(
+            self.target, interaction.guild.name, count, reason_text
         )
-
-        dm_sent = True
-        try:
-            await self.target.send(embed=warn_embed)
-        except Exception:
-            dm_sent = False
-
-        # 回覆管理員
-        result_embed = discord.Embed(
-            title="[警告] 舉報處理完成",
-            description=(
-                f"**被處理成員:** {self.target.mention} ({self.target.id})\n"
-                f"**處理人:** {interaction.user.mention}\n"
-                f"**警告次數:** {count} 次\n"
-                f"**原因:** {reason_text}\n"
-                f"**私訊通知:** {'已送達' if dm_sent else '無法送達 (對方可能關閉私訊)'}"
-            ),
-            color=discord.Color.from_rgb(241, 196, 15),
-            timestamp=datetime.now(TZ_OFFSET),
+        embed = _service.build_warn_result_embed(
+            self.target, interaction.user, count, reason_text, dm_sent
         )
-        await interaction.response.send_message(embed=result_embed)
+        await interaction.response.send_message(embed=embed)
 
 
 # ========== 舉報處理面板 (按鈕) ==========

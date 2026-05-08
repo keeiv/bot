@@ -1,7 +1,5 @@
 import base64
 from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
 import uuid
 
 import discord
@@ -9,13 +7,9 @@ from discord import app_commands
 from discord import ui
 from discord.ext import commands
 
+from src.config.constants import DEVELOPER_IDS
 from src.services.appearance_service import AppearanceService
-
-# UTC+8 時區
-TZ_OFFSET = timezone(timedelta(hours=8))
-
-# 開發者 ID
-DEVELOPER_IDS = {241619561760292866, 964849855396741130}
+from src.utils.time_utils import TZ_OFFSET
 
 # 圖片大小限制 8MB
 MAX_IMAGE_SIZE = 8 * 1024 * 1024

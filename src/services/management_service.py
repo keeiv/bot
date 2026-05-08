@@ -5,19 +5,14 @@ import os
 import shutil
 from datetime import datetime
 from datetime import timezone
-from datetime import timedelta
 from typing import Optional
 
 import aiohttp
 
-TZ_OFFSET = timezone(timedelta(hours=8))
+from src.utils.time_utils import TZ_OFFSET
+from src.utils.time_utils import format_datetime as _format_time
+
 _DATA_FILE = "data/storage/management.json"
-
-
-def _format_time(dt: datetime) -> str:
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(TZ_OFFSET).strftime("%Y/%m/%d %H:%M:%S")
 
 
 class ManagementService:

@@ -2,17 +2,18 @@
 from discord import app_commands
 from discord.ext import commands
 
+from src.config.constants import DEVELOPER_IDS
+
 
 class Developer(commands.Cog):
     """開發者專用指令 Cog - 只有開發者可見和使用"""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.developer_ids = {241619561760292866, 964849855396741130}  # 開發者ID
 
     def is_developer_slash(self, interaction: discord.Interaction) -> bool:
         """斜杠指令的開發者檢查"""
-        return interaction.user.id in self.developer_ids
+        return interaction.user.id in DEVELOPER_IDS
 
     @app_commands.command(name="dev-status", description="查看開發者狀態")
     async def dev_status_slash(self, interaction: discord.Interaction):
@@ -24,18 +25,18 @@ class Developer(commands.Cog):
             return
 
         embed = discord.Embed(title="[開發者] 系統狀態", color=discord.Color.from_rgb(155, 89, 182))
-        embed.add_field(name="開發者ID", value=f"`{', '.join(str(d) for d in self.developer_ids)}`", inline=True)
+        embed.add_field(name="開發者ID", value=f"`{', '.join(str(d) for d in DEVELOPER_IDS)}`", inline=True)
         embed.add_field(name="機器人狀態", value="運行中", inline=True)
         embed.set_footer(text=f"請求者: {interaction.user.name}")
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @commands.command(name="dev-status", description="開發者狀態檢查")
-    @commands.check(lambda ctx: ctx.author.id in {241619561760292866, 964849855396741130})
+    @commands.check(lambda ctx: ctx.author.id in DEVELOPER_IDS)
     async def dev_status_command(self, ctx):
         """開發者狀態檢查"""
         embed = discord.Embed(title="[開發者] 系統狀態", color=discord.Color.from_rgb(155, 89, 182))
-        embed.add_field(name="開發者ID", value=f"`{', '.join(str(d) for d in self.developer_ids)}`", inline=True)
+        embed.add_field(name="開發者ID", value=f"`{', '.join(str(d) for d in DEVELOPER_IDS)}`", inline=True)
         embed.add_field(name="機器人狀態", value="運行中", inline=True)
         embed.set_footer(text=f"請求者: {ctx.author.name}")
 
