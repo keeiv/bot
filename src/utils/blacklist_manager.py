@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import time
 from datetime import datetime
 from typing import Dict
 from typing import Optional
@@ -39,6 +40,8 @@ def _save_json(path: str, data: Dict):
 class BlacklistManager:
     """黑名單管理器 (本地 + CatHome API 雙軌)"""
 
+    _LOCAL_CACHE_TTL: float = 30.0
+
     def __init__(self, api_key: str = None, api_base: str = None):
         self.api_key = api_key
         self.api_base = api_base
@@ -46,6 +49,8 @@ class BlacklistManager:
         self._api_cache_time: Dict[int, float] = {}
         self._rate_limit_lock = asyncio.Lock()
         self.session: aiohttp.ClientSession | None = None
+        self._local_cache: dict | None = None
+        self._local_cache_time: float = 0.0
 
     async def setup(self):
         """初始化 HTTP session"""
@@ -59,9 +64,23 @@ class BlacklistManager:
 
     # ==================== 本地黑名單 ====================
 
+    def _load_local(self) -> dict:
+        """讀取本地黑名單 (帶 TTL cache)"""
+        now = time.monotonic()
+        if self._local_cache is not None and (now - self._local_cache_time) < self._LOCAL_CACHE_TTL:
+            return self._local_cache
+        self._local_cache = _load_json(LOCAL_BLACKLIST_FILE)
+        self._local_cache_time = now
+        return self._local_cache
+
+    def _update_local_cache(self, data: dict) -> None:
+        """儲存後同步更新快取"""
+        self._local_cache = data
+        self._local_cache_time = time.monotonic()
+
     def local_check(self, user_id: int) -> Optional[Dict]:
         """檢查本地黑名單 (同步, 零延遲)"""
-        data = _load_json(LOCAL_BLACKLIST_FILE)
+        data = self._load_local()
         users = data.get("users", {})
         entry = users.get(str(user_id))
         if not entry:
@@ -88,7 +107,7 @@ class BlacklistManager:
         note: str = None,
     ) -> bool:
         """新增本地黑名單"""
-        data = _load_json(LOCAL_BLACKLIST_FILE)
+        data = self._load_local()
         data.setdefault("users", {})
         user_id_str = str(user_id)
 
@@ -103,11 +122,12 @@ class BlacklistManager:
         }
 
         _save_json(LOCAL_BLACKLIST_FILE, data)
+        self._update_local_cache(data)
         return True
 
     def local_remove(self, user_id: int) -> bool:
         """移除本地黑名單"""
-        data = _load_json(LOCAL_BLACKLIST_FILE)
+        data = self._load_local()
         users = data.get("users", {})
         user_id_str = str(user_id)
 
@@ -116,12 +136,12 @@ class BlacklistManager:
 
         del users[user_id_str]
         _save_json(LOCAL_BLACKLIST_FILE, data)
+        self._update_local_cache(data)
         return True
 
     def local_list(self) -> Dict[str, Dict]:
         """取得所有本地黑名單"""
-        data = _load_json(LOCAL_BLACKLIST_FILE)
-        return data.get("users", {})
+        return self._load_local().get("users", {})
 
     # ==================== CatHome API ====================
 

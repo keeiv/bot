@@ -2,6 +2,7 @@
 
 import json
 import os
+import time
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -121,22 +122,37 @@ RARITY_LABELS = {
 class AchievementService:
     """成就資料存取與業務邏輯"""
 
+    _CACHE_TTL: float = 60.0
+
+    def __init__(self) -> None:
+        self._cache: dict | None = None
+        self._cache_time: float = 0.0
+
     # ─────────────── 資料存取 ───────────────
 
     def _load(self) -> dict:
+        now = time.monotonic()
+        if self._cache is not None and (now - self._cache_time) < self._CACHE_TTL:
+            return self._cache
         if not os.path.exists(_DATA_FILE):
-            return {}
+            self._cache = {}
+            self._cache_time = now
+            return self._cache
         try:
             with open(_DATA_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                self._cache = json.load(f)
         except (json.JSONDecodeError, OSError):
-            return {}
+            self._cache = {}
+        self._cache_time = now
+        return self._cache
 
     def _save(self, data: dict) -> None:
         os.makedirs(os.path.dirname(_DATA_FILE), exist_ok=True)
         try:
             with open(_DATA_FILE, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
+            self._cache = data
+            self._cache_time = time.monotonic()
         except OSError as e:
             print(f"[錯誤] 無法儲存成就數據: {e}")
 

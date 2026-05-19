@@ -35,14 +35,20 @@ class ManagementService:
             return {}
 
     def save(self) -> None:
-        """儲存設定 (含備份機制)"""
+        """儲存設定 (原子寫入 + 備份機制)"""
+        _temp = _DATA_FILE + ".tmp"
         try:
+            with open(_temp, "w", encoding="utf-8") as f:
+                json.dump(self._config, f, ensure_ascii=False, indent=2)
             if os.path.exists(_DATA_FILE):
                 shutil.copy2(_DATA_FILE, f"{_DATA_FILE}.backup")
-            with open(_DATA_FILE, "w", encoding="utf-8") as f:
-                json.dump(self._config, f, ensure_ascii=False, indent=2)
+            os.replace(_temp, _DATA_FILE)
         except OSError as e:
             print(f"[錯誤] 儲存管理設定失敗: {e}")
+            try:
+                os.unlink(_temp)
+            except OSError:
+                pass
             backup = f"{_DATA_FILE}.backup"
             if os.path.exists(backup):
                 print("[錯誤] 正在從備份還原...")

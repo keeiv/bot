@@ -132,37 +132,37 @@ class APIOptimizer:
     async def bulk_fetch_members(
         self, guild: discord.Guild, member_ids: List[int]
     ) -> List[Optional[discord.Member]]:
-        members = []
+        sem = asyncio.Semaphore(5)
 
-        for member_id in member_ids:
+        async def fetch_one(member_id: int) -> Optional[discord.Member]:
             cache_key = f"member_{guild.id}_{member_id}"
             cached_member = self.get_cached(cache_key)
-
             if cached_member:
-                members.append(cached_member)
-            else:
+                return cached_member
+            async with sem:
                 try:
                     member = await guild.fetch_member(member_id)
                     if member:
                         self.set_cache(cache_key, member)
-                        members.append(member)
-                    else:
-                        members.append(None)
+                    return member
                 except discord.NotFound:
-                    members.append(None)
+                    return None
                 except discord.HTTPException as e:
                     if e.status == 429:
                         await asyncio.sleep(1)
-                        member = await guild.fetch_member(member_id)
-                        if member:
-                            self.set_cache(cache_key, member)
-                            members.append(member)
-                        else:
-                            members.append(None)
-                    else:
-                        members.append(None)
+                        try:
+                            member = await guild.fetch_member(member_id)
+                            if member:
+                                self.set_cache(cache_key, member)
+                            return member
+                        except Exception:
+                            return None
+                    return None
 
-        return members
+        results = await asyncio.gather(
+            *[fetch_one(mid) for mid in member_ids], return_exceptions=True
+        )
+        return [None if isinstance(r, Exception) else r for r in results]
 
     def clear_cache(self, pattern: str = None) -> None:
         if pattern:

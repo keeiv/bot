@@ -30,10 +30,8 @@ def _invalidate_config_cache():
 
 def ensure_data_dir():
     """確保數據目錄存在"""
-    directories = ["data", "data/config", "data/storage", "data/logs/messages"]
-    for directory in directories:
-        if not os.path.exists(directory):
-            os.makedirs(directory)
+    for directory in ["data", "data/config", "data/storage", "data/logs/messages"]:
+        os.makedirs(directory, exist_ok=True)
 
 
 def load_config():
@@ -54,10 +52,12 @@ def load_config():
 
 
 def save_config(config):
-    """儲存配置檔案並更新快取"""
+    """儲存配置檔案並更新快取 (原子寫入)"""
     global _config_cache, _config_cache_time
-    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+    _temp = CONFIG_FILE + ".tmp"
+    with open(_temp, "w", encoding="utf-8") as f:
         json.dump(config, f, ensure_ascii=False, indent=2)
+    os.replace(_temp, CONFIG_FILE)
     _config_cache = config
     _config_cache_time = time.monotonic()
 

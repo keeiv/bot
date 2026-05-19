@@ -398,8 +398,8 @@ class Settings(commands.Cog):
 
     def _get_age_guard_status(self, guild_id: int) -> str:
         """取得年齡守門員狀態文字"""
-        from src.cogs.features.age_guard import _load as _ag_load
-        cfg = _ag_load().get(str(guild_id), {})
+        from src.services.age_guard_service import AgeGuardService
+        cfg = AgeGuardService().get_config(guild_id)
         if not cfg.get("enabled", False):
             return "[停用]"
         has_adult = bool(cfg.get("adult_role_id"))
@@ -410,8 +410,8 @@ class Settings(commands.Cog):
 
     def build_age_guard_embed(self, guild_id: int) -> discord.Embed:
         """產生年齡守門員設定面板"""
-        from src.cogs.features.age_guard import _load as _ag_load
-        cfg = _ag_load().get(str(guild_id), {})
+        from src.services.age_guard_service import AgeGuardService
+        cfg = AgeGuardService().get_config(guild_id)
         enabled = cfg.get("enabled", False)
         adult_role_id = cfg.get("adult_role_id")
         punishment_role_id = cfg.get("punishment_role_id")
