@@ -2,7 +2,7 @@
 
 # Discord Bot
 
-一個功能完整的 Discord 機器人，包含訊息管理、伺服器安全、遊戲、osu! 整合與 GitHub 監控。
+一個功能完整的 Discord 機器人，包含訊息管理、伺服器安全、遊戲、成就、osu! 整合、GitHub 監控與暫時語音頻道。
 
 ## 主要功能
 
@@ -12,7 +12,8 @@
 
 ### 管理指令
 - `/clear` 清除訊息、`/kick` 踢出、`/ban` 封禁、`/mute` 禁言、`/warn` 警告
-- `/blacklist add|remove|list|info` 雙軌黑名單管理 (本地 JSON + CatHome API) + 申訴系統
+- `/bl_add|bl_remove|bl_list|bl_info` 雙軌黑名單管理 (本地 JSON + CatHome API) + 申訴系統
+- `/申訴` / `/申訴狀態` 申訴黑名單（Modal 表單 + 開發者審核）
 - `/settings` 伺服器設定儀表板 (日誌/舉報頻道、防刷屏、歡迎訊息一站式管理)
 - `/role assign` / `/role remove` 身份組管理
 - `/emoji get` / `/emoji upload` 表情符號管理
@@ -53,7 +54,8 @@
 
 ### osu! 整合
 - `/user_info_osu` 查詢玩家資料
-- `/osu bind` 綁定帳號、`/osu best` 查詢 BP、`/osu recent` 最近遊玩、`/osu score` 特定譜面
+- `/osu_bind` 綁定帳號、`/osu_unbind` 解除綁定
+- `/osu_best` 查詢 Best Performance、`/osu_recent` 最近遊玩記錄
 
 ### GitHub 監控
 - `/repo_watch set` 設定通用倉庫監控、`/repo_watch status` / `disable`
@@ -68,6 +70,25 @@
 - `/settings` 開啟互動式設定面板 (需管理員)
 - 支援設定：日誌頻道、舉報頻道、防刷屏開關、歡迎訊息總覽
 - Select Menu + Button 即時修改，無需記指令
+
+### 翻譯系統
+- 右鍵訊息 > 應用程式 > `翻譯訊息` — 將任意訊息翻譯為指定語言
+- 支援 14 種語言：英文、中文、日文、韓文、法文、德文、西班牙文、義大利文、葡萄牙文、俄文、泰文、越南文、印尼文、菲律賓文
+
+### 年齡守門員
+- `/age_guard set_adult_role` 設定 18+ 身份組、`/age_guard set_punishment_role` 設定懲罰身份組
+- `/age_guard toggle` 啟用/禁用、`/age_guard status` 查看狀態
+- 自動監測成人內容並對未驗證成員施加懲罰
+
+### 暫時語音頻道
+- `/temp_voice setup` 設定觸發頻道、類別與名稱範本（`{username}` 佔位符，預設：`{username}的家`）
+- `/temp_voice status` 查看系統狀態、`/temp_voice disable` 停用系統
+- 加入觸發頻道後自動建立個人語音頻道，成員離開後自動刪除
+- 使用者可透過 `envc*` 前綴指令自行管理頻道：
+  - 基礎設定：`envc*name`、`envc*limit`、`envc*bitrate`
+  - 隱私設定：`envc*hide`/`unhide`、`envc*lock`/`unlock`
+  - 成員管理：`envc*kick`、`envc*ban`/`unban`
+  - 所有權管理：`envc*transfer`、`envc*claim`
 
 ### 其他
 - `/user_info` 查看用戶資訊 (含 osu! 綁定與成就進度)
@@ -105,6 +126,9 @@ python -m src.main
 | 清除/踢出/封禁/禁言/警告 | 對應管理權限 |
 | 舉報頻道設定 | 管理伺服器 |
 | 工單系統設定 | 管理員 |
+| 翻譯系統 | 無特殊限制 |
+| 年齡守門員設定 | 管理頻道 |
+| 暫時語音頻道設定 | 管理頻道 |
 | 身份組管理 | 管理角色 |
 | 表情符號上傳 | 管理表情符號 |
 | 歡迎訊息設定 | 管理伺服器 |
@@ -116,7 +140,7 @@ python -m src.main
 ## 資料存放
 
 - `data/config/bot.json`：伺服器設定 (日誌頻道、舉報頻道)
-- `data/storage/`：成就、黑名單、申訴、GitHub 監控、osu! 綁定、抽獎、工單等
+- `data/storage/`：成就、黑名單、申訴、GitHub 監控、osu! 綁定、抽獎、工單、暫時語音頻道、年齡守門員、防刷屏設定等
 - `data/logs/messages/`：訊息編輯/刪除日誌
 
 ## 時區
@@ -127,7 +151,7 @@ python -m src.main
 
 - `src/`：核心原始碼，包含機器人主要的 Cogs 模組與邏輯
 - `src/cogs/core/`：核心管理 (admin、audit_log、blacklist、bot_appearance、report、error_handler、settings 等)
-- `src/cogs/features/`：功能模組 (anti_spam、giveaway、achievements、osu_info 等)
+- `src/cogs/features/`：功能模組 (anti_spam、giveaway、achievements、osu_info、translate、age_guard、temp_voice 等)
 - `src/cogs/games/`：遊戲模組
 - `src/utils/`：工具函式庫
 - `services/`：外部服務整合
