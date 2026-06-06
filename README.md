@@ -2,7 +2,7 @@
 
 # Discord Bot
 
-一個功能完整的 Discord 機器人，包含訊息管理、伺服器安全、遊戲、成就、osu! 整合、GitHub 監控與暫時語音頻道。
+一個功能完整的 Discord 機器人，包含訊息管理、伺服器安全、遊戲、成就、osu! 整合、HoYoLAB/米游社 整合、GitHub 監控與暫時語音頻道。
 
 ## 主要功能
 
@@ -57,6 +57,17 @@
 - `/osu_bind` 綁定帳號、`/osu_unbind` 解除綁定
 - `/osu_best` 查詢 Best Performance、`/osu_recent` 最近遊玩記錄
 
+### HoYoLAB/米游社 整合
+- `/mhy bind` 安全綁定 HoYoLAB/米游社 Cookie（支援國際服/國服）
+- `/mhy tutorial` 獲取 Cookie 獲取教學指引
+- `/mhy status` 查看帳號綁定狀態
+- `/mhy toggle_autosignin` 開啟/關閉每日自動簽到
+- `/mhy notes` 查詢遊戲便箋（樹脂/體力等）
+- `/mhy redeem` 兌換遊戲禮包碼
+- `/mhy stats` 查詢遊戲統計數據
+- `/mhy abyss` 查詢深境螺旋/虛構敘述數據
+- 支援原神、崩壞：星穹鐵道、絕區零等多款遊戲
+
 ### GitHub 監控
 - `/repo_watch set` 設定通用倉庫監控、`/repo_watch status` / `disable`
 - `/repo_track add` 專門追蹤 keeiv/bot 倉庫更新 (commits + PRs)
@@ -110,7 +121,10 @@ OSU_CLIENT_ID=
 OSU_CLIENT_SECRET=
 GITHUB_TOKEN=
 BLACKLIST_API_KEY=
+GENSHIN_ENCRYPTION_KEY=
 ```
+
+**注意**：`GENSHIN_ENCRYPTION_KEY` 會在首次運行時自動生成，無需手動設置。
 
 3. 執行
 ```bash
@@ -133,6 +147,7 @@ python -m src.main
 | 表情符號上傳 | 管理表情符號 |
 | 歡迎訊息設定 | 管理伺服器 |
 | GitHub 監控設定 | 管理伺服器 |
+| HoYoLAB/米游社 綁定 | 無特殊限制 |
 | 黑名單管理 | 開發者限定 |
 | 設定儀表板 | 管理員 |
 | 其他查詢指令 | 無特殊限制 |
@@ -140,7 +155,7 @@ python -m src.main
 ## 資料存放
 
 - `data/config/bot.json`：伺服器設定 (日誌頻道、舉報頻道)
-- `data/storage/`：成就、黑名單、申訴、GitHub 監控、osu! 綁定、抽獎、工單、暫時語音頻道、年齡守門員、防刷屏設定等
+- `data/storage/`：成就、黑名單、申訴、GitHub 監控、osu! 綁定、HoYoLAB/米游社 帳號、抽獎、工單、暫時語音頻道、年齡守門員、防刷屏設定等
 - `data/logs/messages/`：訊息編輯/刪除日誌
 
 ## 時區
@@ -151,10 +166,10 @@ python -m src.main
 
 - `src/`：核心原始碼，包含機器人主要的 Cogs 模組與邏輯
 - `src/cogs/core/`：核心管理 (admin、audit_log、blacklist、bot_appearance、report、error_handler、settings 等)
-- `src/cogs/features/`：功能模組 (anti_spam、giveaway、achievements、osu_info、translate、age_guard、temp_voice 等)
+- `src/cogs/features/`：功能模組 (anti_spam、giveaway、achievements、osu_info、genshin_cog、translate、age_guard、temp_voice 等)
 - `src/cogs/games/`：遊戲模組
 - `src/utils/`：工具函式庫
-- `services/`：外部服務整合
+- `src/services/`：外部服務整合 (genshin_service、osu_service、github_watch 等)
 - `tests/`：自動化測試
 - `docs/`：說明文件
 
@@ -163,6 +178,8 @@ python -m src.main
 - discord.py 2.3.2
 - python-dotenv 1.0.0
 - ossapi (osu! API)
+- genshin (HoYoLAB/米游社 API)
+- cryptography (加密)
 - psutil (系統監控)
 - aiohttp (非同步 HTTP)
 - deep-translator (免費多引擎翻譯)
