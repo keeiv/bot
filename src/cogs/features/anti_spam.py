@@ -25,6 +25,8 @@ class AntiSpam(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.manager = AntiSpamManager()
+        # guild_id -> {channel_id -> original send_messages (True/False/None)}
+        self._lockdown_states: dict[int, dict[int, bool | None]] = {}
 
     # ───────────── 輔助方法 ─────────────
 
@@ -47,8 +49,8 @@ class AntiSpam(commands.Cog):
         message: discord.Message,
         detail: str,
         detection_type: str,
-    ):
-        """執行懲罰動作"""
+    ) -> tuple[bool, str]:
+        """執行懲罰動作。回傳 (success, fail_reason)。"""
         member = message.author
         guild = message.guild
         s = self.manager.get_settings(guild.id)
@@ -66,7 +68,7 @@ class AntiSpam(commands.Cog):
                     )
                     await member.send(embed=warn_embed)
                 except discord.Forbidden:
-                    pass
+                    pass  # DM 封鎖不影響主要動作
 
             elif action == ACTION_DELETE:
                 try:
@@ -112,21 +114,26 @@ class AntiSpam(commands.Cog):
             elif action == ACTION_LOCKDOWN:
                 await self._activate_lockdown(guild)
 
+            return True, ""
+
         except discord.Forbidden:
-            pass
-        except Exception:
-            pass
+            return False, "Bot 缺少權限"
+        except Exception as exc:
+            return False, str(exc)[:120]
 
     async def _activate_lockdown(self, guild: discord.Guild):
-        """啟用封鎖模式 — 鎖定所有文字頻道"""
+        """啟用封鎖模式 — 鎖定所有文字頻道，并廮存原始權限"""
         if self.manager.is_lockdown(guild.id):
             return
         self.manager.set_lockdown(guild.id, True)
 
         default_role = guild.default_role
+        channel_states: dict[int, bool | None] = {}
         for channel in guild.text_channels:
             try:
                 overwrite = channel.overwrites_for(default_role)
+                # 廮存原始 send_messages 狀態，以便解除時精準回復
+                channel_states[channel.id] = overwrite.send_messages
                 overwrite.send_messages = False
                 await channel.set_permissions(
                     default_role,
@@ -135,16 +142,19 @@ class AntiSpam(commands.Cog):
                 )
             except discord.Forbidden:
                 continue
+        self._lockdown_states[guild.id] = channel_states
 
     async def _deactivate_lockdown(self, guild: discord.Guild):
-        """解除封鎖模式"""
+        """解除封鎖模式，回復封鎖前原始權限"""
         self.manager.set_lockdown(guild.id, False)
+        channel_states = self._lockdown_states.pop(guild.id, {})
 
         default_role = guild.default_role
         for channel in guild.text_channels:
             try:
                 overwrite = channel.overwrites_for(default_role)
-                overwrite.send_messages = None
+                # 回復到封鎖前的狀態；若無廮存則用 None (繼承伺服器預設)
+                overwrite.send_messages = channel_states.get(channel.id)
                 await channel.set_permissions(
                     default_role,
                     overwrite=overwrite,
@@ -197,7 +207,9 @@ class AntiSpam(commands.Cog):
         )
 
         # 執行動作
-        await self._execute_action(worst_action, message, worst_detail, worst_det)
+        action_ok, fail_reason = await self._execute_action(
+            worst_action, message, worst_detail, worst_det
+        )
 
         # 發送日誌
         embed = create_anti_spam_log_embed(
@@ -219,10 +231,19 @@ class AntiSpam(commands.Cog):
             )
             embed.add_field(name="其他觸發", value=others, inline=False)
 
+        # 如果執行失敗，日誌標注原因
+        if not action_ok:
+            embed.add_field(
+                name="[警告] 執行失敗",
+                value=fail_reason or "未知原因",
+                inline=False,
+            )
+
         await self._send_log(message.guild.id, embed)
 
-        # 重設紀錄
-        self.manager.reset_user(message.guild.id, message.author.id)
+        # 對於執行成功的動作才重設紀錄，避免失敗時阐失尚未處理的違規記錄
+        if action_ok:
+            self.manager.reset_user(message.guild.id, message.author.id)
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
@@ -573,6 +594,9 @@ class AntiSpam(commands.Cog):
         if not changes:
             await interaction.followup.send("[提示] 無變更", ephemeral=True)
             return
+
+        # 白名單直接操作 dict 內的 list，需要手動觸發落盤
+        self.manager._save_all_settings()
 
         embed = discord.Embed(
             title="[設定] 白名單已更新",

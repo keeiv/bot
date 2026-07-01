@@ -1,4 +1,5 @@
 from collections import defaultdict
+import copy
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -166,7 +167,7 @@ class AntiSpamManager:
     def get_settings(self, guild_id: int) -> dict:
         """取得伺服器設定 (不存在則建立預設)"""
         if guild_id not in self.settings:
-            self.settings[guild_id] = dict(DEFAULT_SETTINGS)
+            self.settings[guild_id] = copy.deepcopy(DEFAULT_SETTINGS)
         return self.settings[guild_id]
 
     def update_settings(self, guild_id: int, updates: dict):
