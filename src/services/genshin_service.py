@@ -5,8 +5,8 @@ import json
 import os
 from typing import Any, Optional
 
-import genshin
 from cryptography.fernet import Fernet
+import genshin
 
 from src.utils.text_converter import to_traditional_chinese
 

@@ -1,14 +1,11 @@
-import json
-import os
-import re
 from collections import defaultdict
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
-from typing import Dict
-from typing import List
-from typing import Optional
-from typing import Tuple
+import json
+import os
+import re
+from typing import Dict, List, Optional, Tuple
 
 import discord
 
@@ -16,17 +13,22 @@ import discord
 TZ_OFFSET = timezone(timedelta(hours=8))
 
 # --- 偵測類型常數 ---
-DETECT_FLOOD = "flood"           # 訊息洪水
-DETECT_DUPLICATE = "duplicate"   # 重複內容
-DETECT_MENTION = "mention"       # 提及轟炸
-DETECT_LINK = "link"             # 連結/邀請轟炸
-DETECT_EMOJI = "emoji"           # 表情轟炸
-DETECT_NEWLINE = "newline"       # 換行轟炸
-DETECT_RAID = "raid"             # 加入突襲
+DETECT_FLOOD = "flood"  # 訊息洪水
+DETECT_DUPLICATE = "duplicate"  # 重複內容
+DETECT_MENTION = "mention"  # 提及轟炸
+DETECT_LINK = "link"  # 連結/邀請轟炸
+DETECT_EMOJI = "emoji"  # 表情轟炸
+DETECT_NEWLINE = "newline"  # 換行轟炸
+DETECT_RAID = "raid"  # 加入突襲
 
 ALL_DETECTIONS = [
-    DETECT_FLOOD, DETECT_DUPLICATE, DETECT_MENTION,
-    DETECT_LINK, DETECT_EMOJI, DETECT_NEWLINE, DETECT_RAID,
+    DETECT_FLOOD,
+    DETECT_DUPLICATE,
+    DETECT_MENTION,
+    DETECT_LINK,
+    DETECT_EMOJI,
+    DETECT_NEWLINE,
+    DETECT_RAID,
 ]
 
 # --- 動作常數 (嚴重度由低到高) ---
@@ -188,7 +190,11 @@ class AntiSpamManager:
     # --- 核心偵測引擎 ---
 
     def check_message(
-        self, guild_id: int, user_id: int, content: str, channel_id: int,
+        self,
+        guild_id: int,
+        user_id: int,
+        content: str,
+        channel_id: int,
         member: Optional[discord.Member] = None,
     ) -> List[Tuple[str, str, str]]:
         """
@@ -311,9 +317,7 @@ class AntiSpamManager:
         log = self.message_log[guild_id][user_id]
         log.append(now)
         # 清理過期
-        self.message_log[guild_id][user_id] = [
-            t for t in log if now - t < window
-        ]
+        self.message_log[guild_id][user_id] = [t for t in log if now - t < window]
 
         count = len(self.message_log[guild_id][user_id])
         if count > limit:
@@ -342,8 +346,7 @@ class AntiSpamManager:
 
         # 計算相同內容出現次數
         dup_count = sum(
-            1 for _, c in self.content_log[guild_id][user_id]
-            if c == normalized
+            1 for _, c in self.content_log[guild_id][user_id] if c == normalized
         )
 
         if dup_count >= limit:
@@ -354,12 +357,12 @@ class AntiSpamManager:
             )
         return None
 
-    def _check_mentions(
-        self, content: str, s: dict
-    ) -> Optional[Tuple[str, str, str]]:
+    def _check_mentions(self, content: str, s: dict) -> Optional[Tuple[str, str, str]]:
         """提及轟炸偵測"""
         limit = s["mention_limit"]
-        mention_count = content.count("<@") + content.count("@everyone") + content.count("@here")
+        mention_count = (
+            content.count("<@") + content.count("@everyone") + content.count("@here")
+        )
 
         if mention_count >= limit:
             return (
@@ -384,9 +387,7 @@ class AntiSpamManager:
         for _ in urls:
             log.append(now)
 
-        self.link_log[guild_id][user_id] = [
-            t for t in log if now - t < window
-        ]
+        self.link_log[guild_id][user_id] = [t for t in log if now - t < window]
 
         count = len(self.link_log[guild_id][user_id])
         if count >= limit:
@@ -397,9 +398,7 @@ class AntiSpamManager:
             return (DETECT_LINK, s["link_action"], detail)
         return None
 
-    def _check_emoji(
-        self, content: str, s: dict
-    ) -> Optional[Tuple[str, str, str]]:
+    def _check_emoji(self, content: str, s: dict) -> Optional[Tuple[str, str, str]]:
         """表情轟炸偵測"""
         limit = s["emoji_limit"]
         count = len(EMOJI_RE.findall(content))
@@ -412,9 +411,7 @@ class AntiSpamManager:
             )
         return None
 
-    def _check_newline(
-        self, content: str, s: dict
-    ) -> Optional[Tuple[str, str, str]]:
+    def _check_newline(self, content: str, s: dict) -> Optional[Tuple[str, str, str]]:
         """換行轟炸偵測"""
         limit = s["newline_limit"]
         count = content.count("\n")
@@ -447,8 +444,7 @@ class AntiSpamManager:
 
         # 清理過期違規
         self.strike_log[guild_id][user_id] = [
-            (t, d) for t, d in self.strike_log[guild_id][user_id]
-            if now - t < window
+            (t, d) for t, d in self.strike_log[guild_id][user_id] if now - t < window
         ]
 
         strike_count = len(self.strike_log[guild_id][user_id])
@@ -456,10 +452,7 @@ class AntiSpamManager:
             return triggers
 
         # 達到升級門檻 — 取最嚴重的現有動作，升一級
-        max_severity = max(
-            ACTION_SEVERITY.get(action, 0)
-            for _, action, _ in triggers
-        )
+        max_severity = max(ACTION_SEVERITY.get(action, 0) for _, action, _ in triggers)
 
         escalated_action = None
         for act, sev in sorted(ACTION_SEVERITY.items(), key=lambda x: x[1]):
@@ -530,13 +523,9 @@ def create_anti_spam_log_embed(
         timestamp=datetime.now(TZ_OFFSET),
     )
 
-    embed.add_field(
-        name="用戶", value=f"<@{user_id}> ({user_id})", inline=False
-    )
+    embed.add_field(name="用戶", value=f"<@{user_id}> ({user_id})", inline=False)
     embed.add_field(name="用戶名", value=user_name, inline=True)
-    embed.add_field(
-        name="頻道", value=f"<#{channel_id}> ({channel_id})", inline=True
-    )
+    embed.add_field(name="頻道", value=f"<#{channel_id}> ({channel_id})", inline=True)
     embed.add_field(name="偵測類型", value=type_name, inline=True)
     embed.add_field(name="詳細資訊", value=detail, inline=False)
     embed.add_field(name="執行動作", value=action_name, inline=True)
@@ -562,8 +551,7 @@ def create_raid_alert_embed(
     embed = discord.Embed(
         title="[防炸群] 突襲警報",
         description=(
-            f"偵測到可能的突襲行為\n"
-            f"{window} 秒內有 **{join_count}** 人加入伺服器"
+            f"偵測到可能的突襲行為\n" f"{window} 秒內有 **{join_count}** 人加入伺服器"
         ),
         color=discord.Color.from_rgb(255, 0, 0),
         timestamp=datetime.now(TZ_OFFSET),

@@ -1,13 +1,9 @@
 """遊戲狀態業務邏輯服務 (深海氧氣瓶 / 俄羅斯輪盤)"""
 
 import random
-from typing import Dict
-from typing import List
-from typing import Optional
-from typing import Tuple
+from typing import Dict, List, Optional, Tuple
 
 import discord
-
 
 # ═══════════════════════════════════════════
 #  深海氧氣瓶

@@ -34,7 +34,7 @@ from discord.ext import commands
 class NewFeature(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-    
+
     @commands.command()
     async def new_command(self, ctx):
         await ctx.send("Hello from new feature!")

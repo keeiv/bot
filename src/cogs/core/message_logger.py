@@ -68,7 +68,11 @@ class MessageLogger(commands.Cog):
             record = self.service.get_record(guild_id, message_id)
             if not record:
                 self.service.add_record(
-                    guild_id, message_id, before.content, user_id, channel_id,
+                    guild_id,
+                    message_id,
+                    before.content,
+                    user_id,
+                    channel_id,
                     before.attachments or None,
                 )
                 before_content = before.content
@@ -137,7 +141,11 @@ class MessageLogger(commands.Cog):
                 original_content = message.content
                 attachment_urls = [a.url for a in message.attachments]
                 self.service.add_record(
-                    guild_id, message_id, original_content, user_id, channel_id,
+                    guild_id,
+                    message_id,
+                    original_content,
+                    user_id,
+                    channel_id,
                     message.attachments or None,
                 )
 

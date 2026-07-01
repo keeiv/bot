@@ -3,7 +3,9 @@ import time
 from typing import Any
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI
+from fastapi import HTTPException
+from fastapi import Request
 from ossapi import Ossapi
 
 load_dotenv()
@@ -28,7 +30,9 @@ def _require_api_key(request: Request):
 
 def _get_api() -> Ossapi:
     if not OSU_CLIENT_ID or not OSU_CLIENT_SECRET:
-        raise HTTPException(status_code=500, detail="OSU_CLIENT_ID 或 OSU_CLIENT_SECRET 未設定")
+        raise HTTPException(
+            status_code=500, detail="OSU_CLIENT_ID 或 OSU_CLIENT_SECRET 未設定"
+        )
     return Ossapi(int(OSU_CLIENT_ID), OSU_CLIENT_SECRET)
 
 
@@ -59,7 +63,11 @@ def _serialize_osu_user(user) -> dict:
         "is_supporter": getattr(user, "is_supporter", None),
         "avatar_url": getattr(user, "avatar_url", None),
         "cover_url": getattr(user, "cover_url", None),
-        "join_date": getattr(user, "join_date", None).isoformat() if getattr(user, "join_date", None) else None,
+        "join_date": (
+            getattr(user, "join_date", None).isoformat()
+            if getattr(user, "join_date", None)
+            else None
+        ),
         "statistics": {
             "global_rank": getattr(stats, "global_rank", None) if stats else None,
             "country_rank": getattr(stats, "country_rank", None) if stats else None,
@@ -90,14 +98,26 @@ def _serialize_score(score) -> dict:
 
     return {
         "id": getattr(score, "id", None),
-        "created_at": getattr(score, "created_at", None).isoformat() if getattr(score, "created_at", None) else None,
-        "rank": str(getattr(score, "rank", None)) if getattr(score, "rank", None) else None,
+        "created_at": (
+            getattr(score, "created_at", None).isoformat()
+            if getattr(score, "created_at", None)
+            else None
+        ),
+        "rank": (
+            str(getattr(score, "rank", None)) if getattr(score, "rank", None) else None
+        ),
         "pp": getattr(score, "pp", None),
         "accuracy": getattr(score, "accuracy", None),
         "max_combo": getattr(score, "max_combo", None),
-        "mods": [str(m) for m in getattr(score, "mods", [])] if getattr(score, "mods", None) else [],
+        "mods": (
+            [str(m) for m in getattr(score, "mods", [])]
+            if getattr(score, "mods", None)
+            else []
+        ),
         "statistics": {
-            "count_miss": getattr(statistics, "count_miss", None) if statistics else None,
+            "count_miss": (
+                getattr(statistics, "count_miss", None) if statistics else None
+            ),
         },
         "beatmap": {
             "id": getattr(beatmap, "id", None) if beatmap else None,

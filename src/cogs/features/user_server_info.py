@@ -1,13 +1,7 @@
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
-from typing import Any
-from typing import Mapping
-from typing import Optional
-from typing import Protocol
-from typing import Sequence
-from typing import Tuple
-from typing import cast
+from typing import Any, cast, Mapping, Optional, Protocol, Sequence, Tuple
 
 import discord
 from discord import app_commands
@@ -25,23 +19,21 @@ TZ_OFFSET = timezone(timedelta(hours=8))
 
 
 class AchievementsCogProtocol(Protocol):
-    def get_progress(self, user_id: int, guild_id: Optional[int]) -> Mapping[str, Any]:
-        ...
+    def get_progress(
+        self, user_id: int, guild_id: Optional[int]
+    ) -> Mapping[str, Any]: ...
 
-    def get_progress_bar(self, percentage: Any, length: int) -> str:
-        ...
+    def get_progress_bar(self, percentage: Any, length: int) -> str: ...
 
     def unlock_achievement(
         self, user_id: int, guild_id: Optional[int], achievement: str
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 class OsuInfoCogProtocol(Protocol):
     api: Any
 
-    def get_bound_osu_username(self, user_id: int) -> Optional[str]:
-        ...
+    def get_bound_osu_username(self, user_id: int) -> Optional[str]: ...
 
 
 class UserServerInfo(commands.Cog):
@@ -249,12 +241,16 @@ class UserServerInfo(commands.Cog):
 
         self.add_separator(container)
         container.add_item(
-            TextDisplay(self.format_text_block("成員統計", member_stats_text.split("\n")))
+            TextDisplay(
+                self.format_text_block("成員統計", member_stats_text.split("\n"))
+            )
         )
 
         self.add_separator(container)
         container.add_item(
-            TextDisplay(self.format_text_block("頻道統計", channel_stats_text.split("\n")))
+            TextDisplay(
+                self.format_text_block("頻道統計", channel_stats_text.split("\n"))
+            )
         )
 
         self.add_separator(container)
@@ -312,11 +308,7 @@ class UserServerInfo(commands.Cog):
             roles_text = None
             if member:
                 default_role = member.guild.default_role
-                roles = [
-                    role.mention
-                    for role in member.roles
-                    if role != default_role
-                ]
+                roles = [role.mention for role in member.roles if role != default_role]
                 roles_text = " ".join(roles) if roles else "無"
                 roles_text = self.truncate_text(roles_text, 3500)
 
@@ -437,9 +429,7 @@ class UserServerInfo(commands.Cog):
             bot_count = sum(1 for member in guild.members if member.bot)
             human_count = total_members - bot_count
             member_stats_text = (
-                f"總計: {total_members}\n"
-                f"人類: {human_count}\n"
-                f"Bot: {bot_count}"
+                f"總計: {total_members}\n" f"人類: {human_count}\n" f"Bot: {bot_count}"
             )
 
             text_channels = len(

@@ -330,17 +330,17 @@ class RateLimiter:
         self.per = per
         self.tokens = rate_limit
         self.last_reset = time.time()
-    
+
     async def wait_if_needed(self):
         now = time.time()
         if now - self.last_reset >= self.per:
             self.tokens = self.rate_limit
             self.last_reset = now
-        
+
         if self.tokens <= 0:
             sleep_time = self.per - (now - self.last_reset)
             await asyncio.sleep(sleep_time)
-        
+
         self.tokens -= 1
 
 # Usage
@@ -430,14 +430,14 @@ import aiosqlite
 class DatabaseManager:
     def __init__(self):
         self.pool = None
-    
+
     async def initialize(self):
         self.pool = await aiosqlite.create_pool(
             "bot.db",
             check_same_thread=False,
             max_connections=10
         )
-    
+
     async def execute(self, query, *args):
         async with self.pool.acquire() as conn:
             return await conn.execute(query, *args)
@@ -485,7 +485,7 @@ async def backup_database():
     """Create automatic database backups."""
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_path = f"data/backups/bot_{timestamp}.db"
-    
+
     try:
         shutil.copy2("data/bot.db", backup_path)
         print(f"Database backed up to {backup_path}")
@@ -512,7 +512,7 @@ def profile_cpu_usage(func):
         pr.enable()
         result = func(*args, **kwargs)
         pr.disable()
-        
+
         stats = pstats.Stats(pr)
         stats.sort_stats('cumulative')
         stats.print_stats(20)  # Top 20 functions
@@ -528,7 +528,7 @@ async def on_message(message):
     # Quick checks first
     if message.author.bot:
         return
-    
+
     # Defer heavy processing
     asyncio.create_task(process_message_heavy(message))
 ```
@@ -566,7 +566,7 @@ async def fast_command(self, ctx):
 ```python
 # Use indexes for frequent queries
 await database.execute("""
-    CREATE INDEX IF NOT EXISTS idx_user_messages 
+    CREATE INDEX IF NOT EXISTS idx_user_messages
     ON messages(user_id, timestamp)
 """)
 
@@ -600,7 +600,7 @@ class Bot(commands.Bot):
             heartbeat_timeout=60,
             guild_ready_timeout=10
         )
-    
+
     async def on_disconnect(self):
         print("Disconnected, attempting to reconnect...")
 ```
@@ -637,7 +637,7 @@ def get_discord_gateway():
         "gateway.discord.gg",
         "gateway.discord.com"
     ]
-    
+
     for gateway in gateways:
         try:
             ip = socket.gethostbyname(gateway)
@@ -645,7 +645,7 @@ def get_discord_gateway():
             return gateway
         except socket.gaierror:
             continue
-    
+
     raise Exception("All Discord gateways unreachable")
 ```
 
@@ -686,7 +686,7 @@ import logging
 class StructuredLogger:
     def __init__(self, name):
         self.logger = logging.getLogger(name)
-    
+
     def log_event(self, event, **kwargs):
         log_data = {
             'timestamp': datetime.utcnow().isoformat(),
@@ -755,34 +755,34 @@ class HealthMonitor:
         self.bot = bot
         self.last_heartbeat = time.time()
         self.issues = []
-    
+
     async def start_monitoring(self):
         """Start continuous health monitoring."""
         while True:
             await self.check_health()
             await asyncio.sleep(60)  # Check every minute
-    
+
     async def check_health(self):
         """Perform comprehensive health check."""
         issues = []
-        
+
         # Check Discord connection
         if not self.bot.is_ready():
             issues.append("Discord connection lost")
-        
+
         # Check memory usage
         memory_percent = self.get_memory_usage()
         if memory_percent > 80:
             issues.append(f"High memory usage: {memory_percent}%")
-        
+
         # Check database connectivity
         if not await self.check_database():
             issues.append("Database connection failed")
-        
+
         self.issues = issues
         if issues:
             print(f"Health issues detected: {issues}")
-    
+
     def get_memory_usage(self):
         """Get current memory usage percentage."""
         import psutil

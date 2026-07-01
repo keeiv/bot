@@ -19,4 +19,3 @@ async def test_cogs_can_be_loaded_without_running() -> None:
     """Ensure all configured cogs can be loaded without starting the bot."""
     bot = Bot()
     await bot.load_cogs()
-

@@ -16,12 +16,24 @@ TZ_OFFSET = timezone(timedelta(hours=8))
 
 # 設定類別定義
 SETTING_CATEGORIES = [
-    discord.SelectOption(label="日誌頻道", value="log_channel", description="設定機器人日誌輸出頻道"),
-    discord.SelectOption(label="舉報頻道", value="report_channel", description="設定舉報訊息接收頻道"),
-    discord.SelectOption(label="防刷屏系統", value="anti_spam", description="查看/切換防刷屏開關"),
-    discord.SelectOption(label="歡迎訊息", value="welcome", description="查看歡迎訊息設定"),
-    discord.SelectOption(label="年齡守門員", value="age_guard", description="查看年齡守門員設定狀態"),
-    discord.SelectOption(label="總覽", value="overview", description="查看所有設定摘要"),
+    discord.SelectOption(
+        label="日誌頻道", value="log_channel", description="設定機器人日誌輸出頻道"
+    ),
+    discord.SelectOption(
+        label="舉報頻道", value="report_channel", description="設定舉報訊息接收頻道"
+    ),
+    discord.SelectOption(
+        label="防刷屏系統", value="anti_spam", description="查看/切換防刷屏開關"
+    ),
+    discord.SelectOption(
+        label="歡迎訊息", value="welcome", description="查看歡迎訊息設定"
+    ),
+    discord.SelectOption(
+        label="年齡守門員", value="age_guard", description="查看年齡守門員設定狀態"
+    ),
+    discord.SelectOption(
+        label="總覽", value="overview", description="查看所有設定摘要"
+    ),
 ]
 
 
@@ -69,9 +81,7 @@ class ChannelSelectView(ui.View):
         self.stop()
 
     @ui.button(label="取消", style=discord.ButtonStyle.secondary)
-    async def cancel_button(
-        self, interaction: discord.Interaction, button: ui.Button
-    ):
+    async def cancel_button(self, interaction: discord.Interaction, button: ui.Button):
         await interaction.response.send_message("[提示] 已取消", ephemeral=True)
         self.stop()
 
@@ -96,9 +106,7 @@ class AntiSpamToggleView(ui.View):
             self.toggle_button.style = discord.ButtonStyle.success
 
     @ui.button(label="切換", style=discord.ButtonStyle.primary)
-    async def toggle_button(
-        self, interaction: discord.Interaction, button: ui.Button
-    ):
+    async def toggle_button(self, interaction: discord.Interaction, button: ui.Button):
         """切換防刷屏開關"""
         anti_spam_cog = self.cog.bot.get_cog("AntiSpam")
         if not anti_spam_cog or not hasattr(anti_spam_cog, "manager"):
@@ -108,23 +116,23 @@ class AntiSpamToggleView(ui.View):
             return
 
         new_state = not self.current_enabled
-        anti_spam_cog.manager.update_settings(
-            self.guild_id, {"enabled": new_state}
-        )
+        anti_spam_cog.manager.update_settings(self.guild_id, {"enabled": new_state})
 
         status = "開啟" if new_state else "關閉"
         embed = discord.Embed(
             title=f"[成功] 防刷屏已{status}",
-            color=discord.Color.from_rgb(46, 204, 113) if new_state else discord.Color.from_rgb(231, 76, 60),
+            color=(
+                discord.Color.from_rgb(46, 204, 113)
+                if new_state
+                else discord.Color.from_rgb(231, 76, 60)
+            ),
             timestamp=datetime.now(TZ_OFFSET),
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
         self.stop()
 
     @ui.button(label="返回", style=discord.ButtonStyle.secondary)
-    async def back_button(
-        self, interaction: discord.Interaction, button: ui.Button
-    ):
+    async def back_button(self, interaction: discord.Interaction, button: ui.Button):
         await interaction.response.send_message("[提示] 已返回", ephemeral=True)
         self.stop()
 
@@ -167,7 +175,9 @@ class SettingsMenuView(ui.View):
                 inline=False,
             )
             view = ChannelSelectView("log_channel", self.cog)
-            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+            await interaction.response.send_message(
+                embed=embed, view=view, ephemeral=True
+            )
 
         elif value == "report_channel":
             current = get_guild_report_channel(guild_id)
@@ -182,11 +192,15 @@ class SettingsMenuView(ui.View):
                 inline=False,
             )
             view = ChannelSelectView("report_channel", self.cog)
-            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+            await interaction.response.send_message(
+                embed=embed, view=view, ephemeral=True
+            )
 
         elif value == "anti_spam":
             embed, view = self.cog.build_anti_spam_panel(guild_id)
-            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+            await interaction.response.send_message(
+                embed=embed, view=view, ephemeral=True
+            )
 
         elif value == "welcome":
             embed = self.cog.build_welcome_embed(guild_id)
@@ -272,7 +286,11 @@ class Settings(commands.Cog):
 
         embed = discord.Embed(
             title="[設定] 防刷屏系統",
-            color=discord.Color.from_rgb(46, 204, 113) if enabled else discord.Color.from_rgb(231, 76, 60),
+            color=(
+                discord.Color.from_rgb(46, 204, 113)
+                if enabled
+                else discord.Color.from_rgb(231, 76, 60)
+            ),
             timestamp=datetime.now(TZ_OFFSET),
         )
 
@@ -288,13 +306,19 @@ class Settings(commands.Cog):
         )
 
         embed.add_field(
-            name="重複偵測", value="[啟用]" if settings.get("duplicate_enabled", True) else "[停用]", inline=True
+            name="重複偵測",
+            value="[啟用]" if settings.get("duplicate_enabled", True) else "[停用]",
+            inline=True,
         )
         embed.add_field(
-            name="提及偵測", value="[啟用]" if settings.get("mention_enabled", True) else "[停用]", inline=True
+            name="提及偵測",
+            value="[啟用]" if settings.get("mention_enabled", True) else "[停用]",
+            inline=True,
         )
         embed.add_field(
-            name="連結偵測", value="[啟用]" if settings.get("link_enabled", True) else "[停用]", inline=True
+            name="連結偵測",
+            value="[啟用]" if settings.get("link_enabled", True) else "[停用]",
+            inline=True,
         )
 
         embed.add_field(
@@ -399,6 +423,7 @@ class Settings(commands.Cog):
     def _get_age_guard_status(self, guild_id: int) -> str:
         """取得年齡守門員狀態文字"""
         from src.services.age_guard_service import AgeGuardService
+
         cfg = AgeGuardService().get_config(guild_id)
         if not cfg.get("enabled", False):
             return "[停用]"
@@ -411,6 +436,7 @@ class Settings(commands.Cog):
     def build_age_guard_embed(self, guild_id: int) -> discord.Embed:
         """產生年齡守門員設定面板"""
         from src.services.age_guard_service import AgeGuardService
+
         cfg = AgeGuardService().get_config(guild_id)
         enabled = cfg.get("enabled", False)
         adult_role_id = cfg.get("adult_role_id")

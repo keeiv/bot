@@ -55,9 +55,7 @@ class TempVoice(commands.Cog):
             )
             return
 
-        resolved_category_id = (
-            category.id if category else trigger.category_id
-        )
+        resolved_category_id = category.id if category else trigger.category_id
 
         self.service.save_guild_config(
             guild_id=interaction.guild.id,
@@ -269,7 +267,7 @@ class TempVoice(commands.Cog):
         if not message.content.startswith(ENVC_PREFIX):
             return
 
-        content = message.content[len(ENVC_PREFIX):].strip()
+        content = message.content[len(ENVC_PREFIX) :].strip()
         parts = content.split(maxsplit=1)
         if not parts:
             return
@@ -407,11 +405,17 @@ class TempVoice(commands.Cog):
 
         try:
             await channel.edit(name=args)
-            await message.reply(f"[成功] 頻道名稱已更改為：**{args}**", mention_author=False)
+            await message.reply(
+                f"[成功] 頻道名稱已更改為：**{args}**", mention_author=False
+            )
         except discord.Forbidden:
-            await message.reply("[失敗] 機器人缺少修改此頻道的權限", mention_author=False)
+            await message.reply(
+                "[失敗] 機器人缺少修改此頻道的權限", mention_author=False
+            )
         except discord.HTTPException as e:
-            await message.reply(f"[失敗] 修改失敗（Discord 錯誤）：{e}", mention_author=False)
+            await message.reply(
+                f"[失敗] 修改失敗（Discord 錯誤）：{e}", mention_author=False
+            )
 
     async def _cmd_limit(self, message: discord.Message, args: str):
         result = self._get_user_owned_channel(message.author)
@@ -443,9 +447,13 @@ class TempVoice(commands.Cog):
                 f"[成功] 頻道人數上限已設定為：**{limit_text}**", mention_author=False
             )
         except discord.Forbidden:
-            await message.reply("[失敗] 機器人缺少修改此頻道的權限", mention_author=False)
+            await message.reply(
+                "[失敗] 機器人缺少修改此頻道的權限", mention_author=False
+            )
         except discord.HTTPException as e:
-            await message.reply(f"[失敗] 修改失敗（Discord 錯誤）：{e}", mention_author=False)
+            await message.reply(
+                f"[失敗] 修改失敗（Discord 錯誤）：{e}", mention_author=False
+            )
 
     async def _cmd_bitrate(self, message: discord.Message, args: str):
         result = self._get_user_owned_channel(message.author)
@@ -480,9 +488,13 @@ class TempVoice(commands.Cog):
                 f"[成功] 頻道位元率已設定為：**{bitrate} kbps**", mention_author=False
             )
         except discord.Forbidden:
-            await message.reply("[失敗] 機器人缺少修改此頻道的權限", mention_author=False)
+            await message.reply(
+                "[失敗] 機器人缺少修改此頻道的權限", mention_author=False
+            )
         except discord.HTTPException as e:
-            await message.reply(f"[失敗] 修改失敗（Discord 錯誤）：{e}", mention_author=False)
+            await message.reply(
+                f"[失敗] 修改失敗（Discord 錯誤）：{e}", mention_author=False
+            )
 
     async def _cmd_hide(self, message: discord.Message, args: str):
         result = self._get_user_owned_channel(message.author)
@@ -502,7 +514,9 @@ class TempVoice(commands.Cog):
                 "[成功] 頻道已隱藏，其他人無法看見此頻道", mention_author=False
             )
         except discord.Forbidden:
-            await message.reply("[失敗] 機器人缺少設定頻道權限的能力", mention_author=False)
+            await message.reply(
+                "[失敗] 機器人缺少設定頻道權限的能力", mention_author=False
+            )
 
     async def _cmd_unhide(self, message: discord.Message, args: str):
         result = self._get_user_owned_channel(message.author)
@@ -515,12 +529,12 @@ class TempVoice(commands.Cog):
         channel, _ = result
 
         try:
-            await channel.set_permissions(
-                message.guild.default_role, view_channel=True
-            )
+            await channel.set_permissions(message.guild.default_role, view_channel=True)
             await message.reply("[成功] 頻道已設為可見", mention_author=False)
         except discord.Forbidden:
-            await message.reply("[失敗] 機器人缺少設定頻道權限的能力", mention_author=False)
+            await message.reply(
+                "[失敗] 機器人缺少設定頻道權限的能力", mention_author=False
+            )
 
     async def _cmd_lock(self, message: discord.Message, args: str):
         result = self._get_user_owned_channel(message.author)
@@ -533,15 +547,15 @@ class TempVoice(commands.Cog):
         channel, _ = result
 
         try:
-            await channel.set_permissions(
-                message.guild.default_role, connect=False
-            )
+            await channel.set_permissions(message.guild.default_role, connect=False)
             await message.reply(
                 "[成功] 頻道已鎖定，其他人無法加入（除非受邀或管理員強制移動）",
                 mention_author=False,
             )
         except discord.Forbidden:
-            await message.reply("[失敗] 機器人缺少設定頻道權限的能力", mention_author=False)
+            await message.reply(
+                "[失敗] 機器人缺少設定頻道權限的能力", mention_author=False
+            )
 
     async def _cmd_unlock(self, message: discord.Message, args: str):
         result = self._get_user_owned_channel(message.author)
@@ -554,12 +568,14 @@ class TempVoice(commands.Cog):
         channel, _ = result
 
         try:
-            await channel.set_permissions(
-                message.guild.default_role, connect=True
+            await channel.set_permissions(message.guild.default_role, connect=True)
+            await message.reply(
+                "[成功] 頻道已解除鎖定，所有人可自由加入", mention_author=False
             )
-            await message.reply("[成功] 頻道已解除鎖定，所有人可自由加入", mention_author=False)
         except discord.Forbidden:
-            await message.reply("[失敗] 機器人缺少設定頻道權限的能力", mention_author=False)
+            await message.reply(
+                "[失敗] 機器人缺少設定頻道權限的能力", mention_author=False
+            )
 
     async def _cmd_kick(self, message: discord.Message, args: str):
         result = self._get_user_owned_channel(message.author)
@@ -590,13 +606,16 @@ class TempVoice(commands.Cog):
         ):
             try:
                 await target.move_to(
-                    None, reason=f"暫時語音頻道踢出：由 {message.author} ({message.author.id})"
+                    None,
+                    reason=f"暫時語音頻道踢出：由 {message.author} ({message.author.id})",
                 )
                 await message.reply(
                     f"[成功] 已將 {target.mention} 踢出頻道", mention_author=False
                 )
             except discord.Forbidden:
-                await message.reply("[失敗] 機器人缺少移動成員的權限", mention_author=False)
+                await message.reply(
+                    "[失敗] 機器人缺少移動成員的權限", mention_author=False
+                )
         else:
             await message.reply(
                 f"[失敗] {target.mention} 目前不在此頻道內", mention_author=False
@@ -626,9 +645,7 @@ class TempVoice(commands.Cog):
 
         self.service.add_ban(channel.id, target.id)
         try:
-            await channel.set_permissions(
-                target, connect=False, view_channel=False
-            )
+            await channel.set_permissions(target, connect=False, view_channel=False)
             # 若目標在頻道內，一併踢出
             if (
                 target.voice
@@ -643,7 +660,9 @@ class TempVoice(commands.Cog):
                 f"[成功] 已永久封鎖 {target.mention} 加入此頻道", mention_author=False
             )
         except discord.Forbidden:
-            await message.reply("[失敗] 機器人缺少設定頻道權限的能力", mention_author=False)
+            await message.reply(
+                "[失敗] 機器人缺少設定頻道權限的能力", mention_author=False
+            )
 
     async def _cmd_unban(self, message: discord.Message, args: str):
         result = self._get_user_owned_channel(message.author)
@@ -671,7 +690,9 @@ class TempVoice(commands.Cog):
                 mention_author=False,
             )
         except discord.Forbidden:
-            await message.reply("[失敗] 機器人缺少設定頻道權限的能力", mention_author=False)
+            await message.reply(
+                "[失敗] 機器人缺少設定頻道權限的能力", mention_author=False
+            )
 
     async def _cmd_transfer(self, message: discord.Message, args: str):
         result = self._get_user_owned_channel(message.author)
@@ -722,7 +743,9 @@ class TempVoice(commands.Cog):
                 f"[成功] 已將頻道管理權轉移給 {target.mention}", mention_author=False
             )
         except discord.Forbidden:
-            await message.reply("[失敗] 機器人缺少設定頻道權限的能力", mention_author=False)
+            await message.reply(
+                "[失敗] 機器人缺少設定頻道權限的能力", mention_author=False
+            )
 
     async def _cmd_claim(self, message: discord.Message, args: str):
         result = self._get_user_in_temp_channel(message.author)
@@ -759,7 +782,9 @@ class TempVoice(commands.Cog):
                 "[成功] 你已成功接管此暫時語音頻道的管理權", mention_author=False
             )
         except discord.Forbidden:
-            await message.reply("[失敗] 機器人缺少設定頻道權限的能力", mention_author=False)
+            await message.reply(
+                "[失敗] 機器人缺少設定頻道權限的能力", mention_author=False
+            )
 
 
 async def setup(bot: commands.Bot):

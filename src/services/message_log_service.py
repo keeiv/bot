@@ -1,16 +1,17 @@
 """訊息日誌業務邏輯服務"""
 
+from datetime import datetime
 import json
 import os
 import time
-from datetime import datetime
 from typing import Optional
 
 import discord
 
 from src.utils.message_cache import get_message_cache
-from src.utils.time_utils import TZ_OFFSET
 from src.utils.time_utils import get_current_time_str
+from src.utils.time_utils import TZ_OFFSET
+
 _LOG_FILE = "data/logs/messages/message_log.json"
 _CHANNELS_FILE = "data/storage/log_channels.json"
 _CACHE_TTL = 120.0
@@ -124,9 +125,7 @@ class MessageLogService:
         self.save_message_log(logs)
         self.message_cache.set(guild_id, message_id, record)
 
-    def record_edit(
-        self, guild_id: int, message_id: int, new_content: str
-    ) -> bool:
+    def record_edit(self, guild_id: int, message_id: int, new_content: str) -> bool:
         """記錄訊息編輯，回傳是否找到原始記錄"""
         logs = self.load_message_log()
         key = f"{guild_id}_{message_id}"
@@ -161,9 +160,7 @@ class MessageLogService:
         )
         return True
 
-    def get_record(
-        self, guild_id: int, message_id: int
-    ) -> Optional[dict]:
+    def get_record(self, guild_id: int, message_id: int) -> Optional[dict]:
         """取得訊息記錄 (優先快取)"""
         cached = self.message_cache.get(guild_id, message_id)
         if cached is not None:
@@ -181,10 +178,7 @@ class MessageLogService:
         cutoff = (
             datetime.now(TZ_OFFSET) - timedelta(days=LOG_RETENTION_DAYS)
         ).isoformat()
-        to_remove = [
-            k for k, v in logs.items()
-            if v.get("created_at", "") < cutoff
-        ]
+        to_remove = [k for k, v in logs.items() if v.get("created_at", "") < cutoff]
         for k in to_remove:
             del logs[k]
         if to_remove:
@@ -239,7 +233,7 @@ class MessageLogService:
         embed.add_field(name="時間", value=get_current_time_str(), inline=True)
 
         before_image = self._get_first_image_url(before_attachments or [])
-        before_text = (before_content[:1024] if before_content else "(空)")
+        before_text = before_content[:1024] if before_content else "(空)"
         if before_image:
             if before_text and before_text != "(空)":
                 embed.add_field(name="編輯前 (文字)", value=before_text, inline=False)
@@ -249,7 +243,7 @@ class MessageLogService:
             )
 
         after_image = self._get_first_image_url(after_attachments or [])
-        after_text = (after_content[:1024] if after_content else "(空)")
+        after_text = after_content[:1024] if after_content else "(空)"
         if after_image:
             if after_text and after_text != "(空)":
                 embed.add_field(name="編輯後 (文字)", value=after_text, inline=False)

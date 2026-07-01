@@ -7,8 +7,8 @@ from discord import app_commands
 from discord.ext import commands
 from discord.ext import tasks
 
-from src.services.management_service import ManagementService
 from src.services.management_service import _format_time
+from src.services.management_service import ManagementService
 
 
 class Management(commands.Cog):
@@ -118,9 +118,7 @@ class Management(commands.Cog):
             data = self.service.config[guild_id]["tracked_repos"][repo_key]
             channel = self.bot.get_channel(data["channel_id"])
             channel_name = (
-                channel.mention
-                if channel
-                else f"未知頻道 ({data['channel_id']})"
+                channel.mention if channel else f"未知頻道 ({data['channel_id']})"
             )
 
             embed.add_field(
@@ -145,7 +143,9 @@ class Management(commands.Cog):
 
             for repo_key, repo_data in list(guild_config["tracked_repos"].items()):
                 try:
-                    events = await self.service.check_repo_updates(guild_id, repo_key, repo_data)
+                    events = await self.service.check_repo_updates(
+                        guild_id, repo_key, repo_data
+                    )
                     for event in events:
                         channel = self.bot.get_channel(event["channel_id"])
                         if not channel:
@@ -162,8 +162,12 @@ class Management(commands.Cog):
                                 url=event["author_url"],
                                 icon_url=event["author_avatar"],
                             )
-                            embed.add_field(name="[SHA]", value=event["sha"], inline=True)
-                            embed.add_field(name="[日期]", value=event["date"], inline=True)
+                            embed.add_field(
+                                name="[SHA]", value=event["sha"], inline=True
+                            )
+                            embed.add_field(
+                                name="[日期]", value=event["date"], inline=True
+                            )
                             await channel.send(embed=embed)
                         elif event["type"] == "pr":
                             embed = discord.Embed(
@@ -177,8 +181,12 @@ class Management(commands.Cog):
                                 url=event["author_url"],
                                 icon_url=event["author_avatar"],
                             )
-                            embed.add_field(name="[PR 編號]", value=event["pr_number"], inline=True)
-                            embed.add_field(name="[狀態]", value=event["state"], inline=True)
+                            embed.add_field(
+                                name="[PR 編號]", value=event["pr_number"], inline=True
+                            )
+                            embed.add_field(
+                                name="[狀態]", value=event["state"], inline=True
+                            )
                             await channel.send(embed=embed)
                 except Exception as e:
                     print(f"Error checking {repo_key}: {e}")
@@ -311,7 +319,9 @@ class Management(commands.Cog):
                 )
                 return
 
-            embed = discord.Embed(title="[表情符號] 大圖", color=discord.Color.from_rgb(52, 152, 219))
+            embed = discord.Embed(
+                title="[表情符號] 大圖", color=discord.Color.from_rgb(52, 152, 219)
+            )
             embed.set_image(url=url)
             await interaction.response.send_message(embed=embed)
 
@@ -343,9 +353,7 @@ class Management(commands.Cog):
             emoji = await interaction.guild.create_custom_emoji(
                 name=name, image=image_data, reason=f"由 {interaction.user} 上傳"
             )
-            await interaction.response.send_message(
-                f"[成功] 已上傳表情符號: {emoji}"
-            )
+            await interaction.response.send_message(f"[成功] 已上傳表情符號: {emoji}")
         except discord.Forbidden:
             await interaction.response.send_message(
                 "[失敗] 機器人沒有權限上傳表情符號", ephemeral=True
@@ -405,7 +413,8 @@ class Management(commands.Cog):
                 welcome_config["embed_color"] = int(embed_color.lstrip("#"), 16)
             except ValueError:
                 await interaction.followup.send(
-                    "[失敗] 無效的顏色格式，請使用十六進位格式，例如 #FF5733", ephemeral=True
+                    "[失敗] 無效的顏色格式，請使用十六進位格式，例如 #FF5733",
+                    ephemeral=True,
                 )
                 return
 
@@ -477,7 +486,10 @@ class Management(commands.Cog):
     ):
         guild_id = str(interaction.guild.id)
 
-        if guild_id not in self.service.config or "welcome" not in self.service.config[guild_id]:
+        if (
+            guild_id not in self.service.config
+            or "welcome" not in self.service.config[guild_id]
+        ):
             await interaction.response.send_message(
                 "[失敗] 尚未設定歡迎訊息", ephemeral=True
             )
@@ -499,7 +511,9 @@ class Management(commands.Cog):
             embed = discord.Embed(
                 title=welcome_config.get("embed_title"),
                 description=message,
-                color=welcome_config.get("embed_color", discord.Color.from_rgb(52, 152, 219)),
+                color=welcome_config.get(
+                    "embed_color", discord.Color.from_rgb(52, 152, 219)
+                ),
             )
             embed.set_thumbnail(
                 url=interaction.guild.icon.url if interaction.guild.icon else None
@@ -507,9 +521,7 @@ class Management(commands.Cog):
             embed.set_footer(text=f"第 {interaction.guild.member_count} 位成員")
             await interaction.response.send_message(embed=embed, ephemeral=True)
         else:
-            await interaction.response.send_message(
-                f"[預覽] {message}", ephemeral=True
-            )
+            await interaction.response.send_message(f"[預覽] {message}", ephemeral=True)
 
     @welcome.command(name="disable", description="停用歡迎訊息")
     async def welcome_disable(self, interaction: discord.Interaction):
@@ -522,7 +534,10 @@ class Management(commands.Cog):
 
         guild_id = str(interaction.guild.id)
 
-        if guild_id in self.service.config and "welcome" in self.service.config[guild_id]:
+        if (
+            guild_id in self.service.config
+            and "welcome" in self.service.config[guild_id]
+        ):
             del self.service.config[guild_id]["welcome"]
             self.service.save()
             await interaction.response.send_message("[成功] 已停用歡迎訊息")
@@ -613,7 +628,10 @@ class Management(commands.Cog):
     async def auto_role_list(self, interaction: discord.Interaction):
         guild_id = str(interaction.guild.id)
 
-        if guild_id not in self.service.config or "auto_roles" not in self.service.config[guild_id]:
+        if (
+            guild_id not in self.service.config
+            or "auto_roles" not in self.service.config[guild_id]
+        ):
             await interaction.response.send_message(
                 "[失敗] 尚未設定自動角色規則", ephemeral=True
             )
@@ -621,7 +639,9 @@ class Management(commands.Cog):
 
         auto_roles = self.service.config[guild_id]["auto_roles"]
 
-        embed = discord.Embed(title="[自動角色] 規則列表", color=discord.Color.from_rgb(52, 152, 219))
+        embed = discord.Embed(
+            title="[自動角色] 規則列表", color=discord.Color.from_rgb(52, 152, 219)
+        )
 
         for i, role_config in enumerate(auto_roles, 1):
             role = interaction.guild.get_role(role_config["role_id"])
@@ -682,7 +702,10 @@ class Management(commands.Cog):
         guild_id = str(member.guild.id)
 
         # Handle welcome messages
-        if guild_id in self.service.config and "welcome" in self.service.config[guild_id]:
+        if (
+            guild_id in self.service.config
+            and "welcome" in self.service.config[guild_id]
+        ):
             welcome_config = self.service.config[guild_id]["welcome"]
             channel = member.guild.get_channel(welcome_config["channel_id"])
 
@@ -698,7 +721,9 @@ class Management(commands.Cog):
                     embed = discord.Embed(
                         title=welcome_config.get("embed_title"),
                         description=message,
-                        color=welcome_config.get("embed_color", discord.Color.from_rgb(52, 152, 219)),
+                        color=welcome_config.get(
+                            "embed_color", discord.Color.from_rgb(52, 152, 219)
+                        ),
                     )
                     embed.set_thumbnail(
                         url=member.guild.icon.url if member.guild.icon else None
@@ -736,7 +761,10 @@ class Management(commands.Cog):
                     pass
 
         # Handle auto roles
-        if guild_id in self.service.config and "auto_roles" in self.service.config[guild_id]:
+        if (
+            guild_id in self.service.config
+            and "auto_roles" in self.service.config[guild_id]
+        ):
             auto_roles = self.service.config[guild_id]["auto_roles"]
 
             for role_config in auto_roles:

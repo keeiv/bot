@@ -1,7 +1,7 @@
 import logging
 
-import discord
 from deep_translator import GoogleTranslator
+import discord
 from discord import app_commands
 from discord.ext import commands
 

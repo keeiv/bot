@@ -33,7 +33,9 @@ class AgeGuard(commands.Cog):
         description="設定成人/18+ 身份組（偵測到未成年宣告時將被移除）",
     )
     @app_commands.describe(role="成人/18+ 身份組")
-    async def set_adult_role(self, interaction: discord.Interaction, role: discord.Role) -> None:
+    async def set_adult_role(
+        self, interaction: discord.Interaction, role: discord.Role
+    ) -> None:
         self.service.set_adult_role(interaction.guild_id, role.id)
         embed = discord.Embed(
             title="[成功] 成人身份組已設定",
@@ -48,7 +50,9 @@ class AgeGuard(commands.Cog):
         description="設定懲罰身份組（偵測到未成年宣告時附加）",
     )
     @app_commands.describe(role="懲罰身份組")
-    async def set_punishment_role(self, interaction: discord.Interaction, role: discord.Role) -> None:
+    async def set_punishment_role(
+        self, interaction: discord.Interaction, role: discord.Role
+    ) -> None:
         self.service.set_punishment_role(interaction.guild_id, role.id)
         embed = discord.Embed(
             title="[成功] 懲罰身份組已設定",
@@ -81,17 +85,33 @@ class AgeGuard(commands.Cog):
         adult_role_id = cfg.get("adult_role_id")
         punishment_role_id = cfg.get("punishment_role_id")
 
-        adult_role = interaction.guild.get_role(adult_role_id) if adult_role_id else None
-        punishment_role = interaction.guild.get_role(punishment_role_id) if punishment_role_id else None
+        adult_role = (
+            interaction.guild.get_role(adult_role_id) if adult_role_id else None
+        )
+        punishment_role = (
+            interaction.guild.get_role(punishment_role_id)
+            if punishment_role_id
+            else None
+        )
 
         embed = discord.Embed(
             title="[設定] 年齡守門員",
             color=discord.Color.from_rgb(52, 152, 219),
             timestamp=datetime.now(TZ_OFFSET),
         )
-        embed.add_field(name="狀態", value="[啟用]" if enabled else "[停用]", inline=True)
-        embed.add_field(name="成人身份組", value=adult_role.mention if adult_role else "[未設定]", inline=True)
-        embed.add_field(name="懲罰身份組", value=punishment_role.mention if punishment_role else "[未設定]", inline=True)
+        embed.add_field(
+            name="狀態", value="[啟用]" if enabled else "[停用]", inline=True
+        )
+        embed.add_field(
+            name="成人身份組",
+            value=adult_role.mention if adult_role else "[未設定]",
+            inline=True,
+        )
+        embed.add_field(
+            name="懲罰身份組",
+            value=punishment_role.mention if punishment_role else "[未設定]",
+            inline=True,
+        )
         embed.set_footer(text=f"伺服器: {interaction.guild.name}")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
@@ -119,20 +139,26 @@ class AgeGuard(commands.Cog):
         member = message.author
         guild = message.guild
         adult_role = guild.get_role(adult_role_id) if adult_role_id else None
-        punishment_role = guild.get_role(punishment_role_id) if punishment_role_id else None
+        punishment_role = (
+            guild.get_role(punishment_role_id) if punishment_role_id else None
+        )
 
         actions_taken: list[str] = []
 
         if adult_role is not None and adult_role in member.roles:
             try:
-                await member.remove_roles(adult_role, reason=f"年齡守門員: 成員宣告 {age} 歲 (未成年)")
+                await member.remove_roles(
+                    adult_role, reason=f"年齡守門員: 成員宣告 {age} 歲 (未成年)"
+                )
                 actions_taken.append(f"移除成人身份組 {adult_role.mention}")
             except (discord.Forbidden, discord.HTTPException):
                 pass
 
         if punishment_role is not None and punishment_role not in member.roles:
             try:
-                await member.add_roles(punishment_role, reason=f"年齡守門員: 成員宣告 {age} 歲 (未成年)")
+                await member.add_roles(
+                    punishment_role, reason=f"年齡守門員: 成員宣告 {age} 歲 (未成年)"
+                )
                 actions_taken.append(f"附加懲罰身份組 {punishment_role.mention}")
             except (discord.Forbidden, discord.HTTPException):
                 pass
@@ -154,7 +180,9 @@ class AgeGuard(commands.Cog):
             color=discord.Color.from_rgb(231, 76, 60),
             timestamp=datetime.now(TZ_OFFSET),
         )
-        embed.add_field(name="成員", value=f"{member.mention} (`{member.id}`)", inline=True)
+        embed.add_field(
+            name="成員", value=f"{member.mention} (`{member.id}`)", inline=True
+        )
         embed.add_field(name="宣告年齡", value=str(age), inline=True)
         embed.add_field(name="頻道", value=message.channel.mention, inline=True)
         embed.add_field(name="原始訊息", value=excerpt, inline=False)

@@ -1,16 +1,16 @@
 """伺服器管理業務邏輯服務 (倉庫追蹤 / 歡迎訊息 / GitHub 輪詢)"""
 
+from datetime import datetime
+from datetime import timezone
 import json
 import os
 import shutil
-from datetime import datetime
-from datetime import timezone
 from typing import Optional
 
 import aiohttp
 
-from src.utils.time_utils import TZ_OFFSET
 from src.utils.time_utils import format_datetime as _format_time
+from src.utils.time_utils import TZ_OFFSET
 
 _DATA_FILE = "data/storage/management.json"
 
@@ -134,6 +134,7 @@ class ManagementService:
     ) -> list[dict]:
         """
         檢查單一倉庫的 Commit/PR 更新。
+
         回傳事件列表，每筆含 type ('commit'|'pr')、embed_data、channel_id。
         """
         session = await self.get_session()
@@ -153,26 +154,28 @@ class ManagementService:
                         repo_data["last_commit"] = latest["sha"]
                         has_changes = True
                         author = latest.get("author") or {}
-                        events.append({
-                            "type": "commit",
-                            "channel_id": repo_data["channel_id"],
-                            "repo_key": repo_key,
-                            "title": f"[GitHub] {repo_key} 新 Commit",
-                            "description": latest["commit"]["message"][:200],
-                            "url": latest["html_url"],
-                            "sha": latest["sha"][:7],
-                            "date": _format_time(
-                                datetime.fromisoformat(
-                                    latest["commit"]["committer"]["date"]
-                                )
-                            ),
-                            "author_name": author.get(
-                                "login",
-                                latest["commit"]["author"]["name"],
-                            ),
-                            "author_url": author.get("html_url", ""),
-                            "author_avatar": author.get("avatar_url", ""),
-                        })
+                        events.append(
+                            {
+                                "type": "commit",
+                                "channel_id": repo_data["channel_id"],
+                                "repo_key": repo_key,
+                                "title": f"[GitHub] {repo_key} 新 Commit",
+                                "description": latest["commit"]["message"][:200],
+                                "url": latest["html_url"],
+                                "sha": latest["sha"][:7],
+                                "date": _format_time(
+                                    datetime.fromisoformat(
+                                        latest["commit"]["committer"]["date"]
+                                    )
+                                ),
+                                "author_name": author.get(
+                                    "login",
+                                    latest["commit"]["author"]["name"],
+                                ),
+                                "author_url": author.get("html_url", ""),
+                                "author_avatar": author.get("avatar_url", ""),
+                            }
+                        )
                 elif resp.status == 403:
                     print(f"[警告] GitHub API 速率限制 ({repo_key})")
 
@@ -185,19 +188,21 @@ class ManagementService:
                         latest = prs[0]
                         repo_data["last_pr"] = latest["number"]
                         has_changes = True
-                        events.append({
-                            "type": "pr",
-                            "channel_id": repo_data["channel_id"],
-                            "repo_key": repo_key,
-                            "title": f"[GitHub] {repo_key} 新 Pull Request",
-                            "description": latest["title"][:200],
-                            "url": latest["html_url"],
-                            "pr_number": str(latest["number"]),
-                            "state": latest["state"].title(),
-                            "author_name": latest["user"]["login"],
-                            "author_url": latest["user"]["html_url"],
-                            "author_avatar": latest["user"]["avatar_url"],
-                        })
+                        events.append(
+                            {
+                                "type": "pr",
+                                "channel_id": repo_data["channel_id"],
+                                "repo_key": repo_key,
+                                "title": f"[GitHub] {repo_key} 新 Pull Request",
+                                "description": latest["title"][:200],
+                                "url": latest["html_url"],
+                                "pr_number": str(latest["number"]),
+                                "state": latest["state"].title(),
+                                "author_name": latest["user"]["login"],
+                                "author_url": latest["user"]["html_url"],
+                                "author_avatar": latest["user"]["avatar_url"],
+                            }
+                        )
                 elif resp.status == 403:
                     print(f"[警告] GitHub API 速率限制 PR ({repo_key})")
 

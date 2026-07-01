@@ -63,9 +63,7 @@ class TicketCloseView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    async def _check_close_permission(
-        self, interaction: discord.Interaction
-    ) -> bool:
+    async def _check_close_permission(self, interaction: discord.Interaction) -> bool:
         """檢查關閉工單權限 (管理員或工單建立者)"""
         thread = interaction.channel
         if not isinstance(thread, discord.Thread):
@@ -88,9 +86,7 @@ class TicketCloseView(ui.View):
         style=discord.ButtonStyle.secondary,
         custom_id="ticket_close",
     )
-    async def close_button(
-        self, interaction: discord.Interaction, button: ui.Button
-    ):
+    async def close_button(self, interaction: discord.Interaction, button: ui.Button):
         """直接關閉工單"""
         if not await self._check_close_permission(interaction):
             return
@@ -140,9 +136,7 @@ class TicketOpenView(ui.View):
         style=discord.ButtonStyle.primary,
         custom_id="ticket_open",
     )
-    async def open_button(
-        self, interaction: discord.Interaction, button: ui.Button
-    ):
+    async def open_button(self, interaction: discord.Interaction, button: ui.Button):
         """開啟新工單"""
         guild = interaction.guild
         if not guild:
@@ -216,9 +210,7 @@ class TicketOpenView(ui.View):
             value=f"#{ticket_count:04d}",
             inline=True,
         )
-        embed.set_footer(
-            text=f"工單ID: {thread.id} | 伺服器: {guild.name}"
-        )
+        embed.set_footer(text=f"工單ID: {thread.id} | 伺服器: {guild.name}")
 
         role_mention = f"<@&{role_id}>" if role_id else ""
         await thread.send(
@@ -254,9 +246,7 @@ class Ticket(commands.Cog):
             return
 
         if not message.author.guild_permissions.administrator:
-            await message.reply(
-                "[失敗] 你需要管理員權限才能使用此指令", delete_after=5
-            )
+            await message.reply("[失敗] 你需要管理員權限才能使用此指令", delete_after=5)
             return
 
         parts = message.content.strip().split()
@@ -310,9 +300,7 @@ class Ticket(commands.Cog):
         )
         panel_embed.set_footer(text=f"伺服器: {guild.name}")
 
-        panel_message = await channel.send(
-            embed=panel_embed, view=TicketOpenView()
-        )
+        panel_message = await channel.send(embed=panel_embed, view=TicketOpenView())
 
         existing = self.service.get_guild_config(guild.id) or {}
         self.service.save_guild_config(

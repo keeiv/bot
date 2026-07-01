@@ -117,7 +117,10 @@ def load_messages_log() -> dict:
     global _messages_cache, _messages_cache_time
 
     now = time.monotonic()
-    if _messages_cache is not None and (now - _messages_cache_time) < _MESSAGES_CACHE_TTL:
+    if (
+        _messages_cache is not None
+        and (now - _messages_cache_time) < _MESSAGES_CACHE_TTL
+    ):
         return _messages_cache
 
     if not os.path.exists(MESSAGES_LOG_FILE):

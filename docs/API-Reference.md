@@ -28,7 +28,7 @@ class Bot(commands.Bot):
 ```python
 def __init__(self) -> None:
     """Initialize the bot with default intents and settings.
-    
+
     Sets up:
     - Discord intents (message content, guilds, members)
     - Command prefix (!)
@@ -43,9 +43,9 @@ def __init__(self) -> None:
 ```python
 async def setup_hook(self) -> None:
     """Called when the bot is starting up.
-    
+
     Loads all cogs and performs initial setup.
-    
+
     Raises:
         Exception: If cog loading fails.
     """
@@ -56,12 +56,12 @@ async def setup_hook(self) -> None:
 ```python
 async def load_cogs(self) -> None:
     """Load all cogs from the configured list.
-    
+
     Attempts to load:
     - Core cogs (admin, developer, message_logger)
     - Feature cogs (achievements, anti_spam, github_watch, osu_info, user_server_info)
     - Game cogs (deep_sea_oxygen, russian_roulette)
-    
+
     Prints success/failure status for each cog.
     """
 ```
@@ -71,7 +71,7 @@ async def load_cogs(self) -> None:
 ```python
 async def on_ready(self) -> None:
     """Called when the bot has successfully connected to Discord.
-    
+
     Prints connection information:
     - Bot user name and discriminator
     - Number of guilds the bot is in
@@ -99,11 +99,11 @@ class Admin(commands.Cog):
 @commands.cooldown(1, 5, commands.BucketType.user)
 async def clear(self, ctx: commands.Context, amount: int = 10) -> None:
     """Clear a specified number of messages from the channel.
-    
+
     Args:
         ctx: Command context containing channel and author information.
         amount: Number of messages to delete (1-100, default: 10).
-        
+
     Raises:
         commands.MissingPermissions: If user lacks manage_messages permission.
         commands.BadArgument: If amount is outside valid range.
@@ -117,12 +117,12 @@ async def clear(self, ctx: commands.Context, amount: int = 10) -> None:
 @commands.has_permissions(kick_members=True)
 async def kick(self, ctx: commands.Context, user: discord.Member, reason: str = "No reason provided") -> None:
     """Kick a member from the server.
-    
+
     Args:
         ctx: Command context.
         user: Member to kick.
         reason: Reason for kicking (default: "No reason provided").
-        
+
     Raises:
         commands.MissingPermissions: If user lacks kick_members permission.
         commands.BadArgument: If trying to kick self or higher role member.
@@ -136,12 +136,12 @@ async def kick(self, ctx: commands.Context, user: discord.Member, reason: str = 
 @commands.has_permissions(ban_members=True)
 async def ban(self, ctx: commands.Context, user: discord.Member, reason: str = "No reason provided") -> None:
     """Ban a member from the server.
-    
+
     Args:
         ctx: Command context.
         user: Member to ban.
         reason: Reason for banning (default: "No reason provided").
-        
+
     Raises:
         commands.MissingPermissions: If user lacks ban_members permission.
         commands.BadArgument: If trying to ban self or higher role member.
@@ -155,13 +155,13 @@ async def ban(self, ctx: commands.Context, user: discord.Member, reason: str = "
 @commands.has_permissions(moderate_members=True)
 async def mute(self, ctx: commands.Context, user: discord.Member, duration: int = 60, reason: str = "No reason provided") -> None:
     """Mute a member for a specified duration.
-    
+
     Args:
         ctx: Command context.
         user: Member to mute.
         duration: Mute duration in minutes (default: 60).
         reason: Reason for muting (default: "No reason provided").
-        
+
     Raises:
         commands.MissingPermissions: If user lacks moderate_members permission.
         commands.BadArgument: If trying to mute self or higher role member.
@@ -184,11 +184,11 @@ class Achievements(commands.Cog):
 ```python
 async def check_achievement(self, user_id: int, achievement_key: str) -> bool:
     """Check if user has unlocked a specific achievement.
-    
+
     Args:
         user_id: Discord user ID.
         achievement_key: Achievement identifier.
-        
+
     Returns:
         True if achievement is unlocked, False otherwise.
     """
@@ -199,14 +199,14 @@ async def check_achievement(self, user_id: int, achievement_key: str) -> bool:
 ```python
 async def unlock_achievement(self, user_id: int, achievement_key: str) -> bool:
     """Unlock an achievement for a user.
-    
+
     Args:
         user_id: Discord user ID.
         achievement_key: Achievement identifier.
-        
+
     Returns:
         True if achievement was newly unlocked, False if already had it.
-        
+
     Raises:
         ValueError: If achievement_key is not valid.
     """
@@ -217,10 +217,10 @@ async def unlock_achievement(self, user_id: int, achievement_key: str) -> bool:
 ```python
 async def get_user_achievements(self, user_id: int) -> Dict[str, AchievementData]:
     """Get all achievements for a user.
-    
+
     Args:
         user_id: Discord user ID.
-        
+
     Returns:
         Dictionary mapping achievement keys to achievement data.
     """
@@ -242,10 +242,10 @@ class MessageLogger(commands.Cog):
 ```python
 async def log_message(self, message: discord.Message) -> None:
     """Log a message to the storage system.
-    
+
     Args:
         message: Discord message object to log.
-        
+
     Logs:
         - Message ID, content, author, timestamp
         - Channel ID and guild ID
@@ -258,11 +258,11 @@ async def log_message(self, message: discord.Message) -> None:
 ```python
 async def get_message_history(self, channel_id: int, limit: int = 100) -> List[MessageEntry]:
     """Retrieve message history for a channel.
-    
+
     Args:
         channel_id: Discord channel ID.
         limit: Maximum number of messages to retrieve (default: 100).
-        
+
     Returns:
         List of message entries in chronological order.
     """
@@ -275,26 +275,26 @@ async def get_message_history(self, channel_id: int, limit: int = 100) -> List[M
 ```python
 def load_config() -> Dict[str, Any]:
     """Load bot configuration from JSON file.
-    
+
     Returns:
         Configuration dictionary with bot settings.
-        
+
     Creates default config if file doesn't exist.
     """
 
 def save_config(config: Dict[str, Any]) -> None:
     """Save configuration to JSON file.
-    
+
     Args:
         config: Configuration dictionary to save.
-        
+
     Raises:
         IOError: If file cannot be written.
     """
 
 def ensure_data_dir() -> None:
     """Create necessary data directories.
-    
+
     Creates:
     - data/
     - data/config/
@@ -308,32 +308,32 @@ def ensure_data_dir() -> None:
 ```python
 class BlacklistManager:
     """Manages user and guild blacklists."""
-    
+
     def is_blacklisted(self, user_id: int) -> bool:
         """Check if user is blacklisted.
-        
+
         Args:
             user_id: Discord user ID.
-            
+
         Returns:
             True if user is blacklisted, False otherwise.
         """
-    
+
     def add_to_blacklist(self, user_id: int, reason: str, added_by: str) -> None:
         """Add user to blacklist.
-        
+
         Args:
             user_id: Discord user ID.
             reason: Reason for blacklisting.
             added_by: Who added the user to blacklist.
         """
-    
+
     def remove_from_blacklist(self, user_id: int) -> bool:
         """Remove user from blacklist.
-        
+
         Args:
             user_id: Discord user ID.
-            
+
         Returns:
             True if user was removed, False if not found.
         """
@@ -375,17 +375,17 @@ Context = Union[discord.ApplicationContext, discord.Interaction]
 ```python
 class Achievement:
     """Represents an achievement."""
-    
+
     def __init__(self, key: str, name: str, description: str, rarity: str, points: int):
         self.key = key
         self.name = name
         self.description = description
         self.rarity = rarity  # common, uncommon, rare, epic, legendary
         self.points = points
-    
+
     def to_embed(self) -> discord.Embed:
         """Convert achievement to Discord embed.
-        
+
         Returns:
             Discord embed with achievement information.
         """
@@ -398,10 +398,10 @@ class Achievement:
 ```python
 async def on_message(self, message: discord.Message) -> None:
     """Handle incoming message events.
-    
+
     Args:
         message: Discord message object.
-        
+
     Triggers:
         - Command processing
         - Message logging
@@ -411,11 +411,11 @@ async def on_message(self, message: discord.Message) -> None:
 
 async def on_message_edit(self, before: discord.Message, after: discord.Message) -> None:
     """Handle message edit events.
-    
+
     Args:
         before: Message before edit.
         after: Message after edit.
-        
+
     Logs:
         - Edit timestamp
         - Content changes
@@ -424,10 +424,10 @@ async def on_message_edit(self, before: discord.Message, after: discord.Message)
 
 async def on_message_delete(self, message: discord.Message) -> None:
     """Handle message deletion events.
-    
+
     Args:
         message: Deleted message object.
-        
+
     Logs:
         - Deletion timestamp
         - Original content
@@ -440,10 +440,10 @@ async def on_message_delete(self, message: discord.Message) -> None:
 ```python
 async def on_member_join(self, member: discord.Member) -> None:
     """Handle member join events.
-    
+
     Args:
         member: Member who joined the server.
-        
+
     Triggers:
         - Welcome messages
         - Role assignment
@@ -452,10 +452,10 @@ async def on_member_join(self, member: discord.Member) -> None:
 
 async def on_member_remove(self, member: discord.Member) -> None:
     """Handle member leave events.
-    
+
     Args:
         member: Member who left the server.
-        
+
     Triggers:
         - Goodbye messages
         - Data cleanup
@@ -468,10 +468,10 @@ async def on_member_remove(self, member: discord.Member) -> None:
 ```python
 async def on_guild_join(self, guild: discord.Guild) -> None:
     """Handle bot joining a new guild.
-    
+
     Args:
         guild: Guild the bot joined.
-        
+
     Triggers:
         - Guild setup
         - Default configuration
@@ -480,10 +480,10 @@ async def on_guild_join(self, guild: discord.Guild) -> None:
 
 async def on_guild_remove(self, guild: discord.Guild) -> None:
     """Handle bot leaving a guild.
-    
+
     Args:
         guild: Guild the bot left.
-        
+
     Triggers:
         - Data cleanup
         - Configuration removal
@@ -522,11 +522,11 @@ class APIError(BotError):
 ```python
 async def on_command_error(self, ctx: commands.Context, error: commands.CommandError) -> None:
     """Handle command errors globally.
-    
+
     Args:
         ctx: Command context where error occurred.
         error: The exception that was raised.
-        
+
     Handles:
         - Missing permissions
         - Invalid arguments
@@ -536,12 +536,12 @@ async def on_command_error(self, ctx: commands.Context, error: commands.CommandE
 
 async def on_error(self, event_method: str, *args, **kwargs) -> None:
     """Handle uncaught event errors.
-    
+
     Args:
         event_method: Name of the event method that raised error.
         *args: Positional arguments passed to event.
         **kwargs: Keyword arguments passed to event.
-        
+
     Logs:
         - Error details
         - Event context
@@ -573,7 +573,7 @@ from src.bot import Bot
 class CustomCog(commands.Cog):
     def __init__(self, bot: Bot):
         self.bot = bot
-    
+
     @commands.command()
     async def hello(self, ctx: commands.Context):
         await ctx.send("Hello, World!")

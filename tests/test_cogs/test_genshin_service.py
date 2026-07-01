@@ -1,16 +1,17 @@
 """GenshinService 單元測試"""
 
 import os
+
 from src.services.genshin_service import GenshinService
 
 
 def test_encryption_decryption():
     service = GenshinService()
     test_cookie = "ltoken=abc123xyz; ltuid=987654321;"
-    
+
     encrypted = service.encrypt_cookie(test_cookie)
     assert encrypted != test_cookie
-    
+
     decrypted = service.decrypt_cookie(encrypted)
     assert decrypted == test_cookie
 
@@ -30,7 +31,7 @@ def test_map_game_biz():
 
 def test_to_traditional_chinese():
     from src.services.genshin_service import to_traditional_chinese
-    
+
     assert to_traditional_chinese("混沌回忆") == "混沌回憶"
     assert to_traditional_chinese("虚构叙事") == "虛構敘事"
     assert to_traditional_chinese("值日行动其十二") == "值日行動其十二"

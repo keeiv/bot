@@ -1,23 +1,27 @@
 """GitHub API client for repository monitoring."""
 
+from typing import Any, Dict, Optional
+
 import aiohttp
-from typing import Dict, Any, Optional
+
 
 class GitHubClient:
     """Client for interacting with GitHub API."""
-    
+
     def __init__(self, token: str):
         self.token = token
         self.base_url = "https://api.github.com"
         self.headers = {
             "Authorization": f"token {token}",
-            "Accept": "application/vnd.github.v3+json"
+            "Accept": "application/vnd.github.v3+json",
         }
-    
-    async def get_latest_commit(self, owner: str, repo: str) -> Optional[Dict[str, Any]]:
+
+    async def get_latest_commit(
+        self, owner: str, repo: str
+    ) -> Optional[Dict[str, Any]]:
         """Get the latest commit from a repository."""
         url = f"{self.base_url}/repos/{owner}/{repo}/commits"
-        
+
         async with aiohttp.ClientSession(headers=self.headers) as session:
             try:
                 async with session.get(url) as response:
@@ -30,17 +34,17 @@ class GitHubClient:
                                 "message": commit["commit"]["message"],
                                 "author": commit["commit"]["author"]["name"],
                                 "date": commit["commit"]["author"]["date"],
-                                "url": commit["html_url"]
+                                "url": commit["html_url"],
                             }
                     return None
             except Exception as e:
                 print(f"Error fetching commits: {e}")
                 return None
-    
+
     async def get_repo_info(self, owner: str, repo: str) -> Optional[Dict[str, Any]]:
         """Get repository information."""
         url = f"{self.base_url}/repos/{owner}/{repo}"
-        
+
         async with aiohttp.ClientSession(headers=self.headers) as session:
             try:
                 async with session.get(url) as response:

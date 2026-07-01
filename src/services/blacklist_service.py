@@ -61,9 +61,7 @@ class BlacklistService:
         )
         embed.add_field(name="黑名單來源", value=source_label, inline=True)
         embed.add_field(name="封鎖原因", value=reason, inline=True)
-        embed.add_field(
-            name="封鎖模式", value=entry.get("mode", "未知"), inline=True
-        )
+        embed.add_field(name="封鎖模式", value=entry.get("mode", "未知"), inline=True)
         return embed
 
     # ========== 接受申訴 ==========
@@ -87,9 +85,7 @@ class BlacklistService:
         if source == "local":
             manager.local_remove(target_user_id)
 
-    def build_accept_footer(
-        self, reviewer: discord.User, reason_text: str = ""
-    ) -> str:
+    def build_accept_footer(self, reviewer: discord.User, reason_text: str = "") -> str:
         """建立接受申訴的 footer 文字"""
         footer = f"由 {reviewer} 於 {datetime.now(TZ_OFFSET).strftime('%Y/%m/%d %H:%M')} 接受"
         if reason_text:

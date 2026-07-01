@@ -49,10 +49,10 @@ class Achievements(commands.Cog):
     def get_rarity_color(rarity: str) -> discord.Color:
         """取得稀有度顏色"""
         return {
-            "common":    discord.Color.from_rgb(128, 128, 128),
-            "uncommon":  discord.Color.from_rgb(46, 204, 113),
-            "rare":      discord.Color.from_rgb(52, 152, 219),
-            "epic":      discord.Color.from_rgb(155, 89, 182),
+            "common": discord.Color.from_rgb(128, 128, 128),
+            "uncommon": discord.Color.from_rgb(46, 204, 113),
+            "rare": discord.Color.from_rgb(52, 152, 219),
+            "epic": discord.Color.from_rgb(155, 89, 182),
             "legendary": discord.Color.from_rgb(241, 196, 15),
         }.get(rarity, discord.Color.from_rgb(128, 128, 128))
 
@@ -76,8 +76,12 @@ class Achievements(commands.Cog):
             color=discord.Color.from_rgb(52, 152, 219),
             timestamp=datetime.now(TZ_OFFSET),
         )
-        embed.set_thumbnail(url=user.avatar.url if user.avatar else user.default_avatar.url)
-        embed.add_field(name="用戶", value=f"{user.mention} ({user.name})", inline=False)
+        embed.set_thumbnail(
+            url=user.avatar.url if user.avatar else user.default_avatar.url
+        )
+        embed.add_field(
+            name="用戶", value=f"{user.mention} ({user.name})", inline=False
+        )
 
         progress_bar = self.service.get_progress_bar(progress["percentage"])
         embed.add_field(
@@ -89,12 +93,13 @@ class Achievements(commands.Cog):
         if unlocked:
             achievement_list = [
                 f"{self.get_rarity_emoji(ACHIEVEMENTS[aid]['rarity'])} {ACHIEVEMENTS[aid]['name']}"
-                for aid in unlocked if aid in ACHIEVEMENTS
+                for aid in unlocked
+                if aid in ACHIEVEMENTS
             ]
             for i in range(0, len(achievement_list), 10):
                 embed.add_field(
                     name=f"已解鎖成就 (第 {i//10 + 1} 頁)",
-                    value="\n".join(achievement_list[i:i+10]),
+                    value="\n".join(achievement_list[i : i + 10]),
                     inline=False,
                 )
         else:
@@ -109,7 +114,9 @@ class Achievements(commands.Cog):
     async def achievement_codex(self, interaction: discord.Interaction):
         """查看所有可用成就的圖鑑"""
         await interaction.response.defer()
-        self.service.unlock(interaction.user.id, interaction.guild.id, "achievement_explorer")
+        self.service.unlock(
+            interaction.user.id, interaction.guild.id, "achievement_explorer"
+        )
 
         rarity_order = ["legendary", "epic", "rare", "uncommon", "common"]
         by_rarity = {r: [] for r in rarity_order}
@@ -152,7 +159,9 @@ class Achievements(commands.Cog):
 
     @app_commands.command(name="achievement_info", description="查看成就詳細資訊")
     @app_commands.describe(achievement="成就名稱或 ID")
-    async def achievement_info(self, interaction: discord.Interaction, achievement: str):
+    async def achievement_info(
+        self, interaction: discord.Interaction, achievement: str
+    ):
         """查看成就詳細資訊"""
         achievement_id = None
         achievement_data = None
@@ -168,7 +177,9 @@ class Achievements(commands.Cog):
                     break
 
         if not achievement_data:
-            await interaction.response.send_message("[失敗] 找不到該成就", ephemeral=True)
+            await interaction.response.send_message(
+                "[失敗] 找不到該成就", ephemeral=True
+            )
             return
 
         embed = discord.Embed(
@@ -210,7 +221,9 @@ class Achievements(commands.Cog):
         """觸發圖鑑成就"""
         self.service.unlock(user_id, guild_id, "achievement_explorer")
 
-    def unlock_achievement(self, user_id: int, guild_id: int, achievement_id: str) -> bool:
+    def unlock_achievement(
+        self, user_id: int, guild_id: int, achievement_id: str
+    ) -> bool:
         """解鎖成就 (向後相容接口)"""
         return self.service.unlock(user_id, guild_id, achievement_id)
 

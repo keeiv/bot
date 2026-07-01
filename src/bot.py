@@ -11,6 +11,7 @@ from src.utils.blacklist_manager import BlacklistManager
 
 load_dotenv()
 
+
 class BlacklistCheckTree(app_commands.CommandTree):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         bot: Bot = interaction.client
@@ -45,18 +46,18 @@ class BlacklistCheckTree(app_commands.CommandTree):
         embed = discord.Embed(
             title="[拒絕] 禁止使用",
             description=(
-                f"您已被加入黑名單。\n\n"
-                f"原因: {reason}\n"
-                f"來源: {source_label}"
+                f"您已被加入黑名單。\n\n" f"原因: {reason}\n" f"來源: {source_label}"
             ),
             color=discord.Color.red(),
         )
         # 動態載入申訴按鈕 (避免循環 import)
         from src.cogs.core.blacklist import BlockedNoticeView
+
         blacklist_cog = bot.get_cog("Blacklist")
         view = BlockedNoticeView(blacklist_cog) if blacklist_cog else None
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
         return False
+
 
 class Bot(commands.Bot):
     def __init__(self):
@@ -73,13 +74,16 @@ class Bot(commands.Bot):
         self.api_key = os.getenv("BLACKLIST_API_KEY")
         self.api_base = "https://api.cathome.shop/v1/blacklist"
         self.blacklist_manager = BlacklistManager(self.api_key, self.api_base)
+
     async def setup_hook(self):
         await self.blacklist_manager.setup()
         await self.load_cogs()
         await self.tree.sync()
+
     async def close(self):
         await self.blacklist_manager.close()
         await super().close()
+
     async def load_cogs(self):
         base_package = "src.cogs"
         cogs_path = os.path.join(os.path.dirname(__file__), "cogs")
@@ -97,6 +101,7 @@ class Bot(commands.Bot):
             except Exception as e:
                 print(f"[Cog] 載入失敗: {module_info.name} - {e}")
         print(f"[Cog] 共載入 {loaded} 個模組")
+
     async def on_message(self, message: discord.Message):
         if message.author.bot:
             await self.process_commands(message)
@@ -125,11 +130,13 @@ class Bot(commands.Bot):
                 color=discord.Color.red(),
             )
             from src.cogs.core.blacklist import BlockedNoticeView
+
             blacklist_cog = self.get_cog("Blacklist")
             view = BlockedNoticeView(blacklist_cog) if blacklist_cog else None
             await message.reply(embed=embed, view=view, delete_after=30)
             return
         await self.process_commands(message)
+
     async def on_member_join(self, member: discord.Member):
         entry = await self.blacklist_manager.check(member.id)
         if entry:

@@ -1,5 +1,5 @@
-import traceback
 from datetime import datetime
+import traceback
 
 import discord
 from discord import app_commands
@@ -83,7 +83,9 @@ class ErrorHandler(commands.Cog):
     # ==================== Prefix Command 錯誤 ====================
 
     @commands.Cog.listener()
-    async def on_command_error(self, ctx: commands.Context, error: commands.CommandError):
+    async def on_command_error(
+        self, ctx: commands.Context, error: commands.CommandError
+    ):
         """所有前綴指令錯誤的集中處理"""
         error = getattr(error, "original", error)
 
@@ -141,7 +143,9 @@ class ErrorHandler(commands.Cog):
         )
 
         # 格式化堆疊
-        tb = "".join(traceback.format_exception(type(error), error, error.__traceback__))
+        tb = "".join(
+            traceback.format_exception(type(error), error, error.__traceback__)
+        )
         cmd_name = interaction.command.name if interaction.command else "未知"
 
         # 記錄到日誌頻道
@@ -153,13 +157,13 @@ class ErrorHandler(commands.Cog):
             traceback_str=tb,
         )
 
-    async def _handle_unexpected_prefix(
-        self, ctx: commands.Context, error: Exception
-    ):
+    async def _handle_unexpected_prefix(self, ctx: commands.Context, error: Exception):
         """處理未預期的 Prefix Command 錯誤"""
         await ctx.send("[錯誤] 發生未預期的錯誤，開發者已收到通知")
 
-        tb = "".join(traceback.format_exception(type(error), error, error.__traceback__))
+        tb = "".join(
+            traceback.format_exception(type(error), error, error.__traceback__)
+        )
         cmd_name = ctx.command.name if ctx.command else "未知"
 
         await self._log_error(
@@ -184,9 +188,7 @@ class ErrorHandler(commands.Cog):
             color=discord.Color.from_rgb(231, 76, 60),
             timestamp=datetime.now(TZ_OFFSET),
         )
-        embed.add_field(
-            name="指令", value=f"`/{command_name}`", inline=True
-        )
+        embed.add_field(name="指令", value=f"`/{command_name}`", inline=True)
         embed.add_field(
             name="使用者",
             value=f"{user} ({user.id})",
@@ -201,9 +203,7 @@ class ErrorHandler(commands.Cog):
 
         # 堆疊截斷到 1024
         short_tb = traceback_str[-1000:] if len(traceback_str) > 1000 else traceback_str
-        embed.add_field(
-            name="錯誤", value=f"```\n{short_tb}\n```", inline=False
-        )
+        embed.add_field(name="錯誤", value=f"```\n{short_tb}\n```", inline=False)
 
         # 發送到指定錯誤日誌頻道
         try:

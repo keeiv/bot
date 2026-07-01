@@ -70,7 +70,8 @@ class TempVoiceService:
         """取得伺服器所有暫時頻道資料"""
         data = self._load()
         return [
-            ch for ch in data.get("channels", {}).values()
+            ch
+            for ch in data.get("channels", {}).values()
             if ch.get("guild_id") == guild_id
         ]
 

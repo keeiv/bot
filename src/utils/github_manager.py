@@ -70,7 +70,9 @@ class GitHubAPIManager:
 
         return self.session
 
-    async def make_request(self, method: str, endpoint: str, **kwargs) -> Optional[Dict]:
+    async def make_request(
+        self, method: str, endpoint: str, **kwargs
+    ) -> Optional[Dict]:
         """發送 API 請求，支援 ETag 條件請求。回傳 None 表示 304 無變更"""
         session = await self.get_session()
         url = f"{self.base_url}{endpoint}"
@@ -91,7 +93,9 @@ class GitHubAPIManager:
                 if cache_key in self._etag_cache:
                     req_headers["If-None-Match"] = self._etag_cache[cache_key]
 
-                async with session.request(method, url, headers=req_headers, **kwargs) as response:
+                async with session.request(
+                    method, url, headers=req_headers, **kwargs
+                ) as response:
                     await self.rate_manager.wait_for_rate_limit(
                         endpoint, response.headers
                     )

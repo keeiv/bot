@@ -24,9 +24,7 @@ class AppearanceApprovalView(ui.View):
         self.cog = cog
 
     @ui.button(label="核准", style=discord.ButtonStyle.success)
-    async def approve_button(
-        self, interaction: discord.Interaction, button: ui.Button
-    ):
+    async def approve_button(self, interaction: discord.Interaction, button: ui.Button):
         """核准變更"""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
@@ -36,9 +34,7 @@ class AppearanceApprovalView(ui.View):
         await self.cog.handle_approval(interaction, self.request_id, approved=True)
 
     @ui.button(label="拒絕", style=discord.ButtonStyle.danger)
-    async def reject_button(
-        self, interaction: discord.Interaction, button: ui.Button
-    ):
+    async def reject_button(self, interaction: discord.Interaction, button: ui.Button):
         """拒絕變更"""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
@@ -72,16 +68,19 @@ class BotAppearance(commands.Cog):
         """發送審核請求給開發者"""
         request_id = str(uuid.uuid4())[:8]
 
-        self.service.add_request(request_id, {
-            "guild_id": interaction.guild_id,
-            "guild_name": interaction.guild.name,
-            "type": change_type,
-            "image_bytes": image_bytes,
-            "content_type": content_type,
-            "requester_id": interaction.user.id,
-            "channel_id": interaction.channel_id,
-            "created_at": datetime.now(TZ_OFFSET).isoformat(),
-        })
+        self.service.add_request(
+            request_id,
+            {
+                "guild_id": interaction.guild_id,
+                "guild_name": interaction.guild.name,
+                "type": change_type,
+                "image_bytes": image_bytes,
+                "content_type": content_type,
+                "requester_id": interaction.user.id,
+                "channel_id": interaction.channel_id,
+                "created_at": datetime.now(TZ_OFFSET).isoformat(),
+            },
+        )
 
         type_name = "頭像" if change_type == "avatar" else "橫幅"
         embed = discord.Embed(
@@ -140,18 +139,14 @@ class BotAppearance(commands.Cog):
 
             try:
                 b64 = base64.b64encode(request["image_bytes"]).decode("ascii")
-                data_uri = (
-                    f"data:{request['content_type']};base64,{b64}"
-                )
+                data_uri = f"data:{request['content_type']};base64,{b64}"
                 route = discord.http.Route(
                     "PATCH",
                     "/guilds/{guild_id}/members/@me",
                     guild_id=guild.id,
                 )
                 payload_key = "avatar" if change_type == "avatar" else "banner"
-                await self.bot.http.request(
-                    route, json={payload_key: data_uri}
-                )
+                await self.bot.http.request(route, json={payload_key: data_uri})
 
                 # 更新審核訊息
                 embed = discord.Embed(
@@ -206,13 +201,9 @@ class BotAppearance(commands.Cog):
             except Exception:
                 pass
 
-    @appearance_group.command(
-        name="name", description="更改機器人在此伺服器的名稱"
-    )
+    @appearance_group.command(name="name", description="更改機器人在此伺服器的名稱")
     @app_commands.describe(name="新的暱稱 (留空則還原預設)")
-    async def change_name(
-        self, interaction: discord.Interaction, name: str = None
-    ):
+    async def change_name(self, interaction: discord.Interaction, name: str = None):
         """更改機器人在伺服器中的暱稱"""
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message(
@@ -294,9 +285,7 @@ class BotAppearance(commands.Cog):
             await interaction.followup.send(embed=embed)
 
         except Exception as e:
-            await interaction.followup.send(
-                f"[失敗] 提交審核失敗: {e}", ephemeral=True
-            )
+            await interaction.followup.send(f"[失敗] 提交審核失敗: {e}", ephemeral=True)
 
     @appearance_group.command(
         name="banner", description="更改機器人在此伺服器的橫幅 (需審核)"
@@ -345,9 +334,7 @@ class BotAppearance(commands.Cog):
             await interaction.followup.send(embed=embed)
 
         except Exception as e:
-            await interaction.followup.send(
-                f"[失敗] 提交審核失敗: {e}", ephemeral=True
-            )
+            await interaction.followup.send(f"[失敗] 提交審核失敗: {e}", ephemeral=True)
 
     @appearance_group.command(
         name="reset", description="將機器人在此伺服器的頭像/橫幅還原為全域預設"
@@ -410,13 +397,9 @@ class BotAppearance(commands.Cog):
             await interaction.followup.send(embed=embed)
 
         except discord.Forbidden:
-            await interaction.followup.send(
-                "[失敗] 機器人缺少必要權限", ephemeral=True
-            )
+            await interaction.followup.send("[失敗] 機器人缺少必要權限", ephemeral=True)
         except discord.HTTPException as e:
-            await interaction.followup.send(
-                f"[失敗] API 請求失敗: {e}", ephemeral=True
-            )
+            await interaction.followup.send(f"[失敗] API 請求失敗: {e}", ephemeral=True)
 
 
 async def setup(bot: commands.Bot):

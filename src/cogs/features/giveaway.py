@@ -40,18 +40,24 @@ class GiveawayView(ui.View):
             )
 
         if action is None:
-            await interaction.response.send_message("[提示] 此抽獎已結束", ephemeral=True)
+            await interaction.response.send_message(
+                "[提示] 此抽獎已結束", ephemeral=True
+            )
             return
 
         if action == "left":
-            await interaction.response.send_message("[提示] 你已退出抽獎", ephemeral=True)
+            await interaction.response.send_message(
+                "[提示] 你已退出抽獎", ephemeral=True
+            )
         else:
             await interaction.response.send_message(
                 f"[成功] 你已參加抽獎！目前共 {count} 位參與者", ephemeral=True
             )
 
         try:
-            embed = interaction.message.embeds[0] if interaction.message.embeds else None
+            embed = (
+                interaction.message.embeds[0] if interaction.message.embeds else None
+            )
             if embed:
                 new_embed = self._update_participant_count(embed, count)
                 await interaction.message.edit(embed=new_embed)
@@ -69,9 +75,13 @@ class GiveawayView(ui.View):
         )
         for field in embed.fields:
             if field.name == "參與人數":
-                new_embed.add_field(name="參與人數", value=f"{count} 人", inline=field.inline)
+                new_embed.add_field(
+                    name="參與人數", value=f"{count} 人", inline=field.inline
+                )
             else:
-                new_embed.add_field(name=field.name, value=field.value, inline=field.inline)
+                new_embed.add_field(
+                    name=field.name, value=field.value, inline=field.inline
+                )
         if embed.footer:
             new_embed.set_footer(text=embed.footer.text)
         return new_embed
@@ -160,7 +170,9 @@ class Giveaway(commands.Cog):
         if description:
             embed.add_field(name="獎品說明", value=description, inline=False)
         embed.add_field(name="得獎人數", value=f"{winners} 人", inline=True)
-        embed.add_field(name="結束時間", value=f"<t:{int(end_dt.timestamp())}:R>", inline=True)
+        embed.add_field(
+            name="結束時間", value=f"<t:{int(end_dt.timestamp())}:R>", inline=True
+        )
         embed.add_field(name="參與人數", value="0 人", inline=True)
         embed.add_field(name="主辦者", value=interaction.user.mention, inline=True)
         embed.set_footer(text=f"ID: {giveaway_id} | 結束於")
@@ -169,19 +181,22 @@ class Giveaway(commands.Cog):
         await interaction.response.defer()
         msg = await target_channel.send(embed=embed, view=view)
 
-        self.service.create(giveaway_id, {
-            "guild_id": interaction.guild_id,
-            "channel_id": target_channel.id,
-            "message_id": msg.id,
-            "prize": prize,
-            "description": description,
-            "winners": winners,
-            "host_id": interaction.user.id,
-            "end_time": end_dt.timestamp(),
-            "participants": [],
-            "ended": False,
-            "winner_ids": [],
-        })
+        self.service.create(
+            giveaway_id,
+            {
+                "guild_id": interaction.guild_id,
+                "channel_id": target_channel.id,
+                "message_id": msg.id,
+                "prize": prize,
+                "description": description,
+                "winners": winners,
+                "host_id": interaction.user.id,
+                "end_time": end_dt.timestamp(),
+                "participants": [],
+                "ended": False,
+                "winner_ids": [],
+            },
+        )
         self.bot.add_view(view)
 
         confirm = discord.Embed(
@@ -197,15 +212,21 @@ class Giveaway(commands.Cog):
         """提前結束抽獎"""
         ga = self.service.get(giveaway_id)
         if not ga:
-            await interaction.response.send_message("[失敗] 找不到此抽獎", ephemeral=True)
+            await interaction.response.send_message(
+                "[失敗] 找不到此抽獎", ephemeral=True
+            )
             return
         if ga.get("ended"):
-            await interaction.response.send_message("[失敗] 此抽獎已結束", ephemeral=True)
+            await interaction.response.send_message(
+                "[失敗] 此抽獎已結束", ephemeral=True
+            )
             return
 
         await interaction.response.defer()
         await self._end_giveaway(giveaway_id, ga)
-        await interaction.followup.send("[成功] 抽獎已提前結束並抽出得獎者", ephemeral=True)
+        await interaction.followup.send(
+            "[成功] 抽獎已提前結束並抽出得獎者", ephemeral=True
+        )
 
     @giveaway_group.command(name="reroll", description="重新抽取得獎者")
     @app_commands.describe(
@@ -257,7 +278,9 @@ class Giveaway(commands.Cog):
         active = self.service.list_active(interaction.guild_id)
 
         if not active:
-            await interaction.followup.send("[提示] 目前沒有進行中的抽獎", ephemeral=True)
+            await interaction.followup.send(
+                "[提示] 目前沒有進行中的抽獎", ephemeral=True
+            )
             return
 
         embed = discord.Embed(
@@ -303,7 +326,9 @@ class Giveaway(commands.Cog):
                 color=discord.Color.from_rgb(231, 76, 60),
                 timestamp=datetime.now(TZ_OFFSET),
             )
-        result_embed.add_field(name="參與人數", value=f"{participants_count} 人", inline=True)
+        result_embed.add_field(
+            name="參與人數", value=f"{participants_count} 人", inline=True
+        )
         result_embed.set_footer(text=f"ID: {giveaway_id}")
 
         try:
@@ -323,7 +348,9 @@ class Giveaway(commands.Cog):
                     value=mentions if winner_ids else "無人參與",
                     inline=False,
                 )
-                ended_embed.add_field(name="參與人數", value=f"{participants_count} 人", inline=True)
+                ended_embed.add_field(
+                    name="參與人數", value=f"{participants_count} 人", inline=True
+                )
                 ended_embed.set_footer(text=f"ID: {giveaway_id} | 已結束")
                 await msg.edit(embed=ended_embed, view=None)
             except Exception:

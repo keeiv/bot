@@ -1,12 +1,15 @@
-import os
-import json
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
+import json
+import os
 from typing import Optional
 
 import discord
 from discord import app_commands
-from discord.ext import commands, tasks
+from discord.ext import commands
+from discord.ext import tasks
 import genshin
 
 from src.services.genshin_service import GenshinService
@@ -18,7 +21,11 @@ class CookieBindModal(discord.ui.Modal):
     """彈出式輸入視窗：安全輸入 Cookie 各個欄位"""
 
     def __init__(self, service: "GenshinService", cog: "GenshinCog", region: str):
-        title = "安全綁定國服 (米游社) 帳號" if region == "cn" else "安全綁定國際服 (HoYoLAB) 帳號"
+        title = (
+            "安全綁定國服 (米游社) 帳號"
+            if region == "cn"
+            else "安全綁定國際服 (HoYoLAB) 帳號"
+        )
         super().__init__(title=title)
         self.service = service
         self.cog = cog
@@ -99,7 +106,9 @@ class CookieBindModal(discord.ui.Modal):
                 interaction.user.id, cookie_str, self.region
             )
 
-            region_display = "國服 (米游社)" if self.region == "cn" else "國際服 (HoYoLAB)"
+            region_display = (
+                "國服 (米游社)" if self.region == "cn" else "國際服 (HoYoLAB)"
+            )
             embed = discord.Embed(
                 title=f" {region_display} 帳號綁定成功",
                 description="您的 Cookie 已被安全地加密儲存於伺服器中，並已連結以下帳號：",
@@ -151,9 +160,11 @@ class TutorialView(discord.ui.View):
 
         embed = discord.Embed(
             title=title,
-            description="請跟隨以下步驟獲取您在 HoYoLAB 國際服的登入憑證："
-            if region == "global"
-            else "請跟隨以下步驟獲取您在米游社國服的登入憑證：",
+            description=(
+                "請跟隨以下步驟獲取您在 HoYoLAB 國際服的登入憑證："
+                if region == "global"
+                else "請跟隨以下步驟獲取您在米游社國服的登入憑證："
+            ),
             color=color,
         )
         embed.add_field(
@@ -194,8 +205,12 @@ class TutorialView(discord.ui.View):
             )
             field5_value = "回到 Discord，輸入 `/mhy bind` 並選擇 **國服 (米游社)**，隨後在彈出的對話框中貼入剛才複製的各個欄位數值並提交即可！"
 
-        embed.add_field(name="4. 複製各個欄位數值 (Value)", value=field4_value, inline=False)
-        embed.add_field(name="5. 在 Discord 中完成綁定", value=field5_value, inline=False)
+        embed.add_field(
+            name="4. 複製各個欄位數值 (Value)", value=field4_value, inline=False
+        )
+        embed.add_field(
+            name="5. 在 Discord 中完成綁定", value=field5_value, inline=False
+        )
         embed.set_footer(
             text="️ 提示：Cookie 相當於您的登入密碼，請勿向任何第三方透露或截圖發送！"
         )
@@ -210,9 +225,7 @@ class TutorialView(discord.ui.View):
         embed = self._create_tutorial_embed("global")
         await interaction.response.edit_message(embed=embed, view=self)
 
-    @discord.ui.button(
-        label="🇨🇳 國服 (米游社) 教學", style=discord.ButtonStyle.success
-    )
+    @discord.ui.button(label="🇨🇳 國服 (米游社) 教學", style=discord.ButtonStyle.success)
     async def cn_tutorial(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):

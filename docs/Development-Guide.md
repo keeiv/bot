@@ -212,8 +212,8 @@ isort src/bot.py
 ```python
 # All public functions must have type hints
 async def process_command(
-    self, 
-    ctx: commands.Context, 
+    self,
+    ctx: commands.Context,
     command_name: str
 ) -> bool:
     """Process a user command."""
@@ -231,21 +231,21 @@ class MessageHandler:
 ```python
 def calculate_user_stats(user_id: int, guild_id: int) -> Dict[str, Any]:
     """Calculate comprehensive user statistics.
-    
+
     This function aggregates user activity data across multiple dimensions
     including message count, achievement progress, and participation metrics.
-    
+
     Args:
         user_id: The Discord user ID to calculate stats for.
         guild_id: The guild ID to scope the statistics to.
-        
+
     Returns:
         A dictionary containing:
         - message_count: Total messages sent
         - achievement_count: Number of unlocked achievements
         - join_date: When the user joined the guild
         - last_active: Last activity timestamp
-        
+
     Raises:
         ValueError: If user_id or guild_id is invalid.
         DataError: If statistical data cannot be retrieved.
@@ -299,7 +299,7 @@ class TestAdmin:
         """Create Admin cog instance for testing."""
         bot = Mock()
         return Admin(bot)
-    
+
     @pytest.fixture
     def mock_ctx(self):
         """Create mock command context."""
@@ -308,27 +308,27 @@ class TestAdmin:
         ctx.channel.purge = AsyncMock(return_value=[])
         ctx.followup.send = AsyncMock()
         return ctx
-    
+
     @pytest.mark.asyncio
     async def test_clear_command_success(self, admin_cog, mock_ctx):
         """Test clear command with valid parameters."""
         # Arrange
         amount = 10
         mock_ctx.channel.purge.return_value = [Mock() for _ in range(amount)]
-        
+
         # Act
         await admin_cog.clear(mock_ctx, amount)
-        
+
         # Assert
         mock_ctx.channel.purge.assert_called_once_with(limit=amount)
         mock_ctx.followup.send.assert_called_once()
-    
+
     @pytest.mark.asyncio
     async def test_clear_command_insufficient_permissions(self, admin_cog, mock_ctx):
         """Test clear command without permissions."""
         # Arrange
         mock_ctx.author.guild_permissions.manage_messages = False
-        
+
         # Act & Assert
         with pytest.raises(commands.MissingPermissions):
             await admin_cog.clear(mock_ctx, 10)
@@ -601,7 +601,7 @@ def profile_function(func):
         pr.enable()
         result = func(*args, **kwargs)
         pr.disable()
-        
+
         stats = pstats.Stats(pr)
         stats.sort_stats('cumulative')
         stats.print_stats(10)
@@ -664,7 +664,7 @@ def get_user_permission_level(user_id: int) -> str:
 class GuildCache:
     def __init__(self):
         self._cache = {}
-    
+
     async def get_guild(self, guild_id: int) -> discord.Guild:
         if guild_id not in self._cache:
             self._cache[guild_id] = await bot.fetch_guild(guild_id)

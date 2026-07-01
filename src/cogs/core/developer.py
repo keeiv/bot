@@ -1,6 +1,7 @@
-﻿import platform
+﻿from datetime import datetime
+from datetime import timezone
+import platform
 import sys
-from datetime import datetime, timezone
 from typing import Optional, Sequence
 
 import discord
@@ -69,7 +70,9 @@ class DevInfoLayoutView(LayoutView):
     def __init__(self, bot: commands.Bot, section: str = "overview"):
         super().__init__(timeout=600)
         self.bot = bot
-        self.section = section if section in ("overview", "guilds", "system") else "overview"
+        self.section = (
+            section if section in ("overview", "guilds", "system") else "overview"
+        )
         self.message: Optional[discord.Message] = None
         self._section_select = DevInfoSectionSelect(self)
         self._build()
@@ -101,7 +104,9 @@ class DevInfoLayoutView(LayoutView):
                 )
             )
 
-        container.add_item(Separator(visible=True, spacing=discord.SeparatorSpacing.small))
+        container.add_item(
+            Separator(visible=True, spacing=discord.SeparatorSpacing.small)
+        )
 
         if self.section == "overview":
             uptime_str = "未知"
@@ -133,7 +138,9 @@ class DevInfoLayoutView(LayoutView):
                 guild_lines = ["尚未加入任何伺服器"]
 
             container.add_item(
-                TextDisplay(_dev_markdown(f"伺服器列表 ({total_guilds})", guild_lines[:20]))
+                TextDisplay(
+                    _dev_markdown(f"伺服器列表 ({total_guilds})", guild_lines[:20])
+                )
             )
             if len(guild_lines) > 20:
                 container.add_item(
@@ -154,7 +161,9 @@ class DevInfoLayoutView(LayoutView):
 
         action_row = ActionRow()
         action_row.add_item(self._section_select)
-        container.add_item(Separator(visible=True, spacing=discord.SeparatorSpacing.large))
+        container.add_item(
+            Separator(visible=True, spacing=discord.SeparatorSpacing.large)
+        )
         container.add_item(action_row)
 
         self.add_item(container)
@@ -209,8 +218,14 @@ class Developer(commands.Cog):
             )
             return
 
-        embed = discord.Embed(title="[開發者] 系統狀態", color=discord.Color.from_rgb(155, 89, 182))
-        embed.add_field(name="開發者ID", value=f"`{', '.join(str(d) for d in DEVELOPER_IDS)}`", inline=True)
+        embed = discord.Embed(
+            title="[開發者] 系統狀態", color=discord.Color.from_rgb(155, 89, 182)
+        )
+        embed.add_field(
+            name="開發者ID",
+            value=f"`{', '.join(str(d) for d in DEVELOPER_IDS)}`",
+            inline=True,
+        )
         embed.add_field(name="機器人狀態", value="運行中", inline=True)
         embed.set_footer(text=f"請求者: {interaction.user.name}")
 
@@ -220,8 +235,14 @@ class Developer(commands.Cog):
     @commands.check(lambda ctx: ctx.author.id in DEVELOPER_IDS)
     async def dev_status_command(self, ctx):
         """開發者狀態檢查"""
-        embed = discord.Embed(title="[開發者] 系統狀態", color=discord.Color.from_rgb(155, 89, 182))
-        embed.add_field(name="開發者ID", value=f"`{', '.join(str(d) for d in DEVELOPER_IDS)}`", inline=True)
+        embed = discord.Embed(
+            title="[開發者] 系統狀態", color=discord.Color.from_rgb(155, 89, 182)
+        )
+        embed.add_field(
+            name="開發者ID",
+            value=f"`{', '.join(str(d) for d in DEVELOPER_IDS)}`",
+            inline=True,
+        )
         embed.add_field(name="機器人狀態", value="運行中", inline=True)
         embed.set_footer(text=f"請求者: {ctx.author.name}")
 

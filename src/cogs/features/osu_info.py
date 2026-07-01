@@ -55,9 +55,7 @@ class OsuInfo(commands.Cog):
             )
             basic_info += f"**PP**: {user.statistics.pp:,.2f}\n"
             basic_info += f"**準確度**: {user.statistics.hit_accuracy:.2f}%\n"
-            basic_info += (
-                f"**遇戲時間**: {OsuService.format_playtime(user.statistics.play_time)}\n"
-            )
+            basic_info += f"**遇戲時間**: {OsuService.format_playtime(user.statistics.play_time)}\n"
             basic_info += f"**是否為 Supporter**: {'是' if user.is_supporter else '否'}"
 
             embed.add_field(name="基本資訊", value=basic_info, inline=False)
@@ -186,7 +184,9 @@ class OsuInfo(commands.Cog):
             username = self._resolve_username(interaction.user.id, username)
 
             osu_user = self.service.api.user(username)
-            scores = self.service.api.user_scores(osu_user.id, type="recent", limit=limit)
+            scores = self.service.api.user_scores(
+                osu_user.id, type="recent", limit=limit
+            )
 
             embed = discord.Embed(
                 title=f"osu! 最近遊玩 - {osu_user.username}",

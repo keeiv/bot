@@ -1,6 +1,6 @@
 # Discord Bot - Feature-Rich Multi-Purpose Bot
 
-A comprehensive Discord bot with advanced moderation, entertainment features, and external service integrations. Built with Python 3.8+ and discord.py 2.3.2.
+A comprehensive Discord bot with advanced moderation, entertainment features, and external service integrations. Built with Python 3.8+ and discord.py 2.6+.
 
 ## Table of Contents
 
@@ -23,7 +23,7 @@ This Discord bot provides a complete server management solution with:
 ### Technical Stack
 
 - **Language**: Python 3.8+
-- **Framework**: discord.py 2.3.2
+- **Framework**: discord.py 2.6+
 - **Testing**: pytest with asyncio support
 - **Code Quality**: Black, flake8, isort
 - **CI/CD**: GitHub Actions

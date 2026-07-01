@@ -1,11 +1,11 @@
 """成就業務邏輯服務"""
 
-import json
-import os
-import time
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
+import json
+import os
+import time
 from typing import Optional
 
 TZ_OFFSET = timezone(timedelta(hours=8))
@@ -173,14 +173,10 @@ class AchievementService:
             all_unlocked.extend(guild_val.get("unlocked", []))
         return list(set(all_unlocked))
 
-    def get_progress(
-        self, user_id: int, guild_id: Optional[int] = None
-    ) -> dict:
+    def get_progress(self, user_id: int, guild_id: Optional[int] = None) -> dict:
         """取得用戶成就進度"""
         unlocked = self.get_user_achievements(user_id, guild_id)
-        regular = {
-            k: v for k, v in ACHIEVEMENTS.items() if not v.get("developer_only")
-        }
+        regular = {k: v for k, v in ACHIEVEMENTS.items() if not v.get("developer_only")}
         total = len(regular) if guild_id is not None else len(ACHIEVEMENTS)
         pct = round(len(unlocked) / total * 100, 1) if total else 0.0
         return {
@@ -195,9 +191,7 @@ class AchievementService:
 
     # ─────────────── 解鎖 ───────────────
 
-    def unlock(
-        self, user_id: int, guild_id: int, achievement_id: str
-    ) -> bool:
+    def unlock(self, user_id: int, guild_id: int, achievement_id: str) -> bool:
         """解鎖成就，回傳是否為新解鎖"""
         if achievement_id not in ACHIEVEMENTS:
             return False

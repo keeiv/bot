@@ -12,10 +12,10 @@ from src.utils.anti_spam import ACTION_MUTE
 from src.utils.anti_spam import ACTION_NAMES
 from src.utils.anti_spam import ACTION_WARN
 from src.utils.anti_spam import AntiSpamManager
-from src.utils.anti_spam import DETECT_NAMES
-from src.utils.anti_spam import VALID_ACTIONS
 from src.utils.anti_spam import create_anti_spam_log_embed
 from src.utils.anti_spam import create_raid_alert_embed
+from src.utils.anti_spam import DETECT_NAMES
+from src.utils.anti_spam import VALID_ACTIONS
 from src.utils.config_manager import get_guild_log_channel
 
 
@@ -52,7 +52,9 @@ class AntiSpam(commands.Cog):
         member = message.author
         guild = message.guild
         s = self.manager.get_settings(guild.id)
-        reason = f"防炸群: {DETECT_NAMES.get(detection_type, detection_type)} — {detail}"
+        reason = (
+            f"防炸群: {DETECT_NAMES.get(detection_type, detection_type)} — {detail}"
+        )
 
         try:
             if action == ACTION_WARN:
@@ -80,9 +82,7 @@ class AntiSpam(commands.Cog):
 
             elif action == ACTION_MUTE:
                 duration = s.get("mute_duration", 3600)
-                await member.timeout(
-                    timedelta(seconds=duration), reason=reason
-                )
+                await member.timeout(timedelta(seconds=duration), reason=reason)
                 try:
                     await message.channel.purge(
                         limit=10,
@@ -129,7 +129,8 @@ class AntiSpam(commands.Cog):
                 overwrite = channel.overwrites_for(default_role)
                 overwrite.send_messages = False
                 await channel.set_permissions(
-                    default_role, overwrite=overwrite,
+                    default_role,
+                    overwrite=overwrite,
                     reason="防炸群: 突襲封鎖模式啟動",
                 )
             except discord.Forbidden:
@@ -145,7 +146,8 @@ class AntiSpam(commands.Cog):
                 overwrite = channel.overwrites_for(default_role)
                 overwrite.send_messages = None
                 await channel.set_permissions(
-                    default_role, overwrite=overwrite,
+                    default_role,
+                    overwrite=overwrite,
                     reason="防炸群: 封鎖模式解除",
                 )
             except discord.Forbidden:
@@ -187,6 +189,7 @@ class AntiSpam(commands.Cog):
 
         # 取最嚴重的動作執行
         from src.utils.anti_spam import ACTION_SEVERITY
+
         triggers.sort(key=lambda t: ACTION_SEVERITY.get(t[1], 0), reverse=True)
         worst_det, worst_action, worst_detail = triggers[0]
         strike_count = self.manager.get_user_strikes(
@@ -194,9 +197,7 @@ class AntiSpam(commands.Cog):
         )
 
         # 執行動作
-        await self._execute_action(
-            worst_action, message, worst_detail, worst_det
-        )
+        await self._execute_action(worst_action, message, worst_detail, worst_det)
 
         # 發送日誌
         embed = create_anti_spam_log_embed(
@@ -214,8 +215,7 @@ class AntiSpam(commands.Cog):
         # 如果有多個觸發，列出所有
         if len(triggers) > 1:
             others = "\n".join(
-                f"- {DETECT_NAMES.get(d, d)}: {det}"
-                for d, _, det in triggers[1:]
+                f"- {DETECT_NAMES.get(d, d)}: {det}" for d, _, det in triggers[1:]
             )
             embed.add_field(name="其他觸發", value=others, inline=False)
 
@@ -267,7 +267,11 @@ class AntiSpam(commands.Cog):
         status = "已啟用" if enabled else "已禁用"
         embed = discord.Embed(
             title=f"[設定] 防炸群 {status}",
-            color=discord.Color.from_rgb(46, 204, 113) if enabled else discord.Color.from_rgb(231, 76, 60),
+            color=(
+                discord.Color.from_rgb(46, 204, 113)
+                if enabled
+                else discord.Color.from_rgb(231, 76, 60)
+            ),
         )
         await interaction.followup.send(embed=embed)
 
@@ -291,18 +295,23 @@ class AntiSpam(commands.Cog):
             )
             return
         await interaction.response.defer()
-        self.manager.update_settings(interaction.guild_id, {
-            "flood_messages": max(1, messages),
-            "flood_window": max(1, window),
-            "flood_action": action,
-        })
+        self.manager.update_settings(
+            interaction.guild_id,
+            {
+                "flood_messages": max(1, messages),
+                "flood_window": max(1, window),
+                "flood_action": action,
+            },
+        )
         embed = discord.Embed(
             title="[設定] 洪水偵測已更新",
             color=discord.Color.from_rgb(46, 204, 113),
         )
         embed.add_field(name="訊息上限", value=f"{messages} 條", inline=True)
         embed.add_field(name="時間視窗", value=f"{window} 秒", inline=True)
-        embed.add_field(name="動作", value=ACTION_NAMES.get(action, action), inline=True)
+        embed.add_field(
+            name="動作", value=ACTION_NAMES.get(action, action), inline=True
+        )
         await interaction.followup.send(embed=embed)
 
     @anti_spam_group.command(name="duplicate", description="設定重複內容偵測")
@@ -327,12 +336,15 @@ class AntiSpam(commands.Cog):
             )
             return
         await interaction.response.defer()
-        self.manager.update_settings(interaction.guild_id, {
-            "duplicate_enabled": enabled,
-            "duplicate_count": max(2, count),
-            "duplicate_window": max(5, window),
-            "duplicate_action": action,
-        })
+        self.manager.update_settings(
+            interaction.guild_id,
+            {
+                "duplicate_enabled": enabled,
+                "duplicate_count": max(2, count),
+                "duplicate_window": max(5, window),
+                "duplicate_action": action,
+            },
+        )
         status = "啟用" if enabled else "禁用"
         embed = discord.Embed(
             title=f"[設定] 重複偵測 — {status}",
@@ -340,7 +352,9 @@ class AntiSpam(commands.Cog):
         )
         embed.add_field(name="觸發次數", value=f"{count} 次", inline=True)
         embed.add_field(name="時間視窗", value=f"{window} 秒", inline=True)
-        embed.add_field(name="動作", value=ACTION_NAMES.get(action, action), inline=True)
+        embed.add_field(
+            name="動作", value=ACTION_NAMES.get(action, action), inline=True
+        )
         await interaction.followup.send(embed=embed)
 
     @anti_spam_group.command(name="mention", description="設定提及轟炸偵測")
@@ -363,18 +377,23 @@ class AntiSpam(commands.Cog):
             )
             return
         await interaction.response.defer()
-        self.manager.update_settings(interaction.guild_id, {
-            "mention_enabled": enabled,
-            "mention_limit": max(1, limit),
-            "mention_action": action,
-        })
+        self.manager.update_settings(
+            interaction.guild_id,
+            {
+                "mention_enabled": enabled,
+                "mention_limit": max(1, limit),
+                "mention_action": action,
+            },
+        )
         status = "啟用" if enabled else "禁用"
         embed = discord.Embed(
             title=f"[設定] 提及偵測 — {status}",
             color=discord.Color.from_rgb(46, 204, 113),
         )
         embed.add_field(name="提及上限", value=f"{limit} 個", inline=True)
-        embed.add_field(name="動作", value=ACTION_NAMES.get(action, action), inline=True)
+        embed.add_field(
+            name="動作", value=ACTION_NAMES.get(action, action), inline=True
+        )
         await interaction.followup.send(embed=embed)
 
     @anti_spam_group.command(name="link", description="設定連結/邀請偵測")
@@ -401,13 +420,16 @@ class AntiSpam(commands.Cog):
             )
             return
         await interaction.response.defer()
-        self.manager.update_settings(interaction.guild_id, {
-            "link_enabled": enabled,
-            "link_limit": max(1, limit),
-            "link_window": max(5, window),
-            "link_action": action,
-            "invite_auto_delete": invite_auto_delete,
-        })
+        self.manager.update_settings(
+            interaction.guild_id,
+            {
+                "link_enabled": enabled,
+                "link_limit": max(1, limit),
+                "link_window": max(5, window),
+                "link_action": action,
+                "invite_auto_delete": invite_auto_delete,
+            },
+        )
         status = "啟用" if enabled else "禁用"
         embed = discord.Embed(
             title=f"[設定] 連結偵測 — {status}",
@@ -415,8 +437,12 @@ class AntiSpam(commands.Cog):
         )
         embed.add_field(name="連結上限", value=f"{limit} 個", inline=True)
         embed.add_field(name="時間視窗", value=f"{window} 秒", inline=True)
-        embed.add_field(name="動作", value=ACTION_NAMES.get(action, action), inline=True)
-        embed.add_field(name="自動刪除邀請", value="是" if invite_auto_delete else "否", inline=True)
+        embed.add_field(
+            name="動作", value=ACTION_NAMES.get(action, action), inline=True
+        )
+        embed.add_field(
+            name="自動刪除邀請", value="是" if invite_auto_delete else "否", inline=True
+        )
         await interaction.followup.send(embed=embed)
 
     @anti_spam_group.command(name="raid", description="設定突襲偵測")
@@ -441,12 +467,15 @@ class AntiSpam(commands.Cog):
             )
             return
         await interaction.response.defer()
-        self.manager.update_settings(interaction.guild_id, {
-            "raid_enabled": enabled,
-            "raid_joins": max(3, joins),
-            "raid_window": max(10, window),
-            "raid_action": action,
-        })
+        self.manager.update_settings(
+            interaction.guild_id,
+            {
+                "raid_enabled": enabled,
+                "raid_joins": max(3, joins),
+                "raid_window": max(10, window),
+                "raid_action": action,
+            },
+        )
         status = "啟用" if enabled else "禁用"
         embed = discord.Embed(
             title=f"[設定] 突襲偵測 — {status}",
@@ -454,7 +483,9 @@ class AntiSpam(commands.Cog):
         )
         embed.add_field(name="觸發人數", value=f"{joins} 人", inline=True)
         embed.add_field(name="時間視窗", value=f"{window} 秒", inline=True)
-        embed.add_field(name="動作", value=ACTION_NAMES.get(action, action), inline=True)
+        embed.add_field(
+            name="動作", value=ACTION_NAMES.get(action, action), inline=True
+        )
         await interaction.followup.send(embed=embed)
 
     @anti_spam_group.command(name="escalation", description="設定自動升級懲罰")
@@ -472,11 +503,14 @@ class AntiSpam(commands.Cog):
     ):
         """設定自動升級"""
         await interaction.response.defer()
-        self.manager.update_settings(interaction.guild_id, {
-            "auto_escalate": enabled,
-            "escalate_strikes": max(2, strikes),
-            "escalate_window": max(60, window),
-        })
+        self.manager.update_settings(
+            interaction.guild_id,
+            {
+                "auto_escalate": enabled,
+                "escalate_strikes": max(2, strikes),
+                "escalate_window": max(60, window),
+            },
+        )
         status = "啟用" if enabled else "禁用"
         embed = discord.Embed(
             title=f"[設定] 自動升級 — {status}",
@@ -566,11 +600,14 @@ class AntiSpam(commands.Cog):
         )
         await interaction.followup.send(embed=embed)
 
-        await self._send_log(interaction.guild_id, discord.Embed(
-            title="[防炸群] 封鎖模式已手動解除",
-            description=f"由 {interaction.user.mention} 解除",
-            color=discord.Color.from_rgb(46, 204, 113),
-        ))
+        await self._send_log(
+            interaction.guild_id,
+            discord.Embed(
+                title="[防炸群] 封鎖模式已手動解除",
+                description=f"由 {interaction.user.mention} 解除",
+                color=discord.Color.from_rgb(46, 204, 113),
+            ),
+        )
 
     @anti_spam_group.command(name="status", description="查看防炸群系統完整狀態")
     async def status_cmd(self, interaction: discord.Interaction):
@@ -579,7 +616,9 @@ class AntiSpam(commands.Cog):
         s = self.manager.get_settings(interaction.guild_id)
 
         main_status = "已啟用" if s["enabled"] else "已禁用"
-        lockdown = "啟動中" if self.manager.is_lockdown(interaction.guild_id) else "正常"
+        lockdown = (
+            "啟動中" if self.manager.is_lockdown(interaction.guild_id) else "正常"
+        )
 
         embed = discord.Embed(
             title="[狀態] 防炸群系統",
@@ -660,7 +699,9 @@ class AntiSpam(commands.Cog):
             inline=False,
         )
 
-        embed.set_footer(text=f"禁言時長: {s['mute_duration']}s | 封禁刪除天數: {s['ban_delete_days']}d")
+        embed.set_footer(
+            text=f"禁言時長: {s['mute_duration']}s | 封禁刪除天數: {s['ban_delete_days']}d"
+        )
 
         await interaction.followup.send(embed=embed)
 
@@ -682,7 +723,9 @@ class AntiSpam(commands.Cog):
 
     # ───────────── 向下相容舊指令 ─────────────
 
-    @commands.hybrid_command(name="anti_spam_set", description="快速設定防炸群功能 (舊版相容)")
+    @commands.hybrid_command(
+        name="anti_spam_set", description="快速設定防炸群功能 (舊版相容)"
+    )
     @commands.has_permissions(administrator=True)
     async def anti_spam_set_legacy(
         self,
@@ -694,15 +737,20 @@ class AntiSpam(commands.Cog):
     ):
         """向下相容的舊版設定指令"""
         if action not in VALID_ACTIONS:
-            await ctx.send(f"[失敗] 無效動作，可選: {', '.join(VALID_ACTIONS)}", ephemeral=True)
+            await ctx.send(
+                f"[失敗] 無效動作，可選: {', '.join(VALID_ACTIONS)}", ephemeral=True
+            )
             return
 
-        self.manager.update_settings(ctx.guild.id, {
-            "enabled": enabled,
-            "flood_messages": max(1, messages_per_window),
-            "flood_window": max(1, window_seconds),
-            "flood_action": action,
-        })
+        self.manager.update_settings(
+            ctx.guild.id,
+            {
+                "enabled": enabled,
+                "flood_messages": max(1, messages_per_window),
+                "flood_window": max(1, window_seconds),
+                "flood_action": action,
+            },
+        )
 
         status = "已啟用" if enabled else "已禁用"
         embed = discord.Embed(
@@ -711,10 +759,14 @@ class AntiSpam(commands.Cog):
         )
         embed.add_field(name="時間視窗", value=f"{window_seconds} 秒", inline=True)
         embed.add_field(name="訊息限制", value=f"{messages_per_window} 條", inline=True)
-        embed.add_field(name="動作", value=ACTION_NAMES.get(action, action), inline=True)
+        embed.add_field(
+            name="動作", value=ACTION_NAMES.get(action, action), inline=True
+        )
         await ctx.send(embed=embed)
 
-    @commands.hybrid_command(name="anti_spam_status", description="查看防炸群狀態 (舊版相容)")
+    @commands.hybrid_command(
+        name="anti_spam_status", description="查看防炸群狀態 (舊版相容)"
+    )
     @commands.has_permissions(administrator=True)
     async def anti_spam_status_legacy(self, ctx):
         """向下相容的舊版狀態指令"""
@@ -727,8 +779,16 @@ class AntiSpam(commands.Cog):
             color=discord.Color.from_rgb(52, 152, 219),
         )
         embed.add_field(name="狀態", value=status, inline=True)
-        embed.add_field(name="洪水偵測", value=f"{s['flood_messages']} 條 / {s['flood_window']}s", inline=True)
-        embed.add_field(name="動作", value=ACTION_NAMES.get(s["flood_action"], s["flood_action"]), inline=True)
+        embed.add_field(
+            name="洪水偵測",
+            value=f"{s['flood_messages']} 條 / {s['flood_window']}s",
+            inline=True,
+        )
+        embed.add_field(
+            name="動作",
+            value=ACTION_NAMES.get(s["flood_action"], s["flood_action"]),
+            inline=True,
+        )
         await ctx.send(embed=embed)
 
 

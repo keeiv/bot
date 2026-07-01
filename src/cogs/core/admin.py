@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Optional
-from typing import Sequence
+from typing import Optional, Sequence
 
 import discord
 from discord import app_commands
@@ -375,9 +374,8 @@ class Admin(commands.Cog):
 
         async def predicate(ctx):
             blacklist_manager = getattr(self.bot, "blacklist_manager", None)
-            if (
-                blacklist_manager is not None
-                and blacklist_manager.local_check(ctx.author.id)
+            if blacklist_manager is not None and blacklist_manager.local_check(
+                ctx.author.id
             ):
                 embed = discord.Embed(
                     title="[拒絕] 存取被拒",
@@ -397,9 +395,7 @@ class Admin(commands.Cog):
     async def clear(self, ctx, amount: int = 10):
         """清除訊息"""
         if not ctx.author.guild_permissions.manage_messages:
-            await ctx.send(
-                "[失敗] 你需要「管理訊息」權限", ephemeral=True
-            )
+            await ctx.send("[失敗] 你需要「管理訊息」權限", ephemeral=True)
             return
 
         if amount < 1 or amount > 100:
@@ -408,9 +404,7 @@ class Admin(commands.Cog):
 
         await ctx.defer()
         deleted = await ctx.channel.purge(limit=amount)
-        await ctx.followup.send(
-            f"[成功] 已清除 {len(deleted)} 則訊息", ephemeral=True
-        )
+        await ctx.followup.send(f"[成功] 已清除 {len(deleted)} 則訊息", ephemeral=True)
 
     @commands.hybrid_command(name="kick", description="踢出成員")
     @app_commands.describe(user="要踢出的成員", reason="踢出原因")
@@ -475,7 +469,9 @@ class Admin(commands.Cog):
             await ctx.send(f"[失敗] 無法封禁成員: {str(e)}", ephemeral=True)
 
     @commands.hybrid_command(name="mute", description="禁言成員")
-    @app_commands.describe(user="要禁言的成員", duration="禁言時長 (分鐘，預設 60)", reason="禁言原因")
+    @app_commands.describe(
+        user="要禁言的成員", duration="禁言時長 (分鐘，預設 60)", reason="禁言原因"
+    )
     @commands.has_permissions(moderate_members=True)
     async def mute(
         self,
@@ -486,9 +482,7 @@ class Admin(commands.Cog):
     ):
         """禁言成員"""
         if not ctx.author.guild_permissions.moderate_members:
-            await ctx.send(
-                "[失敗] 你需要有管理成員的權限", ephemeral=True
-            )
+            await ctx.send("[失敗] 你需要有管理成員的權限", ephemeral=True)
             return
 
         if user == ctx.author:
@@ -496,9 +490,7 @@ class Admin(commands.Cog):
             return
 
         if user.top_role >= ctx.author.top_role:
-            await ctx.send(
-                "[失敗] 你的權限不足以禁言此成員", ephemeral=True
-            )
+            await ctx.send("[失敗] 你的權限不足以禁言此成員", ephemeral=True)
             return
 
         try:
@@ -518,9 +510,7 @@ class Admin(commands.Cog):
     async def warn(self, ctx, user: discord.Member, reason: str = "沒有提供原因"):
         """警告成員"""
         if not ctx.author.guild_permissions.moderate_members:
-            await ctx.send(
-                "[失敗] 你需要有管理成員的權限", ephemeral=True
-            )
+            await ctx.send("[失敗] 你需要有管理成員的權限", ephemeral=True)
             return
 
         embed = discord.Embed(

@@ -369,9 +369,7 @@ class Report(commands.Cog):
         )
 
     # ========== 設定舉報頻道指令 ==========
-    report_group = app_commands.Group(
-        name="report_channel", description="舉報系統設定"
-    )
+    report_group = app_commands.Group(name="report_channel", description="舉報系統設定")
 
     @report_group.command(name="set", description="設定舉報訊息接收頻道")
     @app_commands.describe(channel="要接收舉報訊息的頻道")

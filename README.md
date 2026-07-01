@@ -175,7 +175,7 @@ python -m src.main
 
 ## 依賴
 
-- discord.py 2.3.2
+- discord.py 2.6+
 - python-dotenv 1.0.0
 - ossapi (osu! API)
 - genshin (HoYoLAB/米游社 API)

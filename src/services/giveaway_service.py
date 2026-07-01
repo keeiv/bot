@@ -1,14 +1,14 @@
 """抽獎業務邏輯服務"""
 
 import asyncio
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
 import json
 import os
 import random
 import re
 import time
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
 from typing import Optional
 
 TZ_OFFSET = timezone(timedelta(hours=8))
@@ -129,9 +129,7 @@ class GiveawayService:
         participants = ga.get("participants", [])
         if not participants:
             return []
-        winner_ids = random.sample(
-            participants, min(num_winners, len(participants))
-        )
+        winner_ids = random.sample(participants, min(num_winners, len(participants)))
         ga["winner_ids"] = winner_ids
         self._save(data)
         return winner_ids

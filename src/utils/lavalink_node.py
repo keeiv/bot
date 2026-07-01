@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Optional
 
 import discord
@@ -19,7 +20,13 @@ class LavalinkManager:
         self.bot = bot
         self.node: Optional[object] = None
 
-    async def create_node(self, host: str = "127.0.0.1", port: int = 2333, password: str = "youshallnotpass", identifier: str = "Lavalink"):
+    async def create_node(
+        self,
+        host: str = "127.0.0.1",
+        port: int = 2333,
+        password: str = "youshallnotpass",
+        identifier: str = "Lavalink",
+    ):
         """建立並註冊 Lavalink 節點，成功回傳節點物件。
 
         參數使用常見預設值，部署時請以環境變數或設定檔覆寫。
@@ -28,7 +35,9 @@ class LavalinkManager:
             raise RuntimeError("wavelink 尚未安裝，請在 requirements.txt 安裝 wavelink")
 
         # wavelink 的 NodePool API 會在建立時完成連線註冊
-        self.node = await wavelink.NodePool.create_node(bot=self.bot, host=host, port=port, password=password, identifier=identifier)
+        self.node = await wavelink.NodePool.create_node(
+            bot=self.bot, host=host, port=port, password=password, identifier=identifier
+        )
         return self.node
 
     async def destroy_node(self) -> None:
@@ -43,6 +52,8 @@ class LavalinkManager:
             self.node = None
 
 
-def get_manager(bot: discord.Client | discord.Bot | discord.AutoShardedClient) -> LavalinkManager:
+def get_manager(
+    bot: discord.Client | discord.Bot | discord.AutoShardedClient,
+) -> LavalinkManager:
     """建立或取得 Lavalink 管理器實例（簡單工廠）"""
     return LavalinkManager(bot)

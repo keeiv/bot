@@ -1,10 +1,9 @@
 import asyncio
+from datetime import datetime
 import json
 import os
 import time
-from datetime import datetime
-from typing import Dict
-from typing import Optional
+from typing import Dict, Optional
 
 import aiohttp
 
@@ -67,7 +66,10 @@ class BlacklistManager:
     def _load_local(self) -> dict:
         """讀取本地黑名單 (帶 TTL cache)"""
         now = time.monotonic()
-        if self._local_cache is not None and (now - self._local_cache_time) < self._LOCAL_CACHE_TTL:
+        if (
+            self._local_cache is not None
+            and (now - self._local_cache_time) < self._LOCAL_CACHE_TTL
+        ):
             return self._local_cache
         self._local_cache = _load_json(LOCAL_BLACKLIST_FILE)
         self._local_cache_time = now
@@ -271,6 +273,5 @@ class BlacklistManager:
         """取得所有待處理申訴"""
         appeals = self.load_appeals()
         return [
-            appeal for appeal in appeals.values()
-            if appeal.get("status") == "待處理"
+            appeal for appeal in appeals.values() if appeal.get("status") == "待處理"
         ]
