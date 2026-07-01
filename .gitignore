@@ -12,3 +12,9 @@ data/
 
 osu_api/.env
 osu_api/.env.*
+
+
+
+memories/
+memory-tool/
+copilot-chat/

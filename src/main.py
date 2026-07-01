@@ -55,7 +55,7 @@ def main():
     """機器人主進入點"""
     if not TOKEN:
         print("錯誤：未設置 DISCORD_TOKEN 環境變數")
-        exit(1)
+        sys.exit(1)
 
     # 設置信號處理器用於優雅關閉
     signal.signal(signal.SIGINT, signal_handler)
@@ -66,21 +66,21 @@ def main():
     if os.path.exists(lock_file):
         print("[警告] 檢測到鎖定文件，機器人實例可能已在運行")
         try:
-            with open(lock_file, "r") as f:
+            with open(lock_file, "r", encoding="utf-8") as f:
                 old_pid = f.read().strip()
             print(f"[警告] 舊實例 PID: {old_pid}")
             # 檢查進程是否仍在運行
             try:
                 os.kill(int(old_pid), 0)  # 檢查進程是否存在
                 print("[錯誤] 機器人已在運行，請先停止舊實例")
-                exit(1)
+                sys.exit(1)
             except OSError:
                 print("[資訊] 舊實例已停止，繼續啟動")
         except Exception as e:
             print(f"[警告] 鎖定文件檢查失敗: {e}")
 
     # 建立鎖定文件
-    with open(lock_file, "w") as f:
+    with open(lock_file, "w", encoding="utf-8") as f:
         f.write(str(os.getpid()))
 
     # 初始化數據目錄
