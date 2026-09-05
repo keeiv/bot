@@ -14,7 +14,6 @@ from .utils.database_manager import init_database_manager
 from .utils.network_optimizer import init_network_optimizer
 from .utils.network_optimizer import NetworkConfig
 
-
 # Load environment variables
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")

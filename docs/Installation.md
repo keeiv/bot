@@ -14,7 +14,7 @@ This guide will help you install and set up the Discord bot on your system.
 ## System Requirements
 
 ### Minimum Requirements
-- **Python**: 3.8 or higher
+- **Python**: 3.10 or higher
 - **Operating System**: Windows 10+, macOS 10.14+, or Linux (Ubuntu 18.04+)
 - **Memory**: 512MB RAM minimum
 - **Storage**: 100MB free space
@@ -43,7 +43,7 @@ cd bot
 2. **Verify Python version**
 ```bash
 python --version
-# Should show Python 3.8.x or higher
+# Should show Python 3.10.x or higher
 ```
 
 ### Method 2: Download Release

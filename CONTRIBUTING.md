@@ -49,12 +49,12 @@
 *   **基本要求**：遵循 PEP 8 規範，並為複雜邏輯添加適當的註釋或文件字串（Docstring）。
 *   **格式化工具**：我們使用 **Black** 與 **isort** 自動格式化程式碼。提交前請執行：
     ```bash
-    black src/ tests/
-    isort src/ tests/
+    black src/ services/ tests/
+    isort src/ services/ tests/
     ```
 *   **風格檢查**：確保程式碼能通過 **flake8** 檢查：
     ```bash
-    flake8 src/ tests/
+    flake8 src/ services/ tests/
     ```
 *   **測試**：鼓勵為新功能或錯誤修復編寫測試。所有現有測試必須通過：
     ```bash

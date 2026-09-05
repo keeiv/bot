@@ -175,9 +175,8 @@ python -m src.main
 
 ## 依賴
 
-- discord.py 2.6+
-- python-dotenv 1.0.0
-- ossapi (osu! API)
+- Python 3.10+
+- 依賴版本由 `pyproject.toml` 統一管理；使用 `requirements.txt` 安裝執行環境，使用 `requirements-dev.txt` 安裝開發工具。
 - genshin (HoYoLAB/米游社 API)
 - cryptography (加密)
 - psutil (系統監控)
