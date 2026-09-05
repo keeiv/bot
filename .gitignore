@@ -10,6 +10,8 @@ coverage.xml
 *.egg-info/
 
 bot.lock
+run_bot.bat
+start.py
 
 data/
 
