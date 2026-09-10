@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import datetime
 import traceback
 
@@ -5,29 +6,28 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from src.config.constants import DEVELOPER_IDS
 from src.config.constants import ERROR_LOG_CHANNEL_ID
-from src.config.constants import ERROR_LOG_GUILD_ID
 from src.utils.time_utils import TZ_OFFSET
 
 
 class ErrorHandler(commands.Cog):
     """全域錯誤集中處理"""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         # 註冊 app command error handler
-        self.bot.tree.on_error = self.on_app_command_error
+        self._previous_error_handler = self.bot.tree.on_error
+        self.bot.tree.on_error = self.on_app_command_error  # type: ignore[method-assign]  # supported Discord handler hook
 
-    async def cog_unload(self):
+    async def cog_unload(self) -> None:
         """卸載時恢復預設 handler"""
-        self.bot.tree.on_error = self.bot.tree.__class__.on_error
+        self.bot.tree.on_error = self._previous_error_handler  # type: ignore[method-assign]  # restore bound handler
 
     # ==================== Slash Command 錯誤 ====================
 
     async def on_app_command_error(
         self, interaction: discord.Interaction, error: app_commands.AppCommandError
-    ):
+    ) -> None:
         """所有 Slash Command 錯誤的集中處理"""
         error = getattr(error, "original", error)
 
@@ -84,8 +84,8 @@ class ErrorHandler(commands.Cog):
 
     @commands.Cog.listener()
     async def on_command_error(
-        self, ctx: commands.Context, error: commands.CommandError
-    ):
+        self, ctx: commands.Context[Any], error: commands.CommandError
+    ) -> None:
         """所有前綴指令錯誤的集中處理"""
         error = getattr(error, "original", error)
 
@@ -122,7 +122,7 @@ class ErrorHandler(commands.Cog):
 
     # ==================== 內部輔助方法 ====================
 
-    async def _respond(self, interaction: discord.Interaction, message: str):
+    async def _respond(self, interaction: discord.Interaction, message: str) -> None:
         """安全回覆 interaction (處理已回覆的情況)"""
         try:
             if interaction.response.is_done():
@@ -134,7 +134,7 @@ class ErrorHandler(commands.Cog):
 
     async def _handle_unexpected(
         self, interaction: discord.Interaction, error: Exception
-    ):
+    ) -> None:
         """處理未預期的 Slash Command 錯誤"""
         # 回覆使用者
         await self._respond(
@@ -157,7 +157,7 @@ class ErrorHandler(commands.Cog):
             traceback_str=tb,
         )
 
-    async def _handle_unexpected_prefix(self, ctx: commands.Context, error: Exception):
+    async def _handle_unexpected_prefix(self, ctx: commands.Context[Any], error: Exception) -> None:
         """處理未預期的 Prefix Command 錯誤"""
         await ctx.send("[錯誤] 發生未預期的錯誤，開發者已收到通知")
 
@@ -176,12 +176,12 @@ class ErrorHandler(commands.Cog):
 
     async def _log_error(
         self,
-        guild: discord.Guild,
-        user: discord.User,
+        guild: discord.Guild | None,
+        user: discord.User | discord.Member,
         command_name: str,
         error: Exception,
         traceback_str: str,
-    ):
+    ) -> None:
         """將錯誤記錄到日誌頻道 + 開發者私訊"""
         embed = discord.Embed(
             title="[錯誤] 未預期的指令錯誤",
@@ -208,7 +208,7 @@ class ErrorHandler(commands.Cog):
         # 發送到指定錯誤日誌頻道
         try:
             channel = self.bot.get_channel(ERROR_LOG_CHANNEL_ID)
-            if channel:
+            if isinstance(channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
                 await channel.send(embed=embed)
         except (discord.Forbidden, discord.HTTPException):
             pass
@@ -217,5 +217,5 @@ class ErrorHandler(commands.Cog):
         print(f"[Error] /{command_name} by {user}: {error}")
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(ErrorHandler(bot))

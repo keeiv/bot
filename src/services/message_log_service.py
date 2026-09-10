@@ -1,6 +1,8 @@
 """訊息日誌業務邏輯服務"""
+from typing import Any
 
 from datetime import datetime
+from datetime import timedelta
 import json
 import os
 import time
@@ -23,15 +25,15 @@ class MessageLogService:
     """訊息日誌資料存取與業務邏輯"""
 
     def __init__(self) -> None:
-        self._msg_cache: Optional[dict] = None
+        self._msg_cache: Optional[dict[Any, Any]] = None
         self._msg_cache_time: float = 0.0
-        self._ch_cache: dict = {}
+        self._ch_cache: dict[Any, Any] = {}
         self._ch_cache_time: float = 0.0
         self.message_cache = get_message_cache()
 
     # ─────────────── 頻道設定 ───────────────
 
-    def load_log_channels(self) -> dict:
+    def load_log_channels(self) -> dict[Any, Any]:
         """載入日誌頻道設定 (帶快取)"""
         now = time.monotonic()
         if self._ch_cache and (now - self._ch_cache_time) < _CHANNELS_TTL:
@@ -48,7 +50,7 @@ class MessageLogService:
         self._ch_cache_time = now
         return self._ch_cache
 
-    def save_log_channels(self, data: dict) -> None:
+    def save_log_channels(self, data: dict[Any, Any]) -> None:
         """儲存日誌頻道設定"""
         try:
             with open(_CHANNELS_FILE, "w", encoding="utf-8") as f:
@@ -70,7 +72,7 @@ class MessageLogService:
 
     # ─────────────── 訊息日誌 ───────────────
 
-    def load_message_log(self) -> dict:
+    def load_message_log(self) -> dict[Any, Any]:
         """載入訊息日誌 (帶快取)"""
         now = time.monotonic()
         if self._msg_cache is not None and (now - self._msg_cache_time) < _CACHE_TTL:
@@ -87,7 +89,7 @@ class MessageLogService:
         self._msg_cache_time = now
         return self._msg_cache
 
-    def save_message_log(self, data: dict) -> None:
+    def save_message_log(self, data: dict[Any, Any]) -> None:
         """儲存訊息日誌"""
         os.makedirs(os.path.dirname(_LOG_FILE), exist_ok=True)
         try:
@@ -105,7 +107,7 @@ class MessageLogService:
         content: str,
         author_id: int,
         channel_id: int,
-        attachments: Optional[list] = None,
+        attachments: Optional[list[Any]] = None,
     ) -> None:
         """新增訊息記錄"""
         attachment_urls = [a.url for a in attachments] if attachments else []
@@ -160,7 +162,7 @@ class MessageLogService:
         )
         return True
 
-    def get_record(self, guild_id: int, message_id: int) -> Optional[dict]:
+    def get_record(self, guild_id: int, message_id: int) -> Optional[dict[Any, Any]]:
         """取得訊息記錄 (優先快取)"""
         cached = self.message_cache.get(guild_id, message_id)
         if cached is not None:

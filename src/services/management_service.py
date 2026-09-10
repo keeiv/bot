@@ -1,7 +1,7 @@
 """伺服器管理業務邏輯服務 (倉庫追蹤 / 歡迎訊息 / GitHub 輪詢)"""
+from typing import Any
 
 from datetime import datetime
-from datetime import timezone
 import json
 import os
 import shutil
@@ -10,7 +10,6 @@ from typing import Optional
 import aiohttp
 
 from src.utils.time_utils import format_datetime as _format_time
-from src.utils.time_utils import TZ_OFFSET
 
 _DATA_FILE = "data/storage/management.json"
 
@@ -20,17 +19,20 @@ class ManagementService:
 
     def __init__(self) -> None:
         os.makedirs("data/storage", exist_ok=True)
-        self._config: dict = self._load()
+        self._config: dict[Any, Any] = self._load()
         self._session: Optional[aiohttp.ClientSession] = None
 
     # ─────────────── 資料存取 ───────────────
 
-    def _load(self) -> dict:
+    def _load(self) -> dict[Any, Any]:
         if not os.path.exists(_DATA_FILE):
             return {}
         try:
             with open(_DATA_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                result_value = json.load(f)
+                if not isinstance(result_value, dict):
+                    raise TypeError("Unexpected stored or API value: expected dict")
+                return result_value
         except (json.JSONDecodeError, OSError):
             return {}
 
@@ -55,15 +57,18 @@ class ManagementService:
                 shutil.copy2(backup, _DATA_FILE)
 
     @property
-    def config(self) -> dict:
+    def config(self) -> dict[Any, Any]:
         """取得完整設定字典"""
         return self._config
 
-    def get_guild_config(self, guild_id: str) -> dict:
+    def get_guild_config(self, guild_id: str) -> dict[Any, Any]:
         """取得伺服器設定"""
-        return self._config.get(guild_id, {})
+        result_value = self._config.get(guild_id, {})
+        if not isinstance(result_value, dict):
+            raise TypeError("Unexpected stored or API value: expected dict")
+        return result_value
 
-    def update_guild_config(self, guild_id: str, data: dict) -> None:
+    def update_guild_config(self, guild_id: str, data: dict[Any, Any]) -> None:
         """更新伺服器設定的指定欄位"""
         self._config.setdefault(guild_id, {}).update(data)
         self.save()
@@ -95,17 +100,23 @@ class ManagementService:
         self.save()
         return True
 
-    def get_tracked_repos(self, guild_id: str) -> dict:
+    def get_tracked_repos(self, guild_id: str) -> dict[Any, Any]:
         """取得伺服器所有追蹤倉庫"""
-        return self._config.get(guild_id, {}).get("tracked_repos", {})
+        result_value = self._config.get(guild_id, {}).get("tracked_repos", {})
+        if not isinstance(result_value, dict):
+            raise TypeError("Unexpected stored or API value: expected dict")
+        return result_value
 
     # ─────────────── 歡迎訊息 ───────────────
 
-    def get_welcome_config(self, guild_id: str) -> dict:
+    def get_welcome_config(self, guild_id: str) -> dict[Any, Any]:
         """取得歡迎訊息設定"""
-        return self._config.get(guild_id, {}).get("welcome", {})
+        result_value = self._config.get(guild_id, {}).get("welcome", {})
+        if not isinstance(result_value, dict):
+            raise TypeError("Unexpected stored or API value: expected dict")
+        return result_value
 
-    def set_welcome_config(self, guild_id: str, config: dict) -> None:
+    def set_welcome_config(self, guild_id: str, config: dict[Any, Any]) -> None:
         """設定歡迎訊息"""
         self._config.setdefault(guild_id, {})["welcome"] = config
         self.save()
@@ -130,8 +141,8 @@ class ManagementService:
     # ─────────────── GitHub 輪詢 ───────────────
 
     async def check_repo_updates(
-        self, guild_id: str, repo_key: str, repo_data: dict
-    ) -> list[dict]:
+        self, guild_id: str, repo_key: str, repo_data: dict[Any, Any]
+    ) -> list[dict[Any, Any]]:
         """
         檢查單一倉庫的 Commit/PR 更新。
 
@@ -140,7 +151,7 @@ class ManagementService:
         session = await self.get_session()
         owner = repo_data["owner"]
         repo = repo_data["repo"]
-        events: list[dict] = []
+        events: list[dict[Any, Any]] = []
         has_changes = False
 
         try:

@@ -8,7 +8,7 @@ import aiohttp
 class GitHubClient:
     """Client for interacting with GitHub API."""
 
-    def __init__(self, token: str):
+    def __init__(self, token: str) -> None:
         self.token = token
         self.base_url = "https://api.github.com"
         self.headers = {
@@ -49,7 +49,12 @@ class GitHubClient:
             try:
                 async with session.get(url) as response:
                     if response.status == 200:
-                        return await response.json()
+                        result_value = await response.json()
+                        if result_value is None:
+                            return None
+                        if not isinstance(result_value, dict):
+                            raise TypeError("Unexpected stored or API value: expected dict")
+                        return result_value
                     return None
             except Exception as e:
                 print(f"Error fetching repo info: {e}")

@@ -1,6 +1,5 @@
 """GenshinService 單元測試"""
 
-import os
 
 from src.services.genshin_service import GenshinService
 

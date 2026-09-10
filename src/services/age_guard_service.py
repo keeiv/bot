@@ -1,4 +1,5 @@
 """年齡守門員業務邏輯服務"""
+from typing import Any
 
 import json
 import os
@@ -18,12 +19,12 @@ class AgeGuardService:
     """年齡守門員資料存取與偵測邏輯"""
 
     def __init__(self) -> None:
-        self._cache: dict = {}
+        self._cache: dict[Any, Any] = {}
         self._cache_time: float = 0.0
 
     # ─────────────── 資料存取 ───────────────
 
-    def _load(self) -> dict:
+    def _load(self) -> dict[Any, Any]:
         now = time.monotonic()
         if self._cache and (now - self._cache_time) < _CACHE_TTL:
             return self._cache
@@ -39,7 +40,7 @@ class AgeGuardService:
         self._cache_time = now
         return self._cache
 
-    def _save(self, data: dict) -> None:
+    def _save(self, data: dict[Any, Any]) -> None:
         os.makedirs(os.path.dirname(_DATA_FILE), exist_ok=True)
         with open(_DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -48,9 +49,12 @@ class AgeGuardService:
 
     # ─────────────── 設定存取 ───────────────
 
-    def get_config(self, guild_id: int) -> dict:
+    def get_config(self, guild_id: int) -> dict[Any, Any]:
         """取得伺服器設定，不存在則回傳空 dict"""
-        return self._load().get(str(guild_id), {})
+        result_value = self._load().get(str(guild_id), {})
+        if not isinstance(result_value, dict):
+            raise TypeError("Unexpected stored or API value: expected dict")
+        return result_value
 
     def set_adult_role(self, guild_id: int, role_id: int) -> None:
         """設定成人身份組"""

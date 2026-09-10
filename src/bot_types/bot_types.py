@@ -3,6 +3,7 @@
 from typing import Any, Dict, Union
 
 import discord
+from discord.ext import commands
 
 # Config types
 GuildConfig = Dict[str, Any]
@@ -27,4 +28,4 @@ GitHubConfig = Dict[str, Any]
 EmbedData = Dict[str, Any]
 
 # Command context types
-Context = Union[discord.ApplicationContext, discord.Interaction]
+Context = Union[commands.Context[Any], discord.Interaction]

@@ -1,4 +1,4 @@
-from datetime import datetime
+from typing import Any
 from typing import Optional
 
 import discord
@@ -13,13 +13,13 @@ class OsuInfo(commands.Cog):
 
     osu = app_commands.Group(name="osu", description="osu! 查詢")
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.service = OsuService()
 
     @app_commands.command(name="user_info_osu", description="查詢 osu! 用戶資訊")
     @app_commands.describe(username="osu! 用戶名")
-    async def user_info_osu(self, interaction: discord.Interaction, username: str):
+    async def user_info_osu(self, interaction: discord.Interaction, username: str) -> None:
         """查詢 osu! 用戶資訊"""
         try:
             await interaction.response.defer()
@@ -102,7 +102,7 @@ class OsuInfo(commands.Cog):
 
     @osu.command(name="bind", description="綁定你的 osu! 帳號")
     @app_commands.describe(username="osu! 用戶名")
-    async def osu_bind(self, interaction: discord.Interaction, username: str):
+    async def osu_bind(self, interaction: discord.Interaction, username: str) -> None:
         try:
             await interaction.response.defer(ephemeral=True)
 
@@ -118,7 +118,7 @@ class OsuInfo(commands.Cog):
             await interaction.followup.send(f"綁定失敗: {str(e)}", ephemeral=True)
 
     @osu.command(name="unbind", description="解除綁定你的 osu! 帳號")
-    async def osu_unbind(self, interaction: discord.Interaction):
+    async def osu_unbind(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
 
         unbound_username = self.service.get_bound_username(interaction.user.id)
@@ -135,8 +135,8 @@ class OsuInfo(commands.Cog):
         username="osu! 用戶名 (不填則使用你已綁定的帳號)", limit="顯示筆數 (1~10)"
     )
     async def osu_best(
-        self, interaction: discord.Interaction, username: str = None, limit: int = 5
-    ):
+        self, interaction: discord.Interaction, username: str | None = None, limit: int = 5
+    ) -> None:
         try:
             await interaction.response.defer()
 
@@ -173,8 +173,8 @@ class OsuInfo(commands.Cog):
         username="osu! 用戶名 (不填則使用你已綁定的帳號)", limit="顯示筆數 (1~10)"
     )
     async def osu_recent(
-        self, interaction: discord.Interaction, username: str = None, limit: int = 5
-    ):
+        self, interaction: discord.Interaction, username: str | None = None, limit: int = 5
+    ) -> None:
         try:
             await interaction.response.defer()
 
@@ -208,7 +208,7 @@ class OsuInfo(commands.Cog):
         except Exception as e:
             await interaction.followup.send(f"查詢失敗: {str(e)}", ephemeral=True)
 
-    def _get_first_attr(self, obj, *names):
+    def _get_first_attr(self, obj: Any, *names: Any) -> Any:
         """按順序嘗試多個屬性名，取到第一個存在且不為 None 的值。"""
         for name in names:
             if hasattr(obj, name):
@@ -217,7 +217,7 @@ class OsuInfo(commands.Cog):
                     return value
         return None
 
-    def _fmt_int(self, value) -> str:
+    def _fmt_int(self, value: Any) -> str:
         """安全格式化整數（含千分位），空值顯示為未知。"""
         if value is None:
             return "未知"
@@ -234,7 +234,7 @@ class OsuInfo(commands.Cog):
             raise ValueError("你尚未綁定 osu! 帳號，請先使用 /osu bind <username>")
         return bound
 
-    def _format_score_line(self, index: int, score) -> str:
+    def _format_score_line(self, index: int, score: Any) -> str:
         beatmap = getattr(score, "beatmap", None)
         beatmapset = getattr(score, "beatmapset", None)
 
@@ -277,6 +277,6 @@ class OsuInfo(commands.Cog):
         return " | ".join([p for p in parts if p])
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     """載入 Cog"""
     await bot.add_cog(OsuInfo(bot))

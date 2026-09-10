@@ -1,3 +1,4 @@
+from typing import Any
 import asyncio
 from datetime import datetime
 from datetime import timedelta
@@ -15,26 +16,26 @@ DATA_DIR = "data"
 TZ_OFFSET = timezone(timedelta(hours=8))
 
 # ───────────── 記憶體快取層 ─────────────
-_config_cache: Optional[dict] = None
+_config_cache: Optional[dict[Any, Any]] = None
 _config_cache_time: float = 0
 _CONFIG_CACHE_TTL: float = 30.0  # 30 秒 TTL
 _config_lock = asyncio.Lock()
 
 
-def _invalidate_config_cache():
+def _invalidate_config_cache() -> None:
     """主動使快取失效"""
     global _config_cache, _config_cache_time
     _config_cache = None
     _config_cache_time = 0
 
 
-def ensure_data_dir():
+def ensure_data_dir() -> None:
     """確保數據目錄存在"""
     for directory in ["data", "data/config", "data/storage", "data/logs/messages"]:
         os.makedirs(directory, exist_ok=True)
 
 
-def load_config():
+def load_config() -> Any:
     """載入配置檔案 (帶記憶體快取)"""
     global _config_cache, _config_cache_time
 
@@ -51,7 +52,7 @@ def load_config():
     return _config_cache
 
 
-def save_config(config):
+def save_config(config: Any) -> None:
     """儲存配置檔案並更新快取 (原子寫入)"""
     global _config_cache, _config_cache_time
     _temp = CONFIG_FILE + ".tmp"
@@ -66,10 +67,15 @@ def get_guild_log_channel(guild_id: int) -> Optional[int]:
     """獲取伺服器的日誌頻道 ID"""
     config = load_config()
     guild_str = str(guild_id)
-    return config.get("guilds", {}).get(guild_str, {}).get("log_channel")
+    result_value = config.get("guilds", {}).get(guild_str, {}).get("log_channel")
+    if result_value is None:
+        return None
+    if not isinstance(result_value, int):
+        raise TypeError("Unexpected stored or API value: expected int")
+    return result_value
 
 
-def set_guild_log_channel(guild_id: int, channel_id: int):
+def set_guild_log_channel(guild_id: int, channel_id: int) -> None:
     """設置伺服器的日誌頻道 ID"""
     config = load_config()
     guild_str = str(guild_id)
@@ -87,10 +93,15 @@ def get_guild_report_channel(guild_id: int) -> Optional[int]:
     """獲取伺服器的舉報頻道 ID"""
     config = load_config()
     guild_str = str(guild_id)
-    return config.get("guilds", {}).get(guild_str, {}).get("report_channel")
+    result_value = config.get("guilds", {}).get(guild_str, {}).get("report_channel")
+    if result_value is None:
+        return None
+    if not isinstance(result_value, int):
+        raise TypeError("Unexpected stored or API value: expected int")
+    return result_value
 
 
-def set_guild_report_channel(guild_id: int, channel_id: int):
+def set_guild_report_channel(guild_id: int, channel_id: int) -> None:
     """設置伺服器的舉報頻道 ID"""
     config = load_config()
     guild_str = str(guild_id)
@@ -106,13 +117,13 @@ def set_guild_report_channel(guild_id: int, channel_id: int):
 
 #  統一訊息日誌 JSON (帶記憶體快取 + 批次寫入)
 
-_messages_cache: Optional[dict] = None
+_messages_cache: Optional[dict[Any, Any]] = None
 _messages_cache_time: float = 0
 _MESSAGES_CACHE_TTL: float = 60.0  # 60 秒 TTL
 _messages_dirty: bool = False
 
 
-def load_messages_log() -> dict:
+def load_messages_log() -> dict[Any, Any]:
     """載入統一的訊息紀錄日誌 (帶記憶體快取)"""
     global _messages_cache, _messages_cache_time
 
@@ -137,7 +148,7 @@ def load_messages_log() -> dict:
     return _messages_cache
 
 
-def save_messages_log(data: dict):
+def save_messages_log(data: dict[Any, Any]) -> None:
     """儲存統一的訊息紀錄日誌並更新快取"""
     global _messages_cache, _messages_cache_time
     try:
@@ -150,8 +161,8 @@ def save_messages_log(data: dict):
 
 
 def add_message_record(
-    guild_id: int, message_id: int, content: str, author_id: int, channel_id: int
-):
+    guild_id: int, message_id: int, content: str, author_id: int | None, channel_id: int | None
+) -> Any:
     """新增訊息記錄（統一 JSON）"""
     records = load_messages_log()
     # 複合金鑰：guild_message
@@ -174,7 +185,7 @@ def add_message_record(
     return False
 
 
-def update_message_edit(guild_id: int, message_id: int, new_content: str):
+def update_message_edit(guild_id: int, message_id: int, new_content: str) -> Any:
     """更新訊息編輯歷史記錄（統一 JSON）"""
     records = load_messages_log()
     msg_key = f"{guild_id}_{message_id}"
@@ -199,7 +210,7 @@ def update_message_edit(guild_id: int, message_id: int, new_content: str):
         return False
 
 
-def mark_message_deleted(guild_id: int, message_id: int):
+def mark_message_deleted(guild_id: int, message_id: int) -> Any:
     """標記訊息為已刪除（統一 JSON）"""
     records = load_messages_log()
     msg_key = f"{guild_id}_{message_id}"
@@ -215,7 +226,7 @@ def mark_message_deleted(guild_id: int, message_id: int):
         return False
 
 
-def get_message_record(guild_id: int, message_id: int) -> Optional[dict]:
+def get_message_record(guild_id: int, message_id: int) -> Optional[dict[Any, Any]]:
     """取得訊息記錄（統一 JSON）"""
     records = load_messages_log()
     msg_key = f"{guild_id}_{message_id}"

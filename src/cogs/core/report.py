@@ -1,4 +1,5 @@
-﻿from datetime import datetime
+from typing import Any
+from datetime import datetime
 
 import discord
 from discord import app_commands
@@ -17,7 +18,7 @@ _service = ReportService()
 class MuteModal(ui.Modal, title="禁言處理"):
     """禁言表單 - 填寫天/時/分/原因"""
 
-    days = ui.TextInput(
+    days = ui.TextInput[Any](
         label="天數",
         placeholder="0",
         default="0",
@@ -25,7 +26,7 @@ class MuteModal(ui.Modal, title="禁言處理"):
         required=False,
     )
 
-    hours = ui.TextInput(
+    hours = ui.TextInput[Any](
         label="小時",
         placeholder="0",
         default="0",
@@ -33,7 +34,7 @@ class MuteModal(ui.Modal, title="禁言處理"):
         required=False,
     )
 
-    minutes = ui.TextInput(
+    minutes = ui.TextInput[Any](
         label="分鐘",
         placeholder="60",
         default="60",
@@ -41,7 +42,7 @@ class MuteModal(ui.Modal, title="禁言處理"):
         required=False,
     )
 
-    reason = ui.TextInput(
+    reason = ui.TextInput[Any](
         label="原因",
         placeholder="請輸入禁言原因...",
         style=discord.TextStyle.paragraph,
@@ -49,12 +50,12 @@ class MuteModal(ui.Modal, title="禁言處理"):
         required=True,
     )
 
-    def __init__(self, target: discord.Member, reported_message: discord.Message):
+    def __init__(self, target: discord.Member, reported_message: discord.Message) -> None:
         super().__init__()
         self.target = target
         self.reported_message = reported_message
 
-    async def on_submit(self, interaction: discord.Interaction):
+    async def on_submit(self, interaction: discord.Interaction) -> None:
         """執行禁言"""
         try:
             d = int(self.days.value or "0")
@@ -83,21 +84,21 @@ class MuteModal(ui.Modal, title="禁言處理"):
 class BanModal(ui.Modal, title="封禁處理"):
     """封禁表單 - 暫時封禁/刪除訊息天數/原因"""
 
-    temp_ban = ui.TextInput(
+    temp_ban = ui.TextInput[Any](
         label="是否暫時封禁 (輸入 '是' 或留空為永久)",
         placeholder="留空 = 永久封禁",
         max_length=10,
         required=False,
     )
 
-    temp_duration = ui.TextInput(
+    temp_duration = ui.TextInput[Any](
         label="暫時封禁時長 (秒，僅暫時封禁時填寫)",
         placeholder="例如: 86400 (1天) / 3600 (1小時)",
         max_length=10,
         required=False,
     )
 
-    delete_days = ui.TextInput(
+    delete_days = ui.TextInput[Any](
         label="刪除幾天內的訊息 (0-7)",
         placeholder="0",
         default="0",
@@ -105,7 +106,7 @@ class BanModal(ui.Modal, title="封禁處理"):
         required=False,
     )
 
-    reason = ui.TextInput(
+    reason = ui.TextInput[Any](
         label="原因",
         placeholder="請輸入封禁原因...",
         style=discord.TextStyle.paragraph,
@@ -113,12 +114,12 @@ class BanModal(ui.Modal, title="封禁處理"):
         required=True,
     )
 
-    def __init__(self, target: discord.Member, reported_message: discord.Message):
+    def __init__(self, target: discord.Member, reported_message: discord.Message) -> None:
         super().__init__()
         self.target = target
         self.reported_message = reported_message
 
-    async def on_submit(self, interaction: discord.Interaction):
+    async def on_submit(self, interaction: discord.Interaction) -> None:
         """執行封禁"""
         reason_text = self.reason.value
         is_temp = self.temp_ban.value.strip() == "是"
@@ -151,7 +152,7 @@ class BanModal(ui.Modal, title="封禁處理"):
 class WarnModal(ui.Modal, title="警告處理"):
     """警告表單 - 警告次數/原因"""
 
-    warn_count = ui.TextInput(
+    warn_count = ui.TextInput[Any](
         label="警告次數",
         placeholder="1",
         default="1",
@@ -159,7 +160,7 @@ class WarnModal(ui.Modal, title="警告處理"):
         required=True,
     )
 
-    reason = ui.TextInput(
+    reason = ui.TextInput[Any](
         label="原因",
         placeholder="請輸入警告原因...",
         style=discord.TextStyle.paragraph,
@@ -167,13 +168,16 @@ class WarnModal(ui.Modal, title="警告處理"):
         required=True,
     )
 
-    def __init__(self, target: discord.Member, reported_message: discord.Message):
+    def __init__(self, target: discord.Member, reported_message: discord.Message) -> None:
         super().__init__()
         self.target = target
         self.reported_message = reported_message
 
-    async def on_submit(self, interaction: discord.Interaction):
+    async def on_submit(self, interaction: discord.Interaction) -> None:
         """執行警告"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         try:
             count = max(1, int(self.warn_count.value or "1"))
         except ValueError:
@@ -193,13 +197,16 @@ class WarnModal(ui.Modal, title="警告處理"):
 class ReportActionView(ui.View):
     """舉報處理面板 - 禁言/封禁/警告 按鈕"""
 
-    def __init__(self, target: discord.Member, reported_message: discord.Message):
+    def __init__(self, target: discord.Member, reported_message: discord.Message) -> None:
         super().__init__(timeout=None)
         self.target = target
         self.reported_message = reported_message
 
     async def _check_permissions(self, interaction: discord.Interaction) -> bool:
         """檢查操作者權限"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return False
         if not interaction.user.guild_permissions.moderate_members:
             await interaction.response.send_message(
                 "[失敗] 你需要有管理成員權限才能處理舉報", ephemeral=True
@@ -208,7 +215,7 @@ class ReportActionView(ui.View):
         return True
 
     @ui.button(label="禁言", style=discord.ButtonStyle.primary, emoji=None)
-    async def mute_button(self, interaction: discord.Interaction, button: ui.Button):
+    async def mute_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
         """開啟禁言表單"""
         if not await self._check_permissions(interaction):
             return
@@ -216,7 +223,7 @@ class ReportActionView(ui.View):
         await interaction.response.send_modal(modal)
 
     @ui.button(label="封禁", style=discord.ButtonStyle.danger, emoji=None)
-    async def ban_button(self, interaction: discord.Interaction, button: ui.Button):
+    async def ban_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
         """開啟封禁表單"""
         if not await self._check_permissions(interaction):
             return
@@ -224,7 +231,7 @@ class ReportActionView(ui.View):
         await interaction.response.send_modal(modal)
 
     @ui.button(label="警告", style=discord.ButtonStyle.secondary, emoji=None)
-    async def warn_button(self, interaction: discord.Interaction, button: ui.Button):
+    async def warn_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
         """開啟警告表單"""
         if not await self._check_permissions(interaction):
             return
@@ -236,7 +243,7 @@ class ReportActionView(ui.View):
 class Report(commands.Cog):
     """右鍵選單舉報系統"""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         # 註冊右鍵選單
         self.report_ctx_menu = app_commands.ContextMenu(
@@ -245,7 +252,7 @@ class Report(commands.Cog):
         )
         self.bot.tree.add_command(self.report_ctx_menu)
 
-    async def cog_unload(self):
+    async def cog_unload(self) -> None:
         """卸載 cog 時移除右鍵選單"""
         self.bot.tree.remove_command(
             self.report_ctx_menu.name, type=self.report_ctx_menu.type
@@ -253,8 +260,11 @@ class Report(commands.Cog):
 
     async def report_message(
         self, interaction: discord.Interaction, message: discord.Message
-    ):
+    ) -> None:
         """右鍵選單 - 舉報訊息"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if not interaction.guild:
             await interaction.response.send_message(
                 "[失敗] 此功能僅限伺服器內使用", ephemeral=True
@@ -285,7 +295,7 @@ class Report(commands.Cog):
             return
 
         report_channel = interaction.guild.get_channel(report_channel_id)
-        if not report_channel:
+        if not isinstance(report_channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
             await interaction.response.send_message(
                 "[失敗] 舉報頻道不存在或已被刪除，請管理員重新設定",
                 ephemeral=True,
@@ -376,8 +386,11 @@ class Report(commands.Cog):
     @app_commands.checks.has_permissions(manage_guild=True)
     async def report_channel_set(
         self, interaction: discord.Interaction, channel: discord.TextChannel
-    ):
+    ) -> None:
         """設定舉報頻道"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         set_guild_report_channel(interaction.guild.id, channel.id)
 
         embed = discord.Embed(
@@ -389,12 +402,15 @@ class Report(commands.Cog):
 
     @report_group.command(name="status", description="查看舉報頻道設定")
     @app_commands.checks.has_permissions(manage_guild=True)
-    async def report_channel_status(self, interaction: discord.Interaction):
+    async def report_channel_status(self, interaction: discord.Interaction) -> None:
         """查看舉報頻道設定"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         channel_id = get_guild_report_channel(interaction.guild.id)
         if channel_id:
             channel = interaction.guild.get_channel(channel_id)
-            if channel:
+            if isinstance(channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
                 desc = f"目前舉報頻道: {channel.mention}"
             else:
                 desc = "已設定的頻道不存在，請重新設定"
@@ -409,6 +425,6 @@ class Report(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     """載入 Report cog"""
     await bot.add_cog(Report(bot))

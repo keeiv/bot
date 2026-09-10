@@ -1,3 +1,4 @@
+from typing import Any
 import base64
 from datetime import datetime
 import uuid
@@ -18,13 +19,13 @@ MAX_IMAGE_SIZE = 8 * 1024 * 1024
 class AppearanceApprovalView(ui.View):
     """外觀變更審核視圖"""
 
-    def __init__(self, request_id: str, cog: "BotAppearance"):
+    def __init__(self, request_id: str, cog: "BotAppearance") -> None:
         super().__init__(timeout=None)
         self.request_id = request_id
         self.cog = cog
 
     @ui.button(label="核准", style=discord.ButtonStyle.success)
-    async def approve_button(self, interaction: discord.Interaction, button: ui.Button):
+    async def approve_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
         """核准變更"""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
@@ -34,7 +35,7 @@ class AppearanceApprovalView(ui.View):
         await self.cog.handle_approval(interaction, self.request_id, approved=True)
 
     @ui.button(label="拒絕", style=discord.ButtonStyle.danger)
-    async def reject_button(self, interaction: discord.Interaction, button: ui.Button):
+    async def reject_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
         """拒絕變更"""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
@@ -47,7 +48,7 @@ class AppearanceApprovalView(ui.View):
 class BotAppearance(commands.Cog):
     """機器人外觀設定 Cog (伺服器級)"""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.service = AppearanceService()
 
@@ -64,8 +65,11 @@ class BotAppearance(commands.Cog):
         image_bytes: bytes,
         content_type: str,
         image_url: str,
-    ):
+    ) -> None:
         """發送審核請求給開發者"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         request_id = str(uuid.uuid4())[:8]
 
         self.service.add_request(
@@ -117,7 +121,7 @@ class BotAppearance(commands.Cog):
         interaction: discord.Interaction,
         request_id: str,
         approved: bool,
-    ):
+    ) -> None:
         """處理審核結果"""
         request = self.service.remove_request(request_id)
         if not request:
@@ -159,7 +163,7 @@ class BotAppearance(commands.Cog):
                 # 通知申請者
                 try:
                     channel = self.bot.get_channel(request["channel_id"])
-                    if channel:
+                    if isinstance(channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
                         notify_embed = discord.Embed(
                             title=f"[成功] {type_name}已更新",
                             description=(
@@ -188,7 +192,7 @@ class BotAppearance(commands.Cog):
             # 通知申請者
             try:
                 channel = self.bot.get_channel(request["channel_id"])
-                if channel:
+                if isinstance(channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
                     notify_embed = discord.Embed(
                         title=f"[拒絕] {type_name}變更未通過",
                         description=(
@@ -203,8 +207,11 @@ class BotAppearance(commands.Cog):
 
     @appearance_group.command(name="name", description="更改機器人在此伺服器的名稱")
     @app_commands.describe(name="新的暱稱 (留空則還原預設)")
-    async def change_name(self, interaction: discord.Interaction, name: str = None):
+    async def change_name(self, interaction: discord.Interaction, name: str | None = None) -> None:
         """更改機器人在伺服器中的暱稱"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message(
                 "[失敗] 你需要管理員權限", ephemeral=True
@@ -244,8 +251,11 @@ class BotAppearance(commands.Cog):
     @app_commands.describe(image="新的頭像圖片 (將送交開發者審核)")
     async def change_avatar(
         self, interaction: discord.Interaction, image: discord.Attachment
-    ):
+    ) -> None:
         """更改機器人在此伺服器的頭像 (需審核)"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message(
                 "[失敗] 你需要管理員權限", ephemeral=True
@@ -293,8 +303,11 @@ class BotAppearance(commands.Cog):
     @app_commands.describe(image="新的橫幅圖片 (將送交開發者審核)")
     async def change_banner(
         self, interaction: discord.Interaction, image: discord.Attachment
-    ):
+    ) -> None:
         """更改機器人在此伺服器的橫幅 (需審核)"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message(
                 "[失敗] 你需要管理員權限", ephemeral=True
@@ -351,8 +364,11 @@ class BotAppearance(commands.Cog):
         self,
         interaction: discord.Interaction,
         target: app_commands.Choice[str],
-    ):
+    ) -> None:
         """將機器人伺服器級頭像/橫幅還原為全域預設"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message(
                 "[失敗] 你需要管理員權限", ephemeral=True
@@ -402,6 +418,6 @@ class BotAppearance(commands.Cog):
             await interaction.followup.send(f"[失敗] API 請求失敗: {e}", ephemeral=True)
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     """載入 Cog"""
     await bot.add_cog(BotAppearance(bot))

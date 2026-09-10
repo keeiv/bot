@@ -16,7 +16,7 @@ class ReportService:
     async def execute_mute(
         self,
         target: discord.Member,
-        moderator: discord.User,
+        moderator: discord.User | discord.Member,
         days: int,
         hours: int,
         minutes: int,
@@ -45,7 +45,7 @@ class ReportService:
     def build_mute_embed(
         self,
         target: discord.Member,
-        moderator: discord.User,
+        moderator: discord.User | discord.Member,
         days: int,
         hours: int,
         minutes: int,
@@ -78,7 +78,7 @@ class ReportService:
     async def execute_ban(
         self,
         target: discord.Member,
-        moderator: discord.User,
+        moderator: discord.User | discord.Member,
         reason: str,
         delete_days: int = 0,
     ) -> tuple[bool, str]:
@@ -101,7 +101,7 @@ class ReportService:
     def build_ban_embed(
         self,
         target: discord.Member,
-        moderator: discord.User,
+        moderator: discord.User | discord.Member,
         reason: str,
         is_temp: bool,
         delete_days: int,
@@ -158,7 +158,7 @@ class ReportService:
     def build_warn_result_embed(
         self,
         target: discord.Member,
-        moderator: discord.User,
+        moderator: discord.User | discord.Member,
         count: int,
         reason: str,
         dm_sent: bool,

@@ -1,0 +1,18 @@
+src\cogs\core\audit_log.py:8:1: F401 'src.utils.time_utils.get_now' imported but unused
+src\cogs\core\error_handler.py:8:1: F401 'src.config.constants.DEVELOPER_IDS' imported but unused
+src\cogs\core\error_handler.py:10:1: F401 'src.config.constants.ERROR_LOG_GUILD_ID' imported but unused
+src\cogs\features\genshin_cog.py:7:1: F401 'typing.Optional' imported but unused
+src\cogs\features\management.py:2:1: F401 'datetime.datetime' imported but unused
+src\cogs\features\management.py:3:1: F401 'datetime.timezone' imported but unused
+src\cogs\features\management.py:10:1: F401 'src.services.management_service._format_time' imported but unused
+src\cogs\features\osu_info.py:1:1: F401 'datetime.datetime' imported but unused
+src\cogs\games\deep_sea_oxygen.py:337:17: F841 local variable 'winner_coins' is assigned to but never used
+src\cogs\games\russian_roulette.py:1:1: F401 'typing.Tuple' imported but unused
+src\cogs\games\russian_roulette.py:281:45: F821 undefined name 'random'
+src\services\blacklist_service.py:7:1: F401 'src.config.constants.DEVELOPER_IDS' imported but unused
+src\services\giveaway_service.py:11:1: F401 'time' imported but unused
+src\services\management_service.py:4:1: F401 'datetime.timezone' imported but unused
+src\services\management_service.py:13:1: F401 'src.utils.time_utils.TZ_OFFSET' imported but unused
+src\services\message_log_service.py:179:39: F821 undefined name 'timedelta'
+src\utils\logger.py:7:1: F401 'src.utils.time_utils.get_now' imported but unused
+tests\test_cogs\test_genshin_service.py:3:1: F401 'os' imported but unused

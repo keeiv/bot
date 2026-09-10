@@ -17,10 +17,7 @@ extend-ignore =
     D107,
     D202,
     D212,
-    D415,
-    F401,
-    F821,
-    F841
+    D415
 exclude = .git,__pycache__,.venv,venv,build,dist
 
 # Naming conventions (supports multilingual)

@@ -1,6 +1,7 @@
+from typing import Any
 import logging
 
-from deep_translator import GoogleTranslator
+from deep_translator import GoogleTranslator  # type: ignore[import-untyped]  # upstream package has no typing metadata
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -28,10 +29,10 @@ LANGUAGES = {
 LANG_CODE_TO_NAME = {v: k for k, v in LANGUAGES.items()}
 
 
-class LanguageSelect(discord.ui.Select):
+class LanguageSelect(discord.ui.Select[Any]):
     """語言選擇下拉選單"""
 
-    def __init__(self, original_text: str):
+    def __init__(self, original_text: str) -> None:
         self.original_text = original_text
         options = [
             discord.SelectOption(label=name, value=code)
@@ -44,7 +45,7 @@ class LanguageSelect(discord.ui.Select):
             max_values=1,
         )
 
-    async def callback(self, interaction: discord.Interaction):
+    async def callback(self, interaction: discord.Interaction) -> None:
         target_lang = self.values[0]
         target_name = LANG_CODE_TO_NAME.get(target_lang, target_lang)
 
@@ -83,7 +84,7 @@ class LanguageSelect(discord.ui.Select):
 class LanguageSelectView(discord.ui.View):
     """包含語言選擇的 View"""
 
-    def __init__(self, original_text: str):
+    def __init__(self, original_text: str) -> None:
         super().__init__(timeout=60)
         self.add_item(LanguageSelect(original_text))
 
@@ -91,7 +92,7 @@ class LanguageSelectView(discord.ui.View):
 class Translate(commands.Cog):
     """右鍵選單翻譯系統"""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.translate_ctx_menu = app_commands.ContextMenu(
             name="翻譯訊息",
@@ -99,7 +100,7 @@ class Translate(commands.Cog):
         )
         self.bot.tree.add_command(self.translate_ctx_menu)
 
-    async def cog_unload(self):
+    async def cog_unload(self) -> None:
         """卸載 cog 時移除右鍵選單"""
         self.bot.tree.remove_command(
             self.translate_ctx_menu.name, type=self.translate_ctx_menu.type
@@ -107,7 +108,7 @@ class Translate(commands.Cog):
 
     async def translate_message(
         self, interaction: discord.Interaction, message: discord.Message
-    ):
+    ) -> None:
         """右鍵選單 - 翻譯訊息"""
         content = message.content
         if not content or not content.strip():
@@ -128,6 +129,6 @@ class Translate(commands.Cog):
         )
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     """Load Cog"""
     await bot.add_cog(Translate(bot))

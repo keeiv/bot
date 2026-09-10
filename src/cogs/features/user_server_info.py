@@ -39,7 +39,7 @@ class OsuInfoCogProtocol(Protocol):
 class UserServerInfo(commands.Cog):
     """用戶和伺服器資訊Cog"""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
     def format_time(self, dt: datetime) -> str:
@@ -115,7 +115,7 @@ class UserServerInfo(commands.Cog):
     ) -> LayoutView:
         """建立戶資訊畫面。"""
         view = LayoutView(timeout=None)
-        container = Container(accent_color=discord.Color.from_rgb(52, 152, 219))
+        container = Container[Any](accent_color=discord.Color.from_rgb(52, 152, 219))
 
         container.add_item(
             Section(
@@ -178,7 +178,7 @@ class UserServerInfo(commands.Cog):
         banner = getattr(user, "banner", None)
         if banner:
             self.add_separator(container, discord.SeparatorSpacing.large)
-            gallery = MediaGallery()
+            gallery = MediaGallery[Any]()
             gallery.add_item(media=banner.url, description="用戶橫幅")
             container.add_item(gallery)
 
@@ -200,7 +200,7 @@ class UserServerInfo(commands.Cog):
     ) -> LayoutView:
         """建立伺服器資訊畫面。"""
         view = LayoutView(timeout=None)
-        container = Container(accent_color=discord.Color.from_rgb(46, 204, 113))
+        container = Container[Any](accent_color=discord.Color.from_rgb(46, 204, 113))
 
         summary_lines = (
             f"伺服器：**{self.truncate_text(guild.name, 200)}**",
@@ -275,7 +275,7 @@ class UserServerInfo(commands.Cog):
 
         if guild.banner:
             self.add_separator(container, discord.SeparatorSpacing.large)
-            gallery = MediaGallery()
+            gallery = MediaGallery[Any]()
             gallery.add_item(media=guild.banner.url, description="伺服器橫幅")
             container.add_item(gallery)
 
@@ -286,7 +286,7 @@ class UserServerInfo(commands.Cog):
     @app_commands.describe(user="要查詢的用戶 (不填默認為自己)")
     async def user_info(
         self, interaction: discord.Interaction, user: Optional[discord.User] = None
-    ):
+    ) -> None:
         """顯示用戶資訊"""
         try:
             target_user = user or interaction.user
@@ -409,7 +409,7 @@ class UserServerInfo(commands.Cog):
             )
 
     @app_commands.command(name="server_info", description="顯示伺服器資訊")
-    async def server_info(self, interaction: discord.Interaction):
+    async def server_info(self, interaction: discord.Interaction) -> None:
         """顯示伺服器資訊"""
         try:
             guild = interaction.guild
@@ -507,6 +507,6 @@ class UserServerInfo(commands.Cog):
             )
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     """載入 Cog"""
     await bot.add_cog(UserServerInfo(bot))

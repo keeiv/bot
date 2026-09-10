@@ -1,4 +1,4 @@
-﻿"""訊息編輯/刪除日誌 Cog"""
+"""訊息編輯/刪除日誌 Cog"""
 
 from datetime import timedelta
 from datetime import timezone
@@ -8,6 +8,7 @@ from discord.ext import commands
 from discord.ext import tasks
 
 from src.services.message_log_service import MessageLogService
+from src.cogs.features.achievements import Achievements
 from src.utils.config_manager import ensure_data_dir
 
 TZ_OFFSET = timezone(timedelta(hours=8))
@@ -16,17 +17,17 @@ TZ_OFFSET = timezone(timedelta(hours=8))
 class MessageLogger(commands.Cog):
     """訊息編輯和刪除日誌 Cog"""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.service = MessageLogService()
         ensure_data_dir()
         self._cleanup_task.start()
 
-    def cog_unload(self):
+    async def cog_unload(self) -> None:
         self._cleanup_task.cancel()
 
     @tasks.loop(hours=24)
-    async def _cleanup_task(self):
+    async def _cleanup_task(self) -> None:
         """定期清理超過保留天數的舊訊息日誌"""
         await self.bot.wait_until_ready()
         try:
@@ -39,7 +40,7 @@ class MessageLogger(commands.Cog):
     # ─────────────── 事件監聽 ───────────────
 
     @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
+    async def on_message(self, message: discord.Message) -> None:
         """監聽所有訊息，記錄內容以備後用"""
         if message.author.bot or message.guild is None:
             return
@@ -54,9 +55,9 @@ class MessageLogger(commands.Cog):
             )
 
     @commands.Cog.listener()
-    async def on_message_edit(self, before: discord.Message, after: discord.Message):
+    async def on_message_edit(self, before: discord.Message, after: discord.Message) -> None:
         """監聽訊息編輯"""
-        if before.author.bot or before.content == after.content:
+        if before.guild is None or before.author.bot or before.content == after.content:
             return
         try:
             guild_id = before.guild.id
@@ -113,7 +114,7 @@ class MessageLogger(commands.Cog):
 
             try:
                 achievements_cog = self.bot.get_cog("Achievements")
-                if achievements_cog:
+                if isinstance(achievements_cog, Achievements):
                     achievements_cog.trigger_edit_achievement(user_id, guild_id)
             except Exception as e:
                 print(f"[成就] 編輯成就觸發失敗: {e}")
@@ -122,9 +123,9 @@ class MessageLogger(commands.Cog):
             print(f"[失敗] 編輯監聽出錯: {e}")
 
     @commands.Cog.listener()
-    async def on_message_delete(self, message: discord.Message):
+    async def on_message_delete(self, message: discord.Message) -> None:
         """監聽訊息刪除"""
-        if message.author.bot:
+        if message.guild is None or message.author.bot:
             return
         try:
             guild_id = message.guild.id
@@ -175,7 +176,7 @@ class MessageLogger(commands.Cog):
 
             try:
                 achievements_cog = self.bot.get_cog("Achievements")
-                if achievements_cog:
+                if isinstance(achievements_cog, Achievements):
                     achievements_cog.trigger_delete_achievement(user_id, guild_id)
             except Exception as e:
                 print(f"[成就] 刪除成就觸發失敗: {e}")
@@ -192,8 +193,11 @@ class MessageLogger(commands.Cog):
     @discord.app_commands.default_permissions(administrator=True)
     async def set_log_channel(
         self, interaction: discord.Interaction, channel: discord.TextChannel
-    ):
+    ) -> None:
         """設置日誌頻道"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message(
                 "[失敗] 你需要管理員權限才能使用此指令", ephemeral=True
@@ -209,6 +213,6 @@ class MessageLogger(commands.Cog):
         await interaction.followup.send(embed=embed)
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     """載入 Cog"""
     await bot.add_cog(MessageLogger(bot))

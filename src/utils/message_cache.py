@@ -11,7 +11,7 @@ TZ_OFFSET = timezone(timedelta(hours=8))
 class MessageCache:
     """訊息內存緩存 - LRU 策略，提升查詢速度（支援同步和異步操作）"""
 
-    def __init__(self, max_size: int = 1000, ttl_seconds: int = 3600):
+    def __init__(self, max_size: int = 1000, ttl_seconds: int = 3600) -> None:
         """
         初始化訊息緩存
 

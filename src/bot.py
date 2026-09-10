@@ -8,13 +8,17 @@ from discord.ext import commands
 from dotenv import load_dotenv
 
 from src.utils.blacklist_manager import BlacklistManager
+from src.utils.runtime import close_optimizations
+from src.utils.runtime import initialize_optimizations
 
 load_dotenv()
 
 
 class BlacklistCheckTree(app_commands.CommandTree):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        bot: Bot = interaction.client
+        bot = interaction.client
+        if not isinstance(bot, Bot):
+            raise TypeError("Blacklist tree requires Bot")
         cmd_name = interaction.command.name if interaction.command else None
         if cmd_name in ["申訴", "申訴狀態"]:
             return True
@@ -51,16 +55,16 @@ class BlacklistCheckTree(app_commands.CommandTree):
             color=discord.Color.red(),
         )
         # 動態載入申訴按鈕 (避免循環 import)
-        from src.cogs.core.blacklist import BlockedNoticeView
+        from src.cogs.core.blacklist import Blacklist, BlockedNoticeView
 
         blacklist_cog = bot.get_cog("Blacklist")
-        view = BlockedNoticeView(blacklist_cog) if blacklist_cog else None
+        view = BlockedNoticeView(blacklist_cog) if isinstance(blacklist_cog, Blacklist) else discord.ui.View(timeout=30)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
         return False
 
 
 class Bot(commands.Bot):
-    def __init__(self):
+    def __init__(self) -> None:
         intents = discord.Intents.default()
         intents.message_content = True
         intents.guilds = True
@@ -75,19 +79,26 @@ class Bot(commands.Bot):
         self.api_base = "https://api.cathome.shop/v1/blacklist"
         self.blacklist_manager = BlacklistManager(self.api_key, self.api_base)
 
-    async def setup_hook(self):
+    async def setup_hook(self) -> None:
+        await initialize_optimizations()
         await self.blacklist_manager.setup()
         await self.load_cogs()
         await self.tree.sync()
 
-    async def close(self):
-        await self.blacklist_manager.close()
-        await super().close()
+    async def close(self) -> None:
+        try:
+            await super().close()
+        finally:
+            try:
+                await self.blacklist_manager.close()
+            finally:
+                await close_optimizations()
 
-    async def load_cogs(self):
+    async def load_cogs(self) -> None:
         base_package = "src.cogs"
         cogs_path = os.path.join(os.path.dirname(__file__), "cogs")
         loaded = 0
+        failures = []
         for module_info in pkgutil.walk_packages(
             path=[cogs_path],
             prefix=f"{base_package}.",
@@ -100,9 +111,12 @@ class Bot(commands.Bot):
                 loaded += 1
             except Exception as e:
                 print(f"[Cog] 載入失敗: {module_info.name} - {e}")
+                failures.append(module_info.name)
         print(f"[Cog] 共載入 {loaded} 個模組")
+        if failures:
+            raise RuntimeError(f"Cog 載入失敗: {', '.join(failures)}")
 
-    async def on_message(self, message: discord.Message):
+    async def on_message(self, message: discord.Message) -> None:
         if message.author.bot:
             await self.process_commands(message)
             return
@@ -129,15 +143,15 @@ class Bot(commands.Bot):
                 ),
                 color=discord.Color.red(),
             )
-            from src.cogs.core.blacklist import BlockedNoticeView
+            from src.cogs.core.blacklist import Blacklist, BlockedNoticeView
 
             blacklist_cog = self.get_cog("Blacklist")
-            view = BlockedNoticeView(blacklist_cog) if blacklist_cog else None
+            view = BlockedNoticeView(blacklist_cog) if isinstance(blacklist_cog, Blacklist) else discord.ui.View(timeout=30)
             await message.reply(embed=embed, view=view, delete_after=30)
             return
         await self.process_commands(message)
 
-    async def on_member_join(self, member: discord.Member):
+    async def on_member_join(self, member: discord.Member) -> None:
         entry = await self.blacklist_manager.check(member.id)
         if entry:
             mode = entry.get("mode")

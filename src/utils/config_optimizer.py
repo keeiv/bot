@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+from copy import deepcopy
 import json
 from pathlib import Path
 import threading
@@ -8,14 +9,14 @@ from typing import Any, Callable, Dict, Optional
 
 
 class ConfigFileWatcher:
-    def __init__(self, file_path: str, callback: Callable):
+    def __init__(self, file_path: str, callback: Callable[..., Any]) -> None:
         self.file_path = Path(file_path)
         self.callback = callback
-        self.last_mtime = 0
+        self.last_mtime = 0.0
         self._running = False
-        self._task = None
+        self._task: asyncio.Task[None] | None = None
 
-    async def start_watching(self):
+    def start_watching(self) -> None:
         if self._running:
             return
 
@@ -24,7 +25,7 @@ class ConfigFileWatcher:
             self.file_path.stat().st_mtime if self.file_path.exists() else 0
         )
 
-        async def watch_loop():
+        async def watch_loop() -> None:
             while self._running:
                 try:
                     if self.file_path.exists():
@@ -40,15 +41,15 @@ class ConfigFileWatcher:
 
         self._task = asyncio.create_task(watch_loop())
 
-    def stop_watching(self):
+    def stop_watching(self) -> None:
         self._running = False
         if self._task:
             self._task.cancel()
 
 
 class ConfigCache:
-    def __init__(self, ttl: int = 300):
-        self._cache: Dict[str, Dict] = {}
+    def __init__(self, ttl: int = 300) -> None:
+        self._cache: Dict[str, tuple[Any, float]] = {}
         self._ttl = ttl
         self._lock = threading.RLock()
 
@@ -66,7 +67,7 @@ class ConfigCache:
         with self._lock:
             self._cache[key] = (value, time.time())
 
-    def clear(self, pattern: str = None) -> None:
+    def clear(self, pattern: str | None = None) -> None:
         with self._lock:
             if pattern:
                 keys_to_remove = [k for k in self._cache.keys() if pattern in k]
@@ -81,18 +82,20 @@ class ConfigCache:
 
 
 class OptimizedConfigManager:
-    def __init__(self, base_path: str = "data/storage"):
+    def __init__(self, base_path: str = "data/storage") -> None:
         self.base_path = Path(base_path)
         self.base_path.mkdir(parents=True, exist_ok=True)
 
         self._file_locks: Dict[str, threading.Lock] = {}
         self._cache = ConfigCache()
         self._watchers: Dict[str, ConfigFileWatcher] = {}
-        self._write_queue = asyncio.Queue()
+        self._write_queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
         self._batch_size = 10
         self._batch_timeout = 5.0
 
-        asyncio.create_task(self._start_batch_writer())
+        self._closed = False
+        self._write_errors: list[str] = []
+        self._writer_task = asyncio.create_task(self._start_batch_writer())
 
     def _get_file_lock(self, file_path: str) -> threading.Lock:
         if file_path not in self._file_locks:
@@ -102,27 +105,31 @@ class OptimizedConfigManager:
     def _get_file_hash(self, file_path: str) -> str:
         try:
             with open(file_path, "rb") as f:
-                return hashlib.md5(f.read()).hexdigest()
+                return hashlib.sha256(f.read()).hexdigest()
         except OSError:
             return ""
 
     def _get_cache_key(self, file_path: str) -> str:
         return f"config:{file_path}"
 
-    async def load_config(self, file_name: str, default: Dict = None) -> Dict[str, Any]:
+    async def load_config(self, file_name: str, default: Dict[Any, Any] | None = None) -> Dict[str, Any]:
         file_path = self.base_path / file_name
         cache_key = self._get_cache_key(str(file_path))
 
         cached_data = self._cache.get(cache_key)
         if cached_data is not None:
-            return cached_data
+            result_value = cached_data
+            if not isinstance(result_value, dict):
+                raise TypeError("Unexpected stored or API value: expected dict")
+            return result_value
 
         lock = self._get_file_lock(str(file_path))
 
         with lock:
             if not file_path.exists():
                 data = default or {}
-                await self._write_config_immediate(file_name, data)
+                if not self._write_config_locked(file_name, data):
+                    raise OSError(f"Cannot create config {file_name}")
                 return data
 
             try:
@@ -130,7 +137,10 @@ class OptimizedConfigManager:
                     data = json.load(f)
 
                 self._cache.set(cache_key, data)
-                return data
+                result_value = data
+                if not isinstance(result_value, dict):
+                    raise TypeError("Unexpected stored or API value: expected dict")
+                return result_value
             except json.JSONDecodeError as e:
                 print(f"[Config] JSON decode error in {file_name}: {e}")
                 backup_path = file_path.with_suffix(f".{int(time.time())}.backup")
@@ -141,10 +151,14 @@ class OptimizedConfigManager:
                 return default or {}
 
     async def save_config(self, file_name: str, data: Dict[str, Any]) -> bool:
+        if self._closed:
+            raise RuntimeError("Config manager is closed")
         try:
+            snapshot = deepcopy(data)
             await self._write_queue.put(
-                {"file_name": file_name, "data": data, "timestamp": time.time()}
+                {"file_name": file_name, "data": snapshot, "timestamp": time.time()}
             )
+            self._cache.set(self._get_cache_key(str(self.base_path / file_name)), snapshot)
             return True
         except Exception as e:
             print(f"[Config] Error queueing save for {file_name}: {e}")
@@ -157,51 +171,54 @@ class OptimizedConfigManager:
         lock = self._get_file_lock(str(file_path))
 
         with lock:
+            return self._write_config_locked(file_name, data)
+
+    def _write_config_locked(self, file_name: str, data: Dict[str, Any]) -> bool:
+        """呼叫者持有檔案鎖；此函式不 await，也不重新取得鎖。"""
+        file_path = self.base_path / file_name
+        try:
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            temp_path = file_path.with_name(file_path.name + ".tmp")
+            with open(temp_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            temp_path.replace(file_path)
+            self._cache.set(self._get_cache_key(str(file_path)), deepcopy(data))
+            return True
+        except OSError as e:
+            print(f"[Config] Error writing {file_name}: {e}")
+            return False
+
+    async def _start_batch_writer(self) -> None:
+        while True:
+            item = await self._write_queue.get()
             try:
-                temp_path = file_path.with_suffix(".tmp")
+                if item is None:
+                    return
+                await self._process_write_batch([item])
+            finally:
+                self._write_queue.task_done()
 
-                with open(temp_path, "w", encoding="utf-8") as f:
-                    json.dump(data, f, ensure_ascii=False, indent=2)
-
-                temp_path.replace(file_path)
-
-                cache_key = self._get_cache_key(str(file_path))
-                self._cache.set(cache_key, data)
-
-                return True
-            except Exception as e:
-                print(f"[Config] Error writing {file_name}: {e}")
-                return False
-
-    async def _start_batch_writer(self):
-        async def batch_writer():
-            while True:
-                batch = []
-                deadline = time.time() + self._batch_timeout
-
-                while len(batch) < self._batch_size and time.time() < deadline:
-                    try:
-                        timeout = max(0.1, deadline - time.time())
-                        item = await asyncio.wait_for(
-                            self._write_queue.get(), timeout=timeout
-                        )
-                        batch.append(item)
-                    except asyncio.TimeoutError:
-                        break
-
-                if batch:
-                    await self._process_write_batch(batch)
-
-                await asyncio.sleep(0.1)
-
-        asyncio.create_task(batch_writer())
-
-    async def _process_write_batch(self, batch: list):
+    async def _process_write_batch(self, batch: list[Any]) -> None:
         for item in batch:
             try:
-                await self._write_config_immediate(item["file_name"], item["data"])
+                if not await self._write_config_immediate(item["file_name"], item["data"]):
+                    self._write_errors.append(item["file_name"])
             except Exception as e:
+                self._write_errors.append(item["file_name"])
                 print(f"[Config] Batch write error: {e}")
+
+    async def close(self) -> None:
+        """停止監看並等待已接受的寫入完成；寫入失敗不能靜默略過。"""
+        if not self._closed:
+            self._closed = True
+            watcher_tasks = [w._task for w in self._watchers.values() if w._task]
+            self.stop_watching()
+            if watcher_tasks:
+                await asyncio.gather(*watcher_tasks, return_exceptions=True)
+            await self._write_queue.put(None)
+        await self._writer_task
+        if self._write_errors:
+            raise OSError(f"Failed config writes: {', '.join(self._write_errors)}")
 
     async def update_config(
         self, file_name: str, updates: Dict[str, Any], merge: bool = True
@@ -209,16 +226,13 @@ class OptimizedConfigManager:
         current_data = await self.load_config(file_name)
 
         if merge:
-            if isinstance(current_data, dict) and isinstance(updates, dict):
-                self._deep_merge(current_data, updates)
-            else:
-                current_data = updates
+            self._deep_merge(current_data, updates)
         else:
             current_data = updates
 
         return await self.save_config(file_name, current_data)
 
-    def _deep_merge(self, base: Dict, updates: Dict):
+    def _deep_merge(self, base: Dict[Any, Any], updates: Dict[Any, Any]) -> None:
         for key, value in updates.items():
             if key in base and isinstance(base[key], dict) and isinstance(value, dict):
                 self._deep_merge(base[key], value)
@@ -255,23 +269,23 @@ class OptimizedConfigManager:
         current[keys[-1]] = value
         return await self.save_config(file_name, data)
 
-    def watch_config(self, file_name: str, callback: Callable) -> None:
+    def watch_config(self, file_name: str, callback: Callable[..., Any]) -> None:
         file_path = self.base_path / file_name
 
         if str(file_path) in self._watchers:
             self._watchers[str(file_path)].stop_watching()
 
-        async def on_file_change():
+        async def on_file_change() -> None:
             cache_key = self._get_cache_key(str(file_path))
             self._cache.clear(cache_key)
             await callback()
 
         watcher = ConfigFileWatcher(str(file_path), on_file_change)
-        asyncio.create_task(watcher.start_watching())
+        watcher.start_watching()
 
         self._watchers[str(file_path)] = watcher
 
-    def stop_watching(self, file_name: str = None) -> None:
+    def stop_watching(self, file_name: str | None = None) -> None:
         if file_name:
             file_path = str(self.base_path / file_name)
             if file_path in self._watchers:
@@ -282,15 +296,15 @@ class OptimizedConfigManager:
                 watcher.stop_watching()
             self._watchers.clear()
 
-    async def backup_config(self, file_name: str, backup_suffix: str = None) -> str:
+    async def backup_config(self, file_name: str, backup_suffix: str | None = None) -> str:
         file_path = self.base_path / file_name
         if not file_path.exists():
             raise FileNotFoundError(f"Config file {file_name} not found")
 
         if backup_suffix is None:
-            backup_suffix = int(time.time())
+            backup_suffix = str(int(time.time()))
 
-        backup_path = file_path.with_suffix(f".{backup_suffix}.backup")
+        backup_path = file_path.with_name(f"{file_path.name}.{backup_suffix}.backup")
 
         lock = self._get_file_lock(str(file_path))
         with lock:
@@ -326,13 +340,14 @@ class OptimizedConfigManager:
         }
 
 
-config_manager = None
+config_manager: OptimizedConfigManager | None = None
 
 
-def init_config_manager(base_path: str = "data/storage"):
+def init_config_manager(base_path: str = "data/storage") -> None:
     global config_manager
-    config_manager = OptimizedConfigManager(base_path)
+    if config_manager is None or config_manager._closed:
+        config_manager = OptimizedConfigManager(base_path)
 
 
-def get_config_manager() -> OptimizedConfigManager:
+def get_config_manager() -> OptimizedConfigManager | None:
     return config_manager

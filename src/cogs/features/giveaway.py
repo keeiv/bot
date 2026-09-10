@@ -1,4 +1,5 @@
-﻿"""抽獎系統 Cog"""
+"""抽獎系統 Cog"""
+from typing import Any
 
 from datetime import datetime
 from datetime import timedelta
@@ -22,7 +23,7 @@ _service = GiveawayService()
 class GiveawayView(ui.View):
     """抽獎按鈕視圖 (持久化)"""
 
-    def __init__(self, giveaway_id: str):
+    def __init__(self, giveaway_id: str) -> None:
         super().__init__(timeout=None)
         self.giveaway_id = giveaway_id
 
@@ -32,7 +33,7 @@ class GiveawayView(ui.View):
         emoji=GIVEAWAY_EMOJI,
         custom_id="giveaway_enter",
     )
-    async def enter_button(self, interaction: discord.Interaction, button: ui.Button):
+    async def enter_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
         """參加抽獎 (使用鎖防止競態條件)"""
         async with _service.lock:
             action, count = _service.toggle_participant(
@@ -55,6 +56,8 @@ class GiveawayView(ui.View):
             )
 
         try:
+            if interaction.message is None:
+                return
             embed = (
                 interaction.message.embeds[0] if interaction.message.embeds else None
             )
@@ -90,26 +93,26 @@ class GiveawayView(ui.View):
 class Giveaway(commands.Cog):
     """抽獎系統 Cog"""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.service = _service
         self.check_giveaways.start()
 
-    def cog_unload(self):
+    async def cog_unload(self) -> None:
         self.check_giveaways.cancel()
 
     @commands.Cog.listener()
-    async def on_ready(self):
+    async def on_ready(self) -> None:
         """重新載入進行中抽獎的視圖"""
         data = self.service._load()
         for gid, ga in data.items():
             if not ga.get("ended"):
-                self.bot.add_view(GiveawayView(gid))
+                self.bot.add_view(GiveawayView(gid), message_id=ga["message_id"])
 
     # ───────────── 定時檢查 ─────────────
 
     @tasks.loop(seconds=30)
-    async def check_giveaways(self):
+    async def check_giveaways(self) -> None:
         """檢查並結算到期的抽獎"""
         await self.bot.wait_until_ready()
         expired = self.service.check_expired()
@@ -138,10 +141,13 @@ class Giveaway(commands.Cog):
         prize: str,
         duration: str,
         winners: int = 1,
-        channel: discord.TextChannel = None,
-        description: str = None,
-    ):
+        channel: discord.TextChannel | None = None,
+        description: str | None = None,
+    ) -> None:
         """建立新抽獎"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         total_seconds = self.service.parse_duration(duration)
         if total_seconds is None or total_seconds < 60:
             await interaction.response.send_message(
@@ -157,6 +163,9 @@ class Giveaway(commands.Cog):
             return
 
         target_channel = channel or interaction.channel
+        if not isinstance(target_channel, (discord.TextChannel, discord.Thread)):
+            await interaction.response.send_message("請選擇文字頻道或討論串。", ephemeral=True)
+            return
         now = datetime.now(TZ_OFFSET)
         end_dt = now + timedelta(seconds=total_seconds)
         giveaway_id = f"{interaction.guild_id}_{int(now.timestamp())}"
@@ -197,7 +206,7 @@ class Giveaway(commands.Cog):
                 "winner_ids": [],
             },
         )
-        self.bot.add_view(view)
+        self.bot.add_view(view, message_id=msg.id)
 
         confirm = discord.Embed(
             title="[成功] 抽獎已建立",
@@ -208,7 +217,7 @@ class Giveaway(commands.Cog):
 
     @giveaway_group.command(name="end", description="提前結束抽獎")
     @app_commands.describe(giveaway_id="抽獎 ID (可從 Embed footer 查看)")
-    async def end_cmd(self, interaction: discord.Interaction, giveaway_id: str):
+    async def end_cmd(self, interaction: discord.Interaction, giveaway_id: str) -> None:
         """提前結束抽獎"""
         ga = self.service.get(giveaway_id)
         if not ga:
@@ -237,8 +246,8 @@ class Giveaway(commands.Cog):
         self,
         interaction: discord.Interaction,
         giveaway_id: str,
-        winners: int = None,
-    ):
+        winners: int | None = None,
+    ) -> None:
         """重新抽取得獎者"""
         ga = self.service.get(giveaway_id)
         if not ga or not ga.get("ended"):
@@ -257,7 +266,7 @@ class Giveaway(commands.Cog):
         mentions = ", ".join(f"<@{uid}>" for uid in winner_ids)
         try:
             ch = self.bot.get_channel(ga["channel_id"])
-            if ch:
+            if isinstance(ch, discord.abc.Messageable):
                 reroll_embed = discord.Embed(
                     title=f"{GIVEAWAY_EMOJI} 重新抽獎結果",
                     description=f"獎品: **{ga['prize']}**\n新得獎者: {mentions}",
@@ -272,8 +281,11 @@ class Giveaway(commands.Cog):
         )
 
     @giveaway_group.command(name="list", description="查看進行中的抽獎")
-    async def list_cmd(self, interaction: discord.Interaction):
+    async def list_cmd(self, interaction: discord.Interaction) -> None:
         """列出伺服器所有進行中的抽獎"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         await interaction.response.defer()
         active = self.service.list_active(interaction.guild_id)
 
@@ -304,7 +316,7 @@ class Giveaway(commands.Cog):
 
     # ───────────── 內部方法 ─────────────
 
-    async def _end_giveaway(self, giveaway_id: str, ga: dict):
+    async def _end_giveaway(self, giveaway_id: str, ga: dict[Any, Any]) -> None:
         """結算抽獎並發送結果"""
         winner_ids = self.service.pick_winners(giveaway_id)
         self.service.mark_ended(giveaway_id, winner_ids)
@@ -333,7 +345,7 @@ class Giveaway(commands.Cog):
 
         try:
             ch = self.bot.get_channel(ga["channel_id"])
-            if not ch:
+            if not isinstance(ch, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
                 ch = await self.bot.fetch_channel(ga["channel_id"])
 
             try:
@@ -367,6 +379,6 @@ class Giveaway(commands.Cog):
             pass
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     """載入 Cog"""
     await bot.add_cog(Giveaway(bot))

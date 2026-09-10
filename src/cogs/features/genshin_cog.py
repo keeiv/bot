@@ -1,10 +1,10 @@
+from typing import Any
 import asyncio
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 import json
 import os
-from typing import Optional
 
 import discord
 from discord import app_commands
@@ -20,7 +20,7 @@ TZ_OFFSET = timezone(timedelta(hours=8))
 class CookieBindModal(discord.ui.Modal):
     """彈出式輸入視窗：安全輸入 Cookie 各個欄位"""
 
-    def __init__(self, service: "GenshinService", cog: "GenshinCog", region: str):
+    def __init__(self, service: "GenshinService", cog: "GenshinCog", region: str) -> None:
         title = (
             "安全綁定國服 (米游社) 帳號"
             if region == "cn"
@@ -33,19 +33,19 @@ class CookieBindModal(discord.ui.Modal):
 
         # 根據區域設定不同的欄位
         if region == "cn":
-            self.ltoken = discord.ui.TextInput(
+            self.ltoken = discord.ui.TextInput[Any](
                 label="ltoken",
                 style=discord.TextStyle.short,
                 placeholder="請貼上 ltoken 的數值 (以 v2_CAIS 或 v2_CAES... 開頭的長字串)",
                 required=True,
             )
-            self.ltuid = discord.ui.TextInput(
+            self.ltuid = discord.ui.TextInput[Any](
                 label="ltuid",
                 style=discord.TextStyle.short,
                 placeholder="請貼上 ltuid 的數值 (您的純數字米游社帳號 ID)",
                 required=True,
             )
-            self.cookie_token = discord.ui.TextInput(
+            self.cookie_token = discord.ui.TextInput[Any](
                 label="cookie_token (選填，兌換禮包碼與部分功能所需)",
                 style=discord.TextStyle.short,
                 placeholder="請貼上 cookie_token 的數值...",
@@ -55,19 +55,19 @@ class CookieBindModal(discord.ui.Modal):
             self.add_item(self.ltuid)
             self.add_item(self.cookie_token)
         else:
-            self.ltoken_v2 = discord.ui.TextInput(
+            self.ltoken_v2 = discord.ui.TextInput[Any](
                 label="ltoken_v2",
                 style=discord.TextStyle.short,
                 placeholder="請貼上 ltoken_v2 的數值 (以 v2_CAIS 或 v2_CAES... 開頭的長字串)",
                 required=True,
             )
-            self.ltuid_v2 = discord.ui.TextInput(
+            self.ltuid_v2 = discord.ui.TextInput[Any](
                 label="ltuid_v2",
                 style=discord.TextStyle.short,
                 placeholder="請貼上 ltuid_v2 的數值 (您的純數字 HoYoLAB 帳號 ID)",
                 required=True,
             )
-            self.cookie_token_v2 = discord.ui.TextInput(
+            self.cookie_token_v2 = discord.ui.TextInput[Any](
                 label="cookie_token_v2 (選填，兌換禮包碼與部分功能所需)",
                 style=discord.TextStyle.short,
                 placeholder="請貼上 cookie_token_v2 的數值...",
@@ -77,7 +77,7 @@ class CookieBindModal(discord.ui.Modal):
             self.add_item(self.ltuid_v2)
             self.add_item(self.cookie_token_v2)
 
-    async def on_submit(self, interaction: discord.Interaction):
+    async def on_submit(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
 
         if self.region == "cn":
@@ -141,7 +141,7 @@ class CookieBindModal(discord.ui.Modal):
 class TutorialView(discord.ui.View):
     """用於顯示國服/國際服 Cookie 教學的按鈕選單"""
 
-    def __init__(self, cog: "GenshinCog"):
+    def __init__(self, cog: "GenshinCog") -> None:
         super().__init__(timeout=180)
         self.cog = cog
 
@@ -220,15 +220,15 @@ class TutorialView(discord.ui.View):
         label=" 國際服 (HoYoLAB) 教學", style=discord.ButtonStyle.primary
     )
     async def global_tutorial(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
+        self, interaction: discord.Interaction, button: discord.ui.Button[Any]
+    ) -> None:
         embed = self._create_tutorial_embed("global")
         await interaction.response.edit_message(embed=embed, view=self)
 
     @discord.ui.button(label="🇨🇳 國服 (米游社) 教學", style=discord.ButtonStyle.success)
     async def cn_tutorial(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
+        self, interaction: discord.Interaction, button: discord.ui.Button[Any]
+    ) -> None:
         embed = self._create_tutorial_embed("cn")
         await interaction.response.edit_message(embed=embed, view=self)
 
@@ -238,7 +238,7 @@ class GenshinCog(commands.Cog):
 
     mhy_group = app_commands.Group(name="mhy", description="HoYoLAB / 米游社 功能組")
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         """初始化 GenshinCog"""
         self.bot = bot
         self.service = GenshinService()
@@ -247,13 +247,15 @@ class GenshinCog(commands.Cog):
         # 啟動自動簽到背景任務
         self._auto_signin_loop.start()
         # 異步載入角色資料庫快取
-        asyncio.create_task(self._init_character_names())
+        self._character_task = asyncio.create_task(self._init_character_names())
 
-    def cog_unload(self):
+    async def cog_unload(self) -> None:
         """卸載 Cog 時取消背景任務"""
         self._auto_signin_loop.cancel()
+        self._character_task.cancel()
+        await asyncio.gather(self._character_task, return_exceptions=True)
 
-    async def _init_character_names(self):
+    async def _init_character_names(self) -> None:
         """初始化角色資料庫快取"""
         try:
             print("[Genshin Cog] 正在下載與更新角色資料庫快取...")
@@ -271,7 +273,10 @@ class GenshinCog(commands.Cog):
         try:
             with open(self.log_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                return data.get("last_run_date", "")
+                result_value = data.get("last_run_date", "")
+                if not isinstance(result_value, str):
+                    raise TypeError("Unexpected stored or API value: expected str")
+                return result_value
         except Exception:
             return ""
 
@@ -308,7 +313,7 @@ class GenshinCog(commands.Cog):
     # ─────────────── 背景簽到任務 ───────────────
 
     @tasks.loop(minutes=30)
-    async def _auto_signin_loop(self):
+    async def _auto_signin_loop(self) -> None:
         now = datetime.now(TZ_OFFSET)
         # 設定在清晨 8:00 後自動進行簽到
         # 如果今日尚未執行，且目前時間已過 8:00 AM，則開始執行
@@ -348,7 +353,7 @@ class GenshinCog(commands.Cog):
                         print(f"[Genshin Cog] 無法發送通知給使用者 {user_id}: {e}")
 
     @_auto_signin_loop.before_loop
-    async def _before_auto_signin(self):
+    async def _before_auto_signin(self) -> None:
         try:
             await self.bot.wait_until_ready()
         except RuntimeError:
@@ -368,14 +373,14 @@ class GenshinCog(commands.Cog):
             app_commands.Choice(name="國服 (米游社)", value="cn"),
         ]
     )
-    async def mhy_bind(self, interaction: discord.Interaction, region: str):
+    async def mhy_bind(self, interaction: discord.Interaction, region: str) -> None:
         modal = CookieBindModal(self.service, self, region)
         await interaction.response.send_modal(modal)
 
     @mhy_group.command(
         name="tutorial", description="獲取米游社 / HoYoLAB Cookie 的教學指引"
     )
-    async def mhy_tutorial(self, interaction: discord.Interaction):
+    async def mhy_tutorial(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
 
         embed = discord.Embed(
@@ -395,7 +400,7 @@ class GenshinCog(commands.Cog):
     @mhy_group.command(
         name="unbind", description="解除綁定你的 HoYoLAB / 米游社 帳號並刪除 Cookie"
     )
-    async def mhy_unbind(self, interaction: discord.Interaction):
+    async def mhy_unbind(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
 
         success = self.service.unbind_account(interaction.user.id)
@@ -410,7 +415,7 @@ class GenshinCog(commands.Cog):
             )
 
     @mhy_group.command(name="status", description="查看當前帳號綁定狀態與設定")
-    async def mhy_status(self, interaction: discord.Interaction):
+    async def mhy_status(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
 
         user_data = self.service.get_bound_user(interaction.user.id)
@@ -462,7 +467,7 @@ class GenshinCog(commands.Cog):
     @app_commands.describe(enable="是否開啟每日自動簽到")
     async def mhy_toggle_autosignin(
         self, interaction: discord.Interaction, enable: bool
-    ):
+    ) -> None:
         await interaction.response.defer(ephemeral=True)
 
         success = self.service.toggle_auto_sign_in(interaction.user.id, enable)
@@ -477,7 +482,7 @@ class GenshinCog(commands.Cog):
             )
 
     @mhy_group.command(name="checkin", description="手動觸發一次今日的所有遊戲簽到")
-    async def mhy_checkin(self, interaction: discord.Interaction):
+    async def mhy_checkin(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
 
         try:
@@ -522,7 +527,7 @@ class GenshinCog(commands.Cog):
             app_commands.Choice(name="崩壞3rd (Honkai Impact 3rd)", value="honkai"),
         ]
     )
-    async def mhy_notes(self, interaction: discord.Interaction, game: str):
+    async def mhy_notes(self, interaction: discord.Interaction, game: str) -> None:
         await interaction.response.defer()
 
         try:
@@ -690,7 +695,7 @@ class GenshinCog(commands.Cog):
             app_commands.Choice(name="崩壞3rd (Honkai Impact 3rd)", value="honkai"),
         ]
     )
-    async def mhy_redeem(self, interaction: discord.Interaction, game: str, code: str):
+    async def mhy_redeem(self, interaction: discord.Interaction, game: str, code: str) -> None:
         await interaction.response.defer(ephemeral=True)
 
         try:
@@ -733,7 +738,7 @@ class GenshinCog(commands.Cog):
             app_commands.Choice(name="崩壞3rd (Honkai Impact 3rd)", value="honkai"),
         ]
     )
-    async def mhy_stats(self, interaction: discord.Interaction, game: str):
+    async def mhy_stats(self, interaction: discord.Interaction, game: str) -> None:
         await interaction.response.defer()
 
         try:
@@ -799,7 +804,7 @@ class GenshinCog(commands.Cog):
             app_commands.Choice(name="絕區零 (Zenless Zone Zero)", value="zzz"),
         ]
     )
-    async def mhy_abyss(self, interaction: discord.Interaction, game: str):
+    async def mhy_abyss(self, interaction: discord.Interaction, game: str) -> None:
         await interaction.response.defer()
 
         try:
@@ -883,6 +888,6 @@ class GenshinCog(commands.Cog):
             )
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     """載入 Cog"""
     await bot.add_cog(GenshinCog(bot))

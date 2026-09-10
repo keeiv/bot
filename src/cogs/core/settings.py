@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -43,22 +44,25 @@ SETTING_CATEGORIES = [
 class ChannelSelectView(ui.View):
     """選擇頻道的視圖"""
 
-    def __init__(self, setting_key: str, cog: "Settings"):
+    def __init__(self, setting_key: str, cog: "Settings") -> None:
         super().__init__(timeout=120)
         self.setting_key = setting_key
         self.cog = cog
 
     @ui.select(
-        cls=ui.ChannelSelect,
+        cls=ui.ChannelSelect[Any],
         placeholder="選擇一個文字頻道...",
         channel_types=[discord.ChannelType.text],
         min_values=1,
         max_values=1,
     )
     async def channel_select(
-        self, interaction: discord.Interaction, select: ui.ChannelSelect
-    ):
+        self, interaction: discord.Interaction, select: ui.ChannelSelect[Any]
+    ) -> None:
         """頻道選擇回調"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         channel = select.values[0]
 
         if self.setting_key == "log_channel":
@@ -81,7 +85,7 @@ class ChannelSelectView(ui.View):
         self.stop()
 
     @ui.button(label="取消", style=discord.ButtonStyle.secondary)
-    async def cancel_button(self, interaction: discord.Interaction, button: ui.Button):
+    async def cancel_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
         await interaction.response.send_message("[提示] 已取消", ephemeral=True)
         self.stop()
 
@@ -92,7 +96,7 @@ class ChannelSelectView(ui.View):
 class AntiSpamToggleView(ui.View):
     """防刷屏開關切換"""
 
-    def __init__(self, guild_id: int, current_enabled: bool, cog: "Settings"):
+    def __init__(self, guild_id: int, current_enabled: bool, cog: "Settings") -> None:
         super().__init__(timeout=120)
         self.guild_id = guild_id
         self.cog = cog
@@ -106,7 +110,7 @@ class AntiSpamToggleView(ui.View):
             self.toggle_button.style = discord.ButtonStyle.success
 
     @ui.button(label="切換", style=discord.ButtonStyle.primary)
-    async def toggle_button(self, interaction: discord.Interaction, button: ui.Button):
+    async def toggle_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
         """切換防刷屏開關"""
         anti_spam_cog = self.cog.bot.get_cog("AntiSpam")
         if not anti_spam_cog or not hasattr(anti_spam_cog, "manager"):
@@ -132,7 +136,7 @@ class AntiSpamToggleView(ui.View):
         self.stop()
 
     @ui.button(label="返回", style=discord.ButtonStyle.secondary)
-    async def back_button(self, interaction: discord.Interaction, button: ui.Button):
+    async def back_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
         await interaction.response.send_message("[提示] 已返回", ephemeral=True)
         self.stop()
 
@@ -143,7 +147,7 @@ class AntiSpamToggleView(ui.View):
 class SettingsMenuView(ui.View):
     """設定儀表板主選單"""
 
-    def __init__(self, cog: "Settings"):
+    def __init__(self, cog: "Settings") -> None:
         super().__init__(timeout=180)
         self.cog = cog
 
@@ -152,9 +156,12 @@ class SettingsMenuView(ui.View):
         options=SETTING_CATEGORIES,
     )
     async def category_select(
-        self, interaction: discord.Interaction, select: ui.Select
-    ):
+        self, interaction: discord.Interaction, select: ui.Select[Any]
+    ) -> None:
         """設定類別選擇"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         value = select.values[0]
         guild_id = interaction.guild_id
 
@@ -217,13 +224,16 @@ class SettingsMenuView(ui.View):
 class Settings(commands.Cog):
     """伺服器設定儀表板"""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
     @app_commands.command(name="settings", description="伺服器設定儀表板")
     @app_commands.default_permissions(administrator=True)
-    async def settings(self, interaction: discord.Interaction):
+    async def settings(self, interaction: discord.Interaction) -> None:
         """開啟設定儀表板"""
+        if interaction.guild is None:
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         await interaction.response.defer(ephemeral=True)
         embed = await self.build_overview_embed(interaction.guild)
         view = SettingsMenuView(self)
@@ -270,7 +280,7 @@ class Settings(commands.Cog):
         embed.set_footer(text="使用下方選單修改設定")
         return embed
 
-    def build_anti_spam_panel(self, guild_id: int):
+    def build_anti_spam_panel(self, guild_id: int) -> Any:
         """產生防刷屏設定面板"""
         anti_spam_cog = self.bot.get_cog("AntiSpam")
         if not anti_spam_cog or not hasattr(anti_spam_cog, "manager"):
@@ -474,5 +484,5 @@ class Settings(commands.Cog):
         return embed
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Settings(bot))

@@ -1,10 +1,10 @@
+from typing import Any
 from datetime import datetime
 from typing import Optional
 
 import discord
 
 from src.utils.time_utils import get_current_time_str
-from src.utils.time_utils import get_now
 from src.utils.time_utils import TZ_OFFSET
 
 
@@ -19,13 +19,18 @@ def is_image_or_gif(url: str) -> bool:
     )
 
 
-def get_first_image_url(attachment_urls: list) -> Optional[str]:
+def get_first_image_url(attachment_urls: list[Any]) -> Optional[str]:
     """從附件 URL 列表中取得第一個圖片或 GIF 的 URL"""
     if not attachment_urls:
         return None
     for url in attachment_urls:
         if is_image_or_gif(url):
-            return url
+            result_value = url
+            if result_value is None:
+                return None
+            if not isinstance(result_value, str):
+                raise TypeError("Unexpected stored or API value: expected str")
+            return result_value
     return None
 
 
@@ -39,8 +44,8 @@ def create_edit_embed(
     before_content: str,
     after_content: str,
     edit_count: int = 1,
-    before_attachments: list = None,
-    after_attachments: list = None,
+    before_attachments: list[Any] | None = None,
+    after_attachments: list[Any] | None = None,
 ) -> discord.Embed:
     """建立編輯訊息的 Embed"""
     embed = discord.Embed(
@@ -107,7 +112,7 @@ def create_delete_embed(
     channel_id: int,
     message_id: int,
     content: str,
-    attachments: list = None,
+    attachments: list[Any] | None = None,
 ) -> discord.Embed:
     """建立刪除訊息的embed"""
     embed = discord.Embed(

@@ -1,4 +1,5 @@
 """osu! 業務邏輯服務"""
+from typing import Any
 
 import json
 import os
@@ -13,13 +14,13 @@ class OsuService:
     def __init__(self) -> None:
         self._api = None
         self._api_error: Optional[str] = None
-        self._links: dict = self._load_links()
+        self._links: dict[Any, Any] = self._load_links()
         self._init_api()
 
     def _init_api(self) -> None:
         """初始化 osu! API 客戶端"""
         try:
-            from ossapi import Ossapi
+            from ossapi import Ossapi  # type: ignore[import-untyped]  # upstream package has no typing metadata
         except ImportError:
             self._api_error = "ossapi 套件無法載入，osu! 功能已禁用"
             return
@@ -34,13 +35,16 @@ class OsuService:
 
     # ─────────────── 資料存取 ───────────────
 
-    def _load_links(self) -> dict:
+    def _load_links(self) -> dict[Any, Any]:
         os.makedirs(os.path.dirname(_DATA_FILE), exist_ok=True)
         if not os.path.exists(_DATA_FILE):
             return {}
         try:
             with open(_DATA_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                result_value = json.load(f)
+                if not isinstance(result_value, dict):
+                    raise TypeError("Unexpected stored or API value: expected dict")
+                return result_value
         except (json.JSONDecodeError, OSError):
             return {}
 
@@ -70,7 +74,7 @@ class OsuService:
     # ─────────────── API ───────────────
 
     @property
-    def api(self):
+    def api(self) -> Any:
         """osu! API 客戶端"""
         return self._api
 

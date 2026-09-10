@@ -6,18 +6,22 @@ import discord
 from discord.ext import commands
 
 
+class RateLimitError(commands.CommandError):
+    """本地限流器拒絕發送；沒有對應的 HTTP 回應。"""
+
+
 class APIOptimizer:
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        self.request_queue: List[Dict] = []
+        self.request_queue: List[Dict[Any, Any]] = []
         self.batch_size = 10
         self.batch_interval = 1.0
         self.cache: Dict[str, Any] = {}
         self.cache_ttl = 300
-        self.rate_limits: Dict[str, Dict] = {}
+        self.rate_limits: Dict[str, Dict[Any, Any]] = {}
         self.last_request_time: Dict[str, float] = {}
 
-    async def batch_requests(self, requests: List[Dict]) -> List[Any]:
+    async def batch_requests(self, requests: List[Dict[Any, Any]]) -> List[Any]:
         results = []
         for i in range(0, len(requests), self.batch_size):
             batch = requests[i : i + self.batch_size]
@@ -32,7 +36,7 @@ class APIOptimizer:
 
         return results
 
-    def get_cache_key(self, method: str, *args, **kwargs) -> str:
+    def get_cache_key(self, method: str, *args: Any, **kwargs: Any) -> str:
         key_parts = (
             [method]
             + [str(arg) for arg in args]
@@ -67,7 +71,7 @@ class APIOptimizer:
 
         return True
 
-    def update_rate_limit(self, endpoint: str, headers: Dict) -> None:
+    def update_rate_limit(self, endpoint: str, headers: Dict[Any, Any]) -> None:
         if "X-RateLimit-Remaining" in headers and "X-RateLimit-Reset-After" in headers:
             self.rate_limits[endpoint] = {
                 "remaining": int(headers["X-RateLimit-Remaining"]),
@@ -81,10 +85,12 @@ class APIOptimizer:
         cache_key = f"channel_{channel_id}"
         cached_channel = self.get_cached(cache_key)
 
-        if cached_channel:
+        if isinstance(cached_channel, discord.TextChannel):
             return cached_channel
 
         channel = self.bot.get_channel(channel_id)
+        if not isinstance(channel, discord.TextChannel):
+            return None
         if channel:
             self.set_cache(cache_key, channel)
 
@@ -94,7 +100,7 @@ class APIOptimizer:
         cache_key = f"user_{user_id}"
         cached_user = self.get_cached(cache_key)
 
-        if cached_user:
+        if isinstance(cached_user, discord.User):
             return cached_user
 
         user = self.bot.get_user(user_id)
@@ -107,7 +113,7 @@ class APIOptimizer:
         cache_key = f"guild_{guild_id}"
         cached_guild = self.get_cached(cache_key)
 
-        if cached_guild:
+        if isinstance(cached_guild, discord.Guild):
             return cached_guild
 
         guild = self.bot.get_guild(guild_id)
@@ -117,10 +123,10 @@ class APIOptimizer:
         return guild
 
     async def optimized_send_message(
-        self, channel: discord.TextChannel, content: str = None, **kwargs
+        self, channel: discord.TextChannel, content: str | None = None, **kwargs: Any
     ) -> discord.Message:
         if not await self.check_rate_limit("send_message"):
-            raise discord.HTTPException("Rate limited")
+            raise RateLimitError("Rate limited")
 
         message = await channel.send(content, **kwargs)
 
@@ -137,7 +143,7 @@ class APIOptimizer:
         async def fetch_one(member_id: int) -> Optional[discord.Member]:
             cache_key = f"member_{guild.id}_{member_id}"
             cached_member = self.get_cached(cache_key)
-            if cached_member:
+            if isinstance(cached_member, discord.Member):
                 return cached_member
             async with sem:
                 try:
@@ -162,9 +168,9 @@ class APIOptimizer:
         results = await asyncio.gather(
             *[fetch_one(mid) for mid in member_ids], return_exceptions=True
         )
-        return [None if isinstance(r, Exception) else r for r in results]
+        return [None if isinstance(r, BaseException) else r for r in results]
 
-    def clear_cache(self, pattern: str = None) -> None:
+    def clear_cache(self, pattern: str | None = None) -> None:
         if pattern:
             keys_to_remove = [key for key in self.cache.keys() if pattern in key]
             for key in keys_to_remove:
@@ -189,13 +195,13 @@ class APIOptimizer:
 
 
 class ConnectionManager:
-    def __init__(self):
+    def __init__(self) -> None:
         self.connection_pool_size = 100
         self.max_retries = 3
         self.retry_delay = 1.0
         self.connection_timeout = 30.0
 
-    async def execute_with_retry(self, func, *args, **kwargs):
+    async def execute_with_retry(self, func: Any, *args: Any, **kwargs: Any) -> Any:
         for attempt in range(self.max_retries):
             try:
                 return await func(*args, **kwargs)
@@ -224,7 +230,7 @@ class ConnectionManager:
 
 
 class PerformanceMonitor:
-    def __init__(self):
+    def __init__(self) -> None:
         self.metrics: Dict[str, List[float]] = {}
         self.alert_threshold = 5.0
 
@@ -268,15 +274,15 @@ class PerformanceMonitor:
         self.metrics.clear()
 
 
-api_optimizer = None
+api_optimizer: APIOptimizer | None = None
 connection_manager = ConnectionManager()
 performance_monitor = PerformanceMonitor()
 
 
-def init_api_optimizer(bot: commands.Bot):
+def init_api_optimizer(bot: commands.Bot) -> None:
     global api_optimizer
     api_optimizer = APIOptimizer(bot)
 
 
-def get_api_optimizer() -> APIOptimizer:
+def get_api_optimizer() -> APIOptimizer | None:
     return api_optimizer

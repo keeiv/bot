@@ -1,10 +1,10 @@
 """黑名單申訴業務邏輯服務"""
+from typing import Any
 
 from datetime import datetime
 
 import discord
 
-from src.config.constants import DEVELOPER_IDS
 from src.utils.time_utils import TZ_OFFSET
 
 
@@ -15,9 +15,9 @@ class BlacklistService:
 
     async def submit_appeal(
         self,
-        manager,
-        user: discord.User,
-        entry: dict,
+        manager: Any,
+        user: discord.User | discord.Member,
+        entry: dict[Any, Any],
     ) -> str:
         """提交申訴並通知所有開發者。
 
@@ -41,8 +41,8 @@ class BlacklistService:
 
     def build_review_embed(
         self,
-        user: discord.User,
-        entry: dict,
+        user: discord.User | discord.Member,
+        entry: dict[Any, Any],
     ) -> discord.Embed:
         """建立供開發者審核的申訴 Embed"""
         source = entry.get("source", "local")
@@ -68,11 +68,11 @@ class BlacklistService:
 
     def accept_appeal(
         self,
-        manager,
+        manager: Any,
         target_user_id: int,
-        reviewer: discord.User,
+        reviewer: discord.User | discord.Member,
         reason_text: str = "",
-    ):
+    ) -> None:
         """更新申訴狀態為已接受，並從本地黑名單移除（如來源為 local）"""
         manager.update_appeal(
             target_user_id,
@@ -85,7 +85,7 @@ class BlacklistService:
         if source == "local":
             manager.local_remove(target_user_id)
 
-    def build_accept_footer(self, reviewer: discord.User, reason_text: str = "") -> str:
+    def build_accept_footer(self, reviewer: discord.User | discord.Member, reason_text: str = "") -> str:
         """建立接受申訴的 footer 文字"""
         footer = f"由 {reviewer} 於 {datetime.now(TZ_OFFSET).strftime('%Y/%m/%d %H:%M')} 接受"
         if reason_text:
@@ -118,10 +118,10 @@ class BlacklistService:
 
     def reject_appeal(
         self,
-        manager,
+        manager: Any,
         target_user_id: int,
-        reviewer: discord.User,
-    ):
+        reviewer: discord.User | discord.Member,
+    ) -> None:
         """更新申訴狀態為已駁回"""
         manager.update_appeal(
             target_user_id,
@@ -129,6 +129,6 @@ class BlacklistService:
             reviewer_id=reviewer.id,
         )
 
-    def build_reject_footer(self, reviewer: discord.User) -> str:
+    def build_reject_footer(self, reviewer: discord.User | discord.Member) -> str:
         """建立駁回申訴的 footer 文字"""
         return f"由 {reviewer} 於 {datetime.now(TZ_OFFSET).strftime('%Y/%m/%d %H:%M')} 駁回"

@@ -1,4 +1,5 @@
 """成就業務邏輯服務"""
+from typing import Any
 
 from datetime import datetime
 from datetime import timedelta
@@ -12,7 +13,7 @@ TZ_OFFSET = timezone(timedelta(hours=8))
 _DATA_FILE = "data/storage/achievements.json"
 
 # 成就定義 (從 cog 搬移至此，cog 透過 service 取得)
-ACHIEVEMENTS: dict[str, dict] = {
+ACHIEVEMENTS: dict[str, dict[Any, Any]] = {
     # 聊天互動成就
     "first_edit": {
         "name": "首次編輯",
@@ -125,12 +126,12 @@ class AchievementService:
     _CACHE_TTL: float = 60.0
 
     def __init__(self) -> None:
-        self._cache: dict | None = None
+        self._cache: dict[Any, Any] | None = None
         self._cache_time: float = 0.0
 
     # ─────────────── 資料存取 ───────────────
 
-    def _load(self) -> dict:
+    def _load(self) -> dict[Any, Any]:
         now = time.monotonic()
         if self._cache is not None and (now - self._cache_time) < self._CACHE_TTL:
             return self._cache
@@ -146,7 +147,7 @@ class AchievementService:
         self._cache_time = now
         return self._cache
 
-    def _save(self, data: dict) -> None:
+    def _save(self, data: dict[Any, Any]) -> None:
         os.makedirs(os.path.dirname(_DATA_FILE), exist_ok=True)
         try:
             with open(_DATA_FILE, "w", encoding="utf-8") as f:
@@ -167,13 +168,16 @@ class AchievementService:
         if not user_data:
             return []
         if guild_id is not None:
-            return user_data.get(str(guild_id), {}).get("unlocked", [])
+            result_value = user_data.get(str(guild_id), {}).get("unlocked", [])
+            if not isinstance(result_value, list):
+                raise TypeError("Unexpected stored or API value: expected list")
+            return result_value
         all_unlocked: list[str] = []
         for guild_val in user_data.values():
             all_unlocked.extend(guild_val.get("unlocked", []))
         return list(set(all_unlocked))
 
-    def get_progress(self, user_id: int, guild_id: Optional[int] = None) -> dict:
+    def get_progress(self, user_id: int, guild_id: Optional[int] = None) -> dict[Any, Any]:
         """取得用戶成就進度"""
         unlocked = self.get_user_achievements(user_id, guild_id)
         regular = {k: v for k, v in ACHIEVEMENTS.items() if not v.get("developer_only")}
@@ -185,7 +189,7 @@ class AchievementService:
             "percentage": pct,
         }
 
-    def get_achievement_info(self, achievement_id: str) -> Optional[dict]:
+    def get_achievement_info(self, achievement_id: str) -> Optional[dict[Any, Any]]:
         """取得單一成就定義"""
         return ACHIEVEMENTS.get(achievement_id)
 

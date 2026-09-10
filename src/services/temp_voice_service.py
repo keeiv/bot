@@ -1,3 +1,4 @@
+from typing import Any
 import json
 import os
 from typing import Optional
@@ -9,11 +10,11 @@ class TempVoiceService:
     """暫時語音頻道資料存取與業務邏輯"""
 
     def __init__(self) -> None:
-        self._cache: Optional[dict] = None
+        self._cache: Optional[dict[Any, Any]] = None
 
     # ─────────────── 資料存取 ───────────────
 
-    def _load(self) -> dict:
+    def _load(self) -> dict[Any, Any]:
         if self._cache is not None:
             return self._cache
         if os.path.exists(_DATA_FILE):
@@ -26,7 +27,7 @@ class TempVoiceService:
         self._cache = {"guilds": {}, "channels": {}}
         return self._cache
 
-    def _save(self, data: dict) -> None:
+    def _save(self, data: dict[Any, Any]) -> None:
         os.makedirs(os.path.dirname(_DATA_FILE), exist_ok=True)
         with open(_DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -34,9 +35,14 @@ class TempVoiceService:
 
     # ─────────────── 伺服器設定 ───────────────
 
-    def get_guild_config(self, guild_id: int) -> Optional[dict]:
+    def get_guild_config(self, guild_id: int) -> Optional[dict[Any, Any]]:
         """取得伺服器暫時語音頻道設定"""
-        return self._load().get("guilds", {}).get(str(guild_id))
+        result_value = self._load().get("guilds", {}).get(str(guild_id))
+        if result_value is None:
+            return None
+        if not isinstance(result_value, dict):
+            raise TypeError("Unexpected stored or API value: expected dict")
+        return result_value
 
     def save_guild_config(
         self,
@@ -62,11 +68,16 @@ class TempVoiceService:
 
     # ─────────────── 暫時頻道管理 ───────────────
 
-    def get_channel(self, channel_id: int) -> Optional[dict]:
+    def get_channel(self, channel_id: int) -> Optional[dict[Any, Any]]:
         """取得暫時頻道資料"""
-        return self._load().get("channels", {}).get(str(channel_id))
+        result_value = self._load().get("channels", {}).get(str(channel_id))
+        if result_value is None:
+            return None
+        if not isinstance(result_value, dict):
+            raise TypeError("Unexpected stored or API value: expected dict")
+        return result_value
 
-    def get_guild_channels(self, guild_id: int) -> list[dict]:
+    def get_guild_channels(self, guild_id: int) -> list[dict[Any, Any]]:
         """取得伺服器所有暫時頻道資料"""
         data = self._load()
         return [

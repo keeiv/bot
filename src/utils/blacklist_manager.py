@@ -1,3 +1,4 @@
+from typing import Any
 import asyncio
 from datetime import datetime
 import json
@@ -18,18 +19,21 @@ LOCAL_BLACKLIST_FILE = os.path.join(DATA_DIR, "blacklist.json")
 APPEALS_FILE = os.path.join(DATA_DIR, "appeals.json")
 
 
-def _load_json(path: str) -> Dict:
+def _load_json(path: str) -> Dict[Any, Any]:
     """讀取 JSON 檔案"""
     if os.path.exists(path):
         try:
             with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
+                result_value = json.load(f)
+                if not isinstance(result_value, dict):
+                    raise TypeError("Unexpected stored or API value: expected dict")
+                return result_value
         except (json.JSONDecodeError, OSError):
             pass
     return {}
 
 
-def _save_json(path: str, data: Dict):
+def _save_json(path: str, data: Dict[Any, Any]) -> None:
     """寫入 JSON 檔案"""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
@@ -41,29 +45,29 @@ class BlacklistManager:
 
     _LOCAL_CACHE_TTL: float = 30.0
 
-    def __init__(self, api_key: str = None, api_base: str = None):
+    def __init__(self, api_key: str | None = None, api_base: str | None = None) -> None:
         self.api_key = api_key
         self.api_base = api_base
-        self._api_cache: Dict[int, Optional[Dict]] = {}
+        self._api_cache: Dict[int, Optional[Dict[Any, Any]]] = {}
         self._api_cache_time: Dict[int, float] = {}
         self._rate_limit_lock = asyncio.Lock()
         self.session: aiohttp.ClientSession | None = None
-        self._local_cache: dict | None = None
+        self._local_cache: dict[Any, Any] | None = None
         self._local_cache_time: float = 0.0
 
-    async def setup(self):
+    async def setup(self) -> None:
         """初始化 HTTP session"""
         if not self.session:
             self.session = aiohttp.ClientSession()
 
-    async def close(self):
+    async def close(self) -> None:
         """關閉 HTTP session"""
         if self.session:
             await self.session.close()
 
     # ==================== 本地黑名單 ====================
 
-    def _load_local(self) -> dict:
+    def _load_local(self) -> dict[Any, Any]:
         """讀取本地黑名單 (帶 TTL cache)"""
         now = time.monotonic()
         if (
@@ -75,12 +79,12 @@ class BlacklistManager:
         self._local_cache_time = now
         return self._local_cache
 
-    def _update_local_cache(self, data: dict) -> None:
+    def _update_local_cache(self, data: dict[Any, Any]) -> None:
         """儲存後同步更新快取"""
         self._local_cache = data
         self._local_cache_time = time.monotonic()
 
-    def local_check(self, user_id: int) -> Optional[Dict]:
+    def local_check(self, user_id: int) -> Optional[Dict[Any, Any]]:
         """檢查本地黑名單 (同步, 零延遲)"""
         data = self._load_local()
         users = data.get("users", {})
@@ -97,16 +101,21 @@ class BlacklistManager:
                     return None
             except ValueError:
                 pass
-        return entry
+        result_value = entry
+        if result_value is None:
+            return None
+        if not isinstance(result_value, dict):
+            raise TypeError("Unexpected stored or API value: expected dict")
+        return result_value
 
     def local_add(
         self,
         user_id: int,
         reason: str,
         mode: str = "block",
-        added_by: int = None,
-        expires_at: str = None,
-        note: str = None,
+        added_by: int | None = None,
+        expires_at: str | None = None,
+        note: str | None = None,
     ) -> bool:
         """新增本地黑名單"""
         data = self._load_local()
@@ -141,19 +150,24 @@ class BlacklistManager:
         self._update_local_cache(data)
         return True
 
-    def local_list(self) -> Dict[str, Dict]:
+    def local_list(self) -> Dict[str, Dict[Any, Any]]:
         """取得所有本地黑名單"""
-        return self._load_local().get("users", {})
+        result_value = self._load_local().get("users", {})
+        if not isinstance(result_value, dict):
+            raise TypeError("Unexpected stored or API value: expected dict")
+        return result_value
 
     # ==================== CatHome API ====================
 
-    async def api_check(self, user_id: int) -> Optional[Dict]:
+    async def api_check(self, user_id: int) -> Optional[Dict[Any, Any]]:
         """檢查 CatHome API 黑名單 (非同步)"""
         if not self.api_key or not self.api_base:
             return None
 
         if not self.session:
             await self.setup()
+        if self.session is None:
+            return None
 
         now = asyncio.get_event_loop().time()
         if user_id in self._api_cache:
@@ -166,7 +180,7 @@ class BlacklistManager:
             "Content-Type": "application/json",
         }
 
-        data = {}
+        data: dict[str, Any] = {}
 
         async with self._rate_limit_lock:
             try:
@@ -193,7 +207,7 @@ class BlacklistManager:
         self._api_cache_time[user_id] = now
         return result
 
-    async def check(self, user_id: int) -> Optional[Dict]:
+    async def check(self, user_id: int) -> Optional[Dict[Any, Any]]:
         """雙軌檢查: 本地優先, 再查 API
 
         回傳 dict 含 "source" 鍵標記來源 ("local" / "api")
@@ -212,11 +226,11 @@ class BlacklistManager:
 
     # ==================== 申訴系統 ====================
 
-    def load_appeals(self) -> Dict:
+    def load_appeals(self) -> Dict[Any, Any]:
         """讀取申訴資料"""
         return _load_json(APPEALS_FILE)
 
-    def save_appeals(self, appeals: Dict):
+    def save_appeals(self, appeals: Dict[Any, Any]) -> None:
         """儲存申訴資料"""
         _save_json(APPEALS_FILE, appeals)
 
@@ -242,7 +256,7 @@ class BlacklistManager:
         self.save_appeals(appeals)
         return True
 
-    def get_appeal(self, user_id: int) -> Optional[Dict]:
+    def get_appeal(self, user_id: int) -> Optional[Dict[Any, Any]]:
         """查詢申訴"""
         appeals = self.load_appeals()
         return appeals.get(str(user_id))
@@ -251,8 +265,8 @@ class BlacklistManager:
         self,
         user_id: int,
         status: str,
-        reviewer_id: int = None,
-        review_reason: str = None,
+        reviewer_id: int | None = None,
+        review_reason: str | None = None,
     ) -> bool:
         """更新申訴狀態"""
         appeals = self.load_appeals()
@@ -269,7 +283,7 @@ class BlacklistManager:
         self.save_appeals(appeals)
         return True
 
-    def get_pending_appeals(self) -> list:
+    def get_pending_appeals(self) -> list[Any]:
         """取得所有待處理申訴"""
         appeals = self.load_appeals()
         return [

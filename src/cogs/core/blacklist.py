@@ -1,4 +1,6 @@
-﻿import asyncio
+from typing import TYPE_CHECKING
+from typing import Any
+import asyncio
 from datetime import datetime
 
 import discord
@@ -19,7 +21,7 @@ _service = BlacklistService()
 class AppealAcceptModal(ui.Modal, title="接受申訴"):
     """開發者接受申訴時填寫原因"""
 
-    reason = ui.TextInput(
+    reason = ui.TextInput[Any](
         label="原因 (可留空)",
         placeholder="輸入接受原因或留空...",
         style=discord.TextStyle.paragraph,
@@ -27,12 +29,12 @@ class AppealAcceptModal(ui.Modal, title="接受申訴"):
         required=False,
     )
 
-    def __init__(self, user_id: int, cog: "Blacklist"):
+    def __init__(self, user_id: int, cog: "Blacklist") -> None:
         super().__init__()
         self.target_user_id = user_id
         self.cog = cog
 
-    async def on_submit(self, interaction: discord.Interaction):
+    async def on_submit(self, interaction: discord.Interaction) -> None:
         """執行接受申訴"""
         reason_text = self.reason.value.strip() if self.reason.value else ""
         manager = self.cog.bot.blacklist_manager
@@ -74,7 +76,7 @@ class AppealAcceptModal(ui.Modal, title="接受申訴"):
 class AppealReviewView(ui.View):
     """開發者審核申訴的按鈕視圖"""
 
-    def __init__(self, user_id: int, cog: "Blacklist"):
+    def __init__(self, user_id: int, cog: "Blacklist") -> None:
         super().__init__(timeout=None)
         self.target_user_id = user_id
         self.cog = cog
@@ -82,7 +84,7 @@ class AppealReviewView(ui.View):
     @ui.button(
         label="接受", style=discord.ButtonStyle.success, custom_id="appeal_accept"
     )
-    async def accept_button(self, interaction: discord.Interaction, button: ui.Button):
+    async def accept_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
         """接受申訴 - 開啟表單"""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
@@ -96,7 +98,7 @@ class AppealReviewView(ui.View):
     @ui.button(
         label="駁回", style=discord.ButtonStyle.danger, custom_id="appeal_reject"
     )
-    async def reject_button(self, interaction: discord.Interaction, button: ui.Button):
+    async def reject_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
         """駁回申訴"""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
@@ -132,7 +134,7 @@ class AppealReviewView(ui.View):
 class BlockedNoticeView(ui.View):
     """被封鎖時顯示的申訴按鈕"""
 
-    def __init__(self, cog: "Blacklist"):
+    def __init__(self, cog: "Blacklist") -> None:
         super().__init__(timeout=None)
         self.cog = cog
 
@@ -141,7 +143,7 @@ class BlockedNoticeView(ui.View):
         style=discord.ButtonStyle.primary,
         custom_id="blacklist_appeal",
     )
-    async def appeal_button(self, interaction: discord.Interaction, button: ui.Button):
+    async def appeal_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
         """點擊申訴按鈕"""
         manager = self.cog.bot.blacklist_manager
         entry = await manager.check(interaction.user.id)
@@ -185,18 +187,18 @@ class BlockedNoticeView(ui.View):
 class Blacklist(commands.Cog):
     """黑名單管理 Cog"""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: "Bot") -> None:
         self.bot = bot
 
     @commands.Cog.listener()
-    async def on_ready(self):
+    async def on_ready(self) -> None:
         """註冊持久化視圖"""
         self.bot.add_view(BlockedNoticeView(self))
 
     # ========== 使用者指令 ==========
 
     @app_commands.command(name="申訴", description="申訴黑名單封鎖")
-    async def appeal(self, interaction: discord.Interaction):
+    async def appeal(self, interaction: discord.Interaction) -> None:
         """手動提交申訴"""
         manager = self.bot.blacklist_manager
         entry = await manager.check(interaction.user.id)
@@ -228,7 +230,7 @@ class Blacklist(commands.Cog):
         )
 
     @app_commands.command(name="申訴狀態", description="查看申訴狀態")
-    async def appeal_status(self, interaction: discord.Interaction):
+    async def appeal_status(self, interaction: discord.Interaction) -> None:
         """查看自己的申訴狀態"""
         manager = self.bot.blacklist_manager
         appeal = manager.get_appeal(interaction.user.id)
@@ -288,8 +290,8 @@ class Blacklist(commands.Cog):
         interaction: discord.Interaction,
         user: discord.User,
         reason: str,
-        mode: app_commands.Choice[str] = None,
-    ):
+        mode: app_commands.Choice[str] | None = None,
+    ) -> None:
         """加入本地黑名單"""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
@@ -314,7 +316,7 @@ class Blacklist(commands.Cog):
 
     @blacklist_group.command(name="remove", description="移除本地黑名單")
     @app_commands.describe(user="目標用戶")
-    async def bl_remove(self, interaction: discord.Interaction, user: discord.User):
+    async def bl_remove(self, interaction: discord.Interaction, user: discord.User) -> None:
         """移除本地黑名單"""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
@@ -334,7 +336,7 @@ class Blacklist(commands.Cog):
         )
 
     @blacklist_group.command(name="list", description="查看本地黑名單")
-    async def bl_list(self, interaction: discord.Interaction):
+    async def bl_list(self, interaction: discord.Interaction) -> None:
         """列出所有本地黑名單"""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
@@ -367,7 +369,7 @@ class Blacklist(commands.Cog):
 
     @blacklist_group.command(name="info", description="查詢用戶黑名單狀態")
     @app_commands.describe(user="目標用戶")
-    async def bl_info(self, interaction: discord.Interaction, user: discord.User):
+    async def bl_info(self, interaction: discord.Interaction, user: discord.User) -> None:
         """查詢特定用戶的封鎖狀態 (本地 + API)"""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
@@ -418,5 +420,9 @@ class Blacklist(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: "Bot") -> None:
     await bot.add_cog(Blacklist(bot))
+
+
+if TYPE_CHECKING:
+    from src.bot import Bot

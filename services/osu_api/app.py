@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi import HTTPException
 from fastapi import Request
-from ossapi import Ossapi
+from ossapi import Ossapi  # type: ignore[import-untyped]  # upstream package has no typing metadata
 
 load_dotenv()
 
@@ -19,7 +19,7 @@ app = FastAPI(title="osu API")
 _cache: dict[str, tuple[float, Any]] = {}
 
 
-def _require_api_key(request: Request):
+def _require_api_key(request: Request) -> None:
     if not API_KEY:
         raise HTTPException(status_code=500, detail="API_KEY 未設定")
 
@@ -36,7 +36,7 @@ def _get_api() -> Ossapi:
     return Ossapi(int(OSU_CLIENT_ID), OSU_CLIENT_SECRET)
 
 
-def _cache_get(cache_key: str):
+def _cache_get(cache_key: str) -> Any:
     item = _cache.get(cache_key)
     if not item:
         return None
@@ -49,11 +49,11 @@ def _cache_get(cache_key: str):
     return value
 
 
-def _cache_set(cache_key: str, value: Any, ttl_seconds: int):
+def _cache_set(cache_key: str, value: Any, ttl_seconds: int) -> None:
     _cache[cache_key] = (time.time() + ttl_seconds, value)
 
 
-def _serialize_osu_user(user) -> dict:
+def _serialize_osu_user(user: Any) -> dict[Any, Any]:
     stats = getattr(user, "statistics", None)
     grade_counts = getattr(stats, "grade_counts", None) if stats else None
 
@@ -91,7 +91,7 @@ def _serialize_osu_user(user) -> dict:
     }
 
 
-def _serialize_score(score) -> dict:
+def _serialize_score(score: Any) -> dict[Any, Any]:
     beatmap = getattr(score, "beatmap", None)
     beatmapset = getattr(score, "beatmapset", None)
     statistics = getattr(score, "statistics", None)
@@ -131,12 +131,12 @@ def _serialize_score(score) -> dict:
 
 
 @app.get("/health")
-async def health():
+async def health() -> Any:
     return {"ok": True}
 
 
 @app.get("/osu/user/{username}")
-async def osu_user(username: str, request: Request, ttl: int = 60):
+async def osu_user(username: str, request: Request, ttl: int = 60) -> Any:
     _require_api_key(request)
 
     cache_key = f"user:{username.lower()}"
@@ -156,7 +156,7 @@ async def osu_user(username: str, request: Request, ttl: int = 60):
 
 
 @app.get("/osu/best/{username}")
-async def osu_best(username: str, request: Request, limit: int = 5, ttl: int = 60):
+async def osu_best(username: str, request: Request, limit: int = 5, ttl: int = 60) -> Any:
     _require_api_key(request)
 
     limit = max(1, min(10, limit))
@@ -181,7 +181,7 @@ async def osu_best(username: str, request: Request, limit: int = 5, ttl: int = 6
 
 
 @app.get("/osu/recent/{username}")
-async def osu_recent(username: str, request: Request, limit: int = 5, ttl: int = 30):
+async def osu_recent(username: str, request: Request, limit: int = 5, ttl: int = 30) -> Any:
     _require_api_key(request)
 
     limit = max(1, min(10, limit))
