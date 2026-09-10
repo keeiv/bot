@@ -433,7 +433,9 @@ class GenshinService:
         else:
             raise ValueError("不支援的遊戲類型")
 
-    async def get_abyss_stats(self, discord_user_id: int, game_str: str) -> dict[Any, Any]:
+    async def get_abyss_stats(
+        self, discord_user_id: int, game_str: str
+    ) -> dict[Any, Any]:
         """獲取深淵數據 (當前期數)"""
         client = self.get_client(discord_user_id)
         user_data = self._accounts[str(discord_user_id)]
@@ -609,7 +611,9 @@ class GenshinService:
         else:
             raise ValueError("該遊戲不支援或暫無深淵數據統計接口。")
 
-    async def claim_daily_signin_for_user(self, discord_user_id: int) -> list[dict[Any, Any]]:
+    async def claim_daily_signin_for_user(
+        self, discord_user_id: int
+    ) -> list[dict[Any, Any]]:
         """手動或定時為單個使用者擁有的所有遊戲帳號簽到"""
         client = self.get_client(discord_user_id)
         user_data = self._accounts[str(discord_user_id)]

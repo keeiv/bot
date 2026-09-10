@@ -1,5 +1,5 @@
-from typing import Any
 from datetime import datetime
+from typing import Any
 
 import discord
 from discord import app_commands
@@ -50,7 +50,9 @@ class MuteModal(ui.Modal, title="禁言處理"):
         required=True,
     )
 
-    def __init__(self, target: discord.Member, reported_message: discord.Message) -> None:
+    def __init__(
+        self, target: discord.Member, reported_message: discord.Message
+    ) -> None:
         super().__init__()
         self.target = target
         self.reported_message = reported_message
@@ -114,7 +116,9 @@ class BanModal(ui.Modal, title="封禁處理"):
         required=True,
     )
 
-    def __init__(self, target: discord.Member, reported_message: discord.Message) -> None:
+    def __init__(
+        self, target: discord.Member, reported_message: discord.Message
+    ) -> None:
         super().__init__()
         self.target = target
         self.reported_message = reported_message
@@ -168,15 +172,23 @@ class WarnModal(ui.Modal, title="警告處理"):
         required=True,
     )
 
-    def __init__(self, target: discord.Member, reported_message: discord.Message) -> None:
+    def __init__(
+        self, target: discord.Member, reported_message: discord.Message
+    ) -> None:
         super().__init__()
         self.target = target
         self.reported_message = reported_message
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         """執行警告"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         try:
             count = max(1, int(self.warn_count.value or "1"))
@@ -197,15 +209,23 @@ class WarnModal(ui.Modal, title="警告處理"):
 class ReportActionView(ui.View):
     """舉報處理面板 - 禁言/封禁/警告 按鈕"""
 
-    def __init__(self, target: discord.Member, reported_message: discord.Message) -> None:
+    def __init__(
+        self, target: discord.Member, reported_message: discord.Message
+    ) -> None:
         super().__init__(timeout=None)
         self.target = target
         self.reported_message = reported_message
 
     async def _check_permissions(self, interaction: discord.Interaction) -> bool:
         """檢查操作者權限"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return False
         if not interaction.user.guild_permissions.moderate_members:
             await interaction.response.send_message(
@@ -215,7 +235,9 @@ class ReportActionView(ui.View):
         return True
 
     @ui.button(label="禁言", style=discord.ButtonStyle.primary, emoji=None)
-    async def mute_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
+    async def mute_button(
+        self, interaction: discord.Interaction, button: ui.Button[Any]
+    ) -> None:
         """開啟禁言表單"""
         if not await self._check_permissions(interaction):
             return
@@ -223,7 +245,9 @@ class ReportActionView(ui.View):
         await interaction.response.send_modal(modal)
 
     @ui.button(label="封禁", style=discord.ButtonStyle.danger, emoji=None)
-    async def ban_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
+    async def ban_button(
+        self, interaction: discord.Interaction, button: ui.Button[Any]
+    ) -> None:
         """開啟封禁表單"""
         if not await self._check_permissions(interaction):
             return
@@ -231,7 +255,9 @@ class ReportActionView(ui.View):
         await interaction.response.send_modal(modal)
 
     @ui.button(label="警告", style=discord.ButtonStyle.secondary, emoji=None)
-    async def warn_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
+    async def warn_button(
+        self, interaction: discord.Interaction, button: ui.Button[Any]
+    ) -> None:
         """開啟警告表單"""
         if not await self._check_permissions(interaction):
             return
@@ -262,8 +288,14 @@ class Report(commands.Cog):
         self, interaction: discord.Interaction, message: discord.Message
     ) -> None:
         """右鍵選單 - 舉報訊息"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if not interaction.guild:
             await interaction.response.send_message(
@@ -295,7 +327,15 @@ class Report(commands.Cog):
             return
 
         report_channel = interaction.guild.get_channel(report_channel_id)
-        if not isinstance(report_channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
+        if not isinstance(
+            report_channel,
+            (
+                discord.TextChannel,
+                discord.Thread,
+                discord.VoiceChannel,
+                discord.StageChannel,
+            ),
+        ):
             await interaction.response.send_message(
                 "[失敗] 舉報頻道不存在或已被刪除，請管理員重新設定",
                 ephemeral=True,
@@ -388,8 +428,14 @@ class Report(commands.Cog):
         self, interaction: discord.Interaction, channel: discord.TextChannel
     ) -> None:
         """設定舉報頻道"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         set_guild_report_channel(interaction.guild.id, channel.id)
 
@@ -404,13 +450,27 @@ class Report(commands.Cog):
     @app_commands.checks.has_permissions(manage_guild=True)
     async def report_channel_status(self, interaction: discord.Interaction) -> None:
         """查看舉報頻道設定"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         channel_id = get_guild_report_channel(interaction.guild.id)
         if channel_id:
             channel = interaction.guild.get_channel(channel_id)
-            if isinstance(channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
+            if isinstance(
+                channel,
+                (
+                    discord.TextChannel,
+                    discord.Thread,
+                    discord.VoiceChannel,
+                    discord.StageChannel,
+                ),
+            ):
                 desc = f"目前舉報頻道: {channel.mention}"
             else:
                 desc = "已設定的頻道不存在，請重新設定"

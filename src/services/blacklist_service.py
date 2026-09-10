@@ -1,7 +1,7 @@
 """黑名單申訴業務邏輯服務"""
-from typing import Any
 
 from datetime import datetime
+from typing import Any
 
 import discord
 
@@ -85,7 +85,9 @@ class BlacklistService:
         if source == "local":
             manager.local_remove(target_user_id)
 
-    def build_accept_footer(self, reviewer: discord.User | discord.Member, reason_text: str = "") -> str:
+    def build_accept_footer(
+        self, reviewer: discord.User | discord.Member, reason_text: str = ""
+    ) -> str:
         """建立接受申訴的 footer 文字"""
         footer = f"由 {reviewer} 於 {datetime.now(TZ_OFFSET).strftime('%Y/%m/%d %H:%M')} 接受"
         if reason_text:

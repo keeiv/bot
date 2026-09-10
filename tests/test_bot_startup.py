@@ -27,7 +27,8 @@ async def test_cogs_can_be_loaded_without_running(monkeypatch) -> None:
     monkeypatch.setattr(genshin.utility, "update_characters_any", AsyncMock())
     cogs_path = Path(__file__).resolve().parents[1] / "src" / "cogs"
     expected = {
-        m.name for m in pkgutil.walk_packages([str(cogs_path)], "src.cogs.")
+        m.name
+        for m in pkgutil.walk_packages([str(cogs_path)], "src.cogs.")
         if not m.ispkg
     }
     async with Bot() as bot:
@@ -37,6 +38,8 @@ async def test_cogs_can_be_loaded_without_running(monkeypatch) -> None:
 
 async def test_failed_cog_cannot_report_success(monkeypatch):
     async with Bot() as bot:
-        monkeypatch.setattr(bot, "load_extension", AsyncMock(side_effect=RuntimeError("broken")))
+        monkeypatch.setattr(
+            bot, "load_extension", AsyncMock(side_effect=RuntimeError("broken"))
+        )
         with pytest.raises(RuntimeError, match="Cog 載入失敗"):
             await bot.load_cogs()

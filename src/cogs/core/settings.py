@@ -1,7 +1,7 @@
-from typing import Any
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
+from typing import Any
 
 import discord
 from discord import app_commands
@@ -60,8 +60,14 @@ class ChannelSelectView(ui.View):
         self, interaction: discord.Interaction, select: ui.ChannelSelect[Any]
     ) -> None:
         """頻道選擇回調"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         channel = select.values[0]
 
@@ -85,7 +91,9 @@ class ChannelSelectView(ui.View):
         self.stop()
 
     @ui.button(label="取消", style=discord.ButtonStyle.secondary)
-    async def cancel_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
+    async def cancel_button(
+        self, interaction: discord.Interaction, button: ui.Button[Any]
+    ) -> None:
         await interaction.response.send_message("[提示] 已取消", ephemeral=True)
         self.stop()
 
@@ -110,7 +118,9 @@ class AntiSpamToggleView(ui.View):
             self.toggle_button.style = discord.ButtonStyle.success
 
     @ui.button(label="切換", style=discord.ButtonStyle.primary)
-    async def toggle_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
+    async def toggle_button(
+        self, interaction: discord.Interaction, button: ui.Button[Any]
+    ) -> None:
         """切換防刷屏開關"""
         anti_spam_cog = self.cog.bot.get_cog("AntiSpam")
         if not anti_spam_cog or not hasattr(anti_spam_cog, "manager"):
@@ -136,7 +146,9 @@ class AntiSpamToggleView(ui.View):
         self.stop()
 
     @ui.button(label="返回", style=discord.ButtonStyle.secondary)
-    async def back_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
+    async def back_button(
+        self, interaction: discord.Interaction, button: ui.Button[Any]
+    ) -> None:
         await interaction.response.send_message("[提示] 已返回", ephemeral=True)
         self.stop()
 
@@ -159,8 +171,14 @@ class SettingsMenuView(ui.View):
         self, interaction: discord.Interaction, select: ui.Select[Any]
     ) -> None:
         """設定類別選擇"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         value = select.values[0]
         guild_id = interaction.guild_id
@@ -232,7 +250,9 @@ class Settings(commands.Cog):
     async def settings(self, interaction: discord.Interaction) -> None:
         """開啟設定儀表板"""
         if interaction.guild is None:
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         await interaction.response.defer(ephemeral=True)
         embed = await self.build_overview_embed(interaction.guild)

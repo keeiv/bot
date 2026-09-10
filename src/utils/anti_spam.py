@@ -1,4 +1,3 @@
-from typing import Any
 from collections import defaultdict
 import copy
 from datetime import datetime
@@ -7,7 +6,7 @@ from datetime import timezone
 import json
 import os
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import discord
 
@@ -359,7 +358,9 @@ class AntiSpamManager:
             )
         return None
 
-    def _check_mentions(self, content: str, s: dict[Any, Any]) -> Optional[Tuple[str, str, str]]:
+    def _check_mentions(
+        self, content: str, s: dict[Any, Any]
+    ) -> Optional[Tuple[str, str, str]]:
         """提及轟炸偵測"""
         limit = s["mention_limit"]
         mention_count = (
@@ -400,7 +401,9 @@ class AntiSpamManager:
             return (DETECT_LINK, s["link_action"], detail)
         return None
 
-    def _check_emoji(self, content: str, s: dict[Any, Any]) -> Optional[Tuple[str, str, str]]:
+    def _check_emoji(
+        self, content: str, s: dict[Any, Any]
+    ) -> Optional[Tuple[str, str, str]]:
         """表情轟炸偵測"""
         limit = s["emoji_limit"]
         count = len(EMOJI_RE.findall(content))
@@ -413,7 +416,9 @@ class AntiSpamManager:
             )
         return None
 
-    def _check_newline(self, content: str, s: dict[Any, Any]) -> Optional[Tuple[str, str, str]]:
+    def _check_newline(
+        self, content: str, s: dict[Any, Any]
+    ) -> Optional[Tuple[str, str, str]]:
         """換行轟炸偵測"""
         limit = s["newline_limit"]
         count = content.count("\n")

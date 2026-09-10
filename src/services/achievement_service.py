@@ -1,5 +1,4 @@
 """成就業務邏輯服務"""
-from typing import Any
 
 from datetime import datetime
 from datetime import timedelta
@@ -7,7 +6,7 @@ from datetime import timezone
 import json
 import os
 import time
-from typing import Optional
+from typing import Any, Optional
 
 TZ_OFFSET = timezone(timedelta(hours=8))
 _DATA_FILE = "data/storage/achievements.json"
@@ -177,7 +176,9 @@ class AchievementService:
             all_unlocked.extend(guild_val.get("unlocked", []))
         return list(set(all_unlocked))
 
-    def get_progress(self, user_id: int, guild_id: Optional[int] = None) -> dict[Any, Any]:
+    def get_progress(
+        self, user_id: int, guild_id: Optional[int] = None
+    ) -> dict[Any, Any]:
         """取得用戶成就進度"""
         unlocked = self.get_user_achievements(user_id, guild_id)
         regular = {k: v for k, v in ACHIEVEMENTS.items() if not v.get("developer_only")}

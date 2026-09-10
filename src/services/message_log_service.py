@@ -1,12 +1,11 @@
 """訊息日誌業務邏輯服務"""
-from typing import Any
 
 from datetime import datetime
 from datetime import timedelta
 import json
 import os
 import time
-from typing import Optional
+from typing import Any, Optional
 
 import discord
 

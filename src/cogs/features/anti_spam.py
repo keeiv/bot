@@ -1,5 +1,5 @@
-from typing import Any
 from datetime import timedelta
+from typing import Any
 
 import discord
 from discord import app_commands
@@ -55,7 +55,19 @@ class AntiSpam(commands.Cog):
         """執行懲罰動作。回傳 (success, fail_reason)。"""
         member = message.author
         guild = message.guild
-        if guild is None or not isinstance(member, discord.Member) or not isinstance(message.channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
+        if (
+            guild is None
+            or not isinstance(member, discord.Member)
+            or not isinstance(
+                message.channel,
+                (
+                    discord.TextChannel,
+                    discord.Thread,
+                    discord.VoiceChannel,
+                    discord.StageChannel,
+                ),
+            )
+        ):
             return False, "不支援的成員或頻道"
         s = self.manager.get_settings(guild.id)
         reason = (
@@ -285,10 +297,18 @@ class AntiSpam(commands.Cog):
 
     @anti_spam_group.command(name="setup", description="快速設定防炸群 (啟用/禁用)")
     @app_commands.describe(enabled="是否啟用防炸群系統")
-    async def setup_cmd(self, interaction: discord.Interaction, enabled: bool = True) -> None:
+    async def setup_cmd(
+        self, interaction: discord.Interaction, enabled: bool = True
+    ) -> None:
         """快速啟用/禁用"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         await interaction.response.defer()
         self.manager.update_settings(interaction.guild_id, {"enabled": enabled})
@@ -317,8 +337,14 @@ class AntiSpam(commands.Cog):
         action: str = "mute",
     ) -> None:
         """設定洪水偵測"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if action not in VALID_ACTIONS:
             await interaction.response.send_message(
@@ -361,8 +387,14 @@ class AntiSpam(commands.Cog):
         action: str = "delete",
     ) -> None:
         """設定重複偵測"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if action not in VALID_ACTIONS:
             await interaction.response.send_message(
@@ -405,8 +437,14 @@ class AntiSpam(commands.Cog):
         action: str = "mute",
     ) -> None:
         """設定提及偵測"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if action not in VALID_ACTIONS:
             await interaction.response.send_message(
@@ -451,8 +489,14 @@ class AntiSpam(commands.Cog):
         invite_auto_delete: bool = True,
     ) -> None:
         """設定連結偵測"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if action not in VALID_ACTIONS:
             await interaction.response.send_message(
@@ -501,8 +545,14 @@ class AntiSpam(commands.Cog):
         action: str = "lockdown",
     ) -> None:
         """設定突襲偵測"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if action not in VALID_ACTIONS and action != "lockdown":
             await interaction.response.send_message(
@@ -545,8 +595,14 @@ class AntiSpam(commands.Cog):
         window: int = 600,
     ) -> None:
         """設定自動升級"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         await interaction.response.defer()
         self.manager.update_settings(
@@ -585,8 +641,14 @@ class AntiSpam(commands.Cog):
         channel: discord.TextChannel | None = None,
     ) -> None:
         """管理白名單"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if action not in ("add", "remove"):
             await interaction.response.send_message(
@@ -636,8 +698,14 @@ class AntiSpam(commands.Cog):
     @anti_spam_group.command(name="lockdown_off", description="解除封鎖模式")
     async def lockdown_off_cmd(self, interaction: discord.Interaction) -> None:
         """手動解除封鎖模式"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if not self.manager.is_lockdown(interaction.guild_id):
             await interaction.response.send_message(
@@ -667,8 +735,14 @@ class AntiSpam(commands.Cog):
     @anti_spam_group.command(name="status", description="查看防炸群系統完整狀態")
     async def status_cmd(self, interaction: discord.Interaction) -> None:
         """顯示完整防炸群設定狀態"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         await interaction.response.defer()
         s = self.manager.get_settings(interaction.guild_id)
@@ -769,8 +843,14 @@ class AntiSpam(commands.Cog):
         self, interaction: discord.Interaction, seconds: int = 3600
     ) -> None:
         """設定禁言時長"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         await interaction.response.defer()
         sec = max(60, min(seconds, 2419200))  # 60s ~ 28d

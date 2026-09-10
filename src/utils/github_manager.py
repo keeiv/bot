@@ -1,5 +1,6 @@
-from collections.abc import Mapping, Coroutine
 import asyncio
+from collections.abc import Coroutine
+from collections.abc import Mapping
 from datetime import datetime
 from datetime import timezone
 import time
@@ -24,7 +25,9 @@ class GitHubRateLimitManager:
             "used": int(headers.get("X-RateLimit-Used", 0)),
         }
 
-    async def wait_for_rate_limit(self, endpoint: str, headers: Mapping[str, str]) -> None:
+    async def wait_for_rate_limit(
+        self, endpoint: str, headers: Mapping[str, str]
+    ) -> None:
         rate_info = self.parse_rate_limit_headers(headers)
         self.rate_limits[endpoint] = rate_info
 
@@ -71,9 +74,7 @@ class GitHubAPIManager:
 
         return self.session
 
-    async def make_request(
-        self, method: str, endpoint: str, **kwargs: Any
-    ) -> Any:
+    async def make_request(self, method: str, endpoint: str, **kwargs: Any) -> Any:
         """發送 API 請求，支援 ETag 條件請求。回傳 None 表示 304 無變更"""
         session = await self.get_session()
         url = f"{self.base_url}{endpoint}"
@@ -154,7 +155,9 @@ class GitHubAPIManager:
 
         raise Exception(f"Max retries exceeded for {endpoint}")
 
-    async def get_commits(self, owner: str, repo: str, per_page: int = 1) -> List[Dict[Any, Any]] | None:
+    async def get_commits(
+        self, owner: str, repo: str, per_page: int = 1
+    ) -> List[Dict[Any, Any]] | None:
         params = {"per_page": per_page}
         result = await self.make_request(
             "GET", f"/repos/{owner}/{repo}/commits", params=params

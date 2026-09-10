@@ -168,7 +168,9 @@ class NetworkOptimizer:
                             self._record_metric(hostname, time.time() - start_time)
                             result_value = result
                             if not isinstance(result_value, dict):
-                                raise TypeError("Unexpected stored or API value: expected dict")
+                                raise TypeError(
+                                    "Unexpected stored or API value: expected dict"
+                                )
                             return result_value
                         elif response.status in [429, 502, 503, 504]:
                             retry_after = float(
@@ -203,7 +205,9 @@ class NetworkOptimizer:
                 0, self._active_requests.get(hostname, 0) - 1
             )
 
-    async def make_batch_requests(self, requests: List[Dict[Any, Any]]) -> List[Dict[Any, Any] | BaseException]:
+    async def make_batch_requests(
+        self, requests: List[Dict[Any, Any]]
+    ) -> List[Dict[Any, Any] | BaseException]:
         tasks = []
         for req in requests:
             task = self.make_request(
@@ -247,7 +251,9 @@ class NetworkOptimizer:
 
         return stats
 
-    async def test_connectivity(self, urls: List[str] | None = None) -> Dict[str, Dict[Any, Any]]:
+    async def test_connectivity(
+        self, urls: List[str] | None = None
+    ) -> Dict[str, Dict[Any, Any]]:
         if urls is None:
             urls = [
                 "https://httpbin.org/get",

@@ -1,9 +1,8 @@
 """osu! 業務邏輯服務"""
-from typing import Any
 
 import json
 import os
-from typing import Optional
+from typing import Any, Optional
 
 _DATA_FILE = "data/storage/osu_links.json"
 
@@ -20,7 +19,8 @@ class OsuService:
     def _init_api(self) -> None:
         """初始化 osu! API 客戶端"""
         try:
-            from ossapi import Ossapi  # type: ignore[import-untyped]  # upstream package has no typing metadata
+            # ossapi has no typing metadata.
+            from ossapi import Ossapi  # type: ignore[import-untyped]
         except ImportError:
             self._api_error = "ossapi 套件無法載入，osu! 功能已禁用"
             return

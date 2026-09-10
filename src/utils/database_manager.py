@@ -12,7 +12,9 @@ class DatabaseConnectionPool:
     def __init__(self, db_path: str, max_connections: int = 10) -> None:
         self.db_path = db_path
         self.max_connections = max_connections
-        self._pool: asyncio.Queue[sqlite3.Connection] = asyncio.Queue(maxsize=max_connections)
+        self._pool: asyncio.Queue[sqlite3.Connection] = asyncio.Queue(
+            maxsize=max_connections
+        )
         self._lock = threading.Lock()
         self._created_connections = 0
         self._closed = False

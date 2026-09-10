@@ -1,5 +1,4 @@
 """抽獎業務邏輯服務"""
-from typing import Any
 
 import asyncio
 from datetime import datetime
@@ -9,7 +8,7 @@ import json
 import os
 import random
 import re
-from typing import Optional
+from typing import Any, Optional
 
 TZ_OFFSET = timezone(timedelta(hours=8))
 _DATA_FILE = "data/storage/giveaways.json"

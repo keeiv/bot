@@ -1,4 +1,3 @@
-from typing import Any
 import asyncio
 from datetime import datetime
 from datetime import timedelta
@@ -6,7 +5,7 @@ from datetime import timezone
 import json
 import os
 import time
-from typing import Optional
+from typing import Any, Optional
 
 CONFIG_FILE = "data/config/bot.json"
 MESSAGES_LOG_FILE = "data/logs/messages/訊息.json"
@@ -161,7 +160,11 @@ def save_messages_log(data: dict[Any, Any]) -> None:
 
 
 def add_message_record(
-    guild_id: int, message_id: int, content: str, author_id: int | None, channel_id: int | None
+    guild_id: int,
+    message_id: int,
+    content: str,
+    author_id: int | None,
+    channel_id: int | None,
 ) -> Any:
     """新增訊息記錄（統一 JSON）"""
     records = load_messages_log()

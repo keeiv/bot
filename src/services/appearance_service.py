@@ -1,7 +1,6 @@
 """機器人外觀申請業務邏輯服務"""
-from typing import Any
 
-from typing import Optional
+from typing import Any, Optional
 
 
 class AppearanceService:

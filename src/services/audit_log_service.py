@@ -1,10 +1,9 @@
 """審計日誌業務邏輯服務"""
-from typing import Any
 
 import json
 import os
 import time
-from typing import Optional
+from typing import Any, Optional
 
 TZ_OFFSET_HOURS = 8
 _CHANNELS_FILE = "data/storage/log_channels.json"

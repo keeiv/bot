@@ -55,10 +55,15 @@ class BlacklistCheckTree(app_commands.CommandTree):
             color=discord.Color.red(),
         )
         # 動態載入申訴按鈕 (避免循環 import)
-        from src.cogs.core.blacklist import Blacklist, BlockedNoticeView
+        from src.cogs.core.blacklist import Blacklist
+        from src.cogs.core.blacklist import BlockedNoticeView
 
         blacklist_cog = bot.get_cog("Blacklist")
-        view = BlockedNoticeView(blacklist_cog) if isinstance(blacklist_cog, Blacklist) else discord.ui.View(timeout=30)
+        view = (
+            BlockedNoticeView(blacklist_cog)
+            if isinstance(blacklist_cog, Blacklist)
+            else discord.ui.View(timeout=30)
+        )
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
         return False
 
@@ -143,10 +148,15 @@ class Bot(commands.Bot):
                 ),
                 color=discord.Color.red(),
             )
-            from src.cogs.core.blacklist import Blacklist, BlockedNoticeView
+            from src.cogs.core.blacklist import Blacklist
+            from src.cogs.core.blacklist import BlockedNoticeView
 
             blacklist_cog = self.get_cog("Blacklist")
-            view = BlockedNoticeView(blacklist_cog) if isinstance(blacklist_cog, Blacklist) else discord.ui.View(timeout=30)
+            view = (
+                BlockedNoticeView(blacklist_cog)
+                if isinstance(blacklist_cog, Blacklist)
+                else discord.ui.View(timeout=30)
+            )
             await message.reply(embed=embed, view=view, delete_after=30)
             return
         await self.process_commands(message)

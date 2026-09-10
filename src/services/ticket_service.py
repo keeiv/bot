@@ -1,5 +1,4 @@
 """工單業務邏輯服務"""
-from typing import Any
 
 import asyncio
 from datetime import datetime
@@ -7,7 +6,7 @@ from datetime import timedelta
 from datetime import timezone
 import json
 import os
-from typing import Optional
+from typing import Any, Optional
 
 TZ_OFFSET = timezone(timedelta(hours=8))
 _DATA_FILE = "data/storage/tickets.json"

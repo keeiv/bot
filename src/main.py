@@ -1,7 +1,7 @@
-from typing import Any
 import os
 import signal
 import sys
+from typing import Any
 
 from dotenv import load_dotenv
 import psutil  # type: ignore[import-untyped]  # upstream package has no typing metadata
@@ -9,6 +9,7 @@ import psutil  # type: ignore[import-untyped]  # upstream package has no typing 
 from .bot import Bot
 from .utils.api_optimizer import init_api_optimizer
 from .utils.config_manager import ensure_data_dir
+
 # Load environment variables
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")

@@ -30,8 +30,14 @@ class Management(commands.Cog):
     async def repo_track_add(
         self, interaction: discord.Interaction, channel: discord.TextChannel
     ) -> None:
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message(
@@ -65,8 +71,14 @@ class Management(commands.Cog):
 
     @repo_track.command(name="remove", description="移除 keeiv/bot 倉庫追蹤")
     async def repo_track_remove(self, interaction: discord.Interaction) -> None:
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message(
@@ -94,8 +106,14 @@ class Management(commands.Cog):
 
     @repo_track.command(name="status", description="顯示追蹤狀態")
     async def repo_track_status(self, interaction: discord.Interaction) -> None:
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         guild_id = str(interaction.guild.id)
 
@@ -154,7 +172,15 @@ class Management(commands.Cog):
                     )
                     for event in events:
                         channel = self.bot.get_channel(event["channel_id"])
-                        if not isinstance(channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
+                        if not isinstance(
+                            channel,
+                            (
+                                discord.TextChannel,
+                                discord.Thread,
+                                discord.VoiceChannel,
+                                discord.StageChannel,
+                            ),
+                        ):
                             continue
                         if event["type"] == "commit":
                             embed = discord.Embed(
@@ -206,8 +232,14 @@ class Management(commands.Cog):
     async def role_assign(
         self, interaction: discord.Interaction, user: discord.Member, role: discord.Role
     ) -> None:
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if not interaction.user.guild_permissions.manage_roles:
             await interaction.response.send_message(
@@ -253,8 +285,14 @@ class Management(commands.Cog):
     async def role_remove(
         self, interaction: discord.Interaction, user: discord.Member, role: discord.Role
     ) -> None:
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if not interaction.user.guild_permissions.manage_roles:
             await interaction.response.send_message(
@@ -347,8 +385,14 @@ class Management(commands.Cog):
     async def emoji_upload(
         self, interaction: discord.Interaction, name: str, image: discord.Attachment
     ) -> None:
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if not interaction.user.guild_permissions.manage_emojis:
             await interaction.response.send_message(
@@ -400,8 +444,14 @@ class Management(commands.Cog):
         auto_role: discord.Role | None = None,
         send_dm: bool = False,
     ) -> None:
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message(
@@ -502,8 +552,14 @@ class Management(commands.Cog):
         test_user: str | None = None,
         test_server: str | None = None,
     ) -> None:
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         guild_id = str(interaction.guild.id)
 
@@ -546,8 +602,14 @@ class Management(commands.Cog):
 
     @welcome.command(name="disable", description="停用歡迎訊息")
     async def welcome_disable(self, interaction: discord.Interaction) -> None:
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message(
@@ -588,8 +650,14 @@ class Management(commands.Cog):
         min_members: int = 0,
         require_verification: bool = False,
     ) -> None:
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if not interaction.user.guild_permissions.manage_roles:
             await interaction.response.send_message(
@@ -653,8 +721,14 @@ class Management(commands.Cog):
 
     @auto_role.command(name="list", description="列出自動角色分配規則")
     async def auto_role_list(self, interaction: discord.Interaction) -> None:
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         guild_id = str(interaction.guild.id)
 
@@ -696,9 +770,17 @@ class Management(commands.Cog):
 
     @auto_role.command(name="remove", description="移除自動角色分配規則")
     @app_commands.describe(rule_index="規則編號")
-    async def auto_role_remove(self, interaction: discord.Interaction, rule_index: int) -> None:
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+    async def auto_role_remove(
+        self, interaction: discord.Interaction, rule_index: int
+    ) -> None:
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if not interaction.user.guild_permissions.manage_roles:
             await interaction.response.send_message(
@@ -742,7 +824,15 @@ class Management(commands.Cog):
             welcome_config = self.service.config[guild_id]["welcome"]
             channel = member.guild.get_channel(welcome_config["channel_id"])
 
-            if isinstance(channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
+            if isinstance(
+                channel,
+                (
+                    discord.TextChannel,
+                    discord.Thread,
+                    discord.VoiceChannel,
+                    discord.StageChannel,
+                ),
+            ):
                 message = welcome_config["message"].format(
                     user=member.mention,
                     server=member.guild.name,
@@ -796,7 +886,9 @@ class Management(commands.Cog):
         await self._apply_auto_roles(member)
 
     @commands.Cog.listener()
-    async def on_member_update(self, before: discord.Member, after: discord.Member) -> None:
+    async def on_member_update(
+        self, before: discord.Member, after: discord.Member
+    ) -> None:
         """成員完成 Discord 會員篩選後套用需要驗證的角色。"""
         if before.pending and not after.pending:
             await self._apply_auto_roles(after, verified_only=True)
@@ -813,7 +905,9 @@ class Management(commands.Cog):
 
             for role_config in auto_roles:
                 try:
-                    requires_verification = role_config.get("require_verification", False)
+                    requires_verification = role_config.get(
+                        "require_verification", False
+                    )
                     if verified_only and not requires_verification:
                         continue
                     # Check conditions

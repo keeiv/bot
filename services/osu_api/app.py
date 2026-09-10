@@ -6,7 +6,9 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi import HTTPException
 from fastapi import Request
-from ossapi import Ossapi  # type: ignore[import-untyped]  # upstream package has no typing metadata
+
+# ossapi has no typing metadata.
+from ossapi import Ossapi  # type: ignore[import-untyped]
 
 load_dotenv()
 
@@ -156,7 +158,9 @@ async def osu_user(username: str, request: Request, ttl: int = 60) -> Any:
 
 
 @app.get("/osu/best/{username}")
-async def osu_best(username: str, request: Request, limit: int = 5, ttl: int = 60) -> Any:
+async def osu_best(
+    username: str, request: Request, limit: int = 5, ttl: int = 60
+) -> Any:
     _require_api_key(request)
 
     limit = max(1, min(10, limit))
@@ -181,7 +185,9 @@ async def osu_best(username: str, request: Request, limit: int = 5, ttl: int = 6
 
 
 @app.get("/osu/recent/{username}")
-async def osu_recent(username: str, request: Request, limit: int = 5, ttl: int = 30) -> Any:
+async def osu_recent(
+    username: str, request: Request, limit: int = 5, ttl: int = 30
+) -> Any:
     _require_api_key(request)
 
     limit = max(1, min(10, limit))

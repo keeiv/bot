@@ -205,7 +205,9 @@ class AuditLog(commands.Cog):
     # ===== 角色變更 / 暱稱變更 =====
 
     @commands.Cog.listener()
-    async def on_member_update(self, before: discord.Member, after: discord.Member) -> None:
+    async def on_member_update(
+        self, before: discord.Member, after: discord.Member
+    ) -> None:
         """成員資料更新（角色、暱稱）"""
         if before.bot:
             return

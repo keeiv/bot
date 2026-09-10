@@ -1,8 +1,7 @@
-from typing import Any
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
-from typing import Optional
+from typing import Any, Optional
 
 import discord
 from discord import app_commands
@@ -44,8 +43,14 @@ class TempVoice(commands.Cog):
         name_template: str = "{username}的家",
     ) -> None:
         """設定暫時語音頻道觸發房間"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message(
@@ -99,8 +104,14 @@ class TempVoice(commands.Cog):
     @temp_voice.command(name="status", description="查看此伺服器的暫時語音頻道系統狀態")
     async def status(self, interaction: discord.Interaction) -> None:
         """顯示暫時語音頻道系統設定狀態"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message(
@@ -156,8 +167,14 @@ class TempVoice(commands.Cog):
     @temp_voice.command(name="disable", description="停用此伺服器的暫時語音頻道系統")
     async def disable(self, interaction: discord.Interaction) -> None:
         """停用暫時語音頻道系統"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message(
@@ -243,7 +260,9 @@ class TempVoice(commands.Cog):
         try:
             new_channel = await guild.create_voice_channel(
                 name=channel_name,
-                category=category if isinstance(category, discord.CategoryChannel) else None,
+                category=(
+                    category if isinstance(category, discord.CategoryChannel) else None
+                ),
                 reason=f"暫時語音頻道建立：{member} ({member.id})",
             )
             # 給創立者頻道管理權限

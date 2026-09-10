@@ -7,8 +7,8 @@ import discord
 from discord.ext import commands
 from discord.ext import tasks
 
-from src.services.message_log_service import MessageLogService
 from src.cogs.features.achievements import Achievements
+from src.services.message_log_service import MessageLogService
 from src.utils.config_manager import ensure_data_dir
 
 TZ_OFFSET = timezone(timedelta(hours=8))
@@ -55,7 +55,9 @@ class MessageLogger(commands.Cog):
             )
 
     @commands.Cog.listener()
-    async def on_message_edit(self, before: discord.Message, after: discord.Message) -> None:
+    async def on_message_edit(
+        self, before: discord.Message, after: discord.Message
+    ) -> None:
         """監聽訊息編輯"""
         if before.guild is None or before.author.bot or before.content == after.content:
             return
@@ -195,8 +197,14 @@ class MessageLogger(commands.Cog):
         self, interaction: discord.Interaction, channel: discord.TextChannel
     ) -> None:
         """設置日誌頻道"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message(

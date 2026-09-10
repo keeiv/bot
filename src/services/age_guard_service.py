@@ -1,11 +1,10 @@
 """年齡守門員業務邏輯服務"""
-from typing import Any
 
 import json
 import os
 import re
 import time
-from typing import Optional
+from typing import Any, Optional
 
 _DATA_FILE = "data/storage/age_guard.json"
 _CACHE_TTL = 60.0

@@ -1,9 +1,8 @@
-from typing import Any
 from datetime import datetime
 from datetime import timezone
 import platform
 import sys
-from typing import Optional, Sequence
+from typing import Any, Optional, Sequence
 
 import discord
 from discord import app_commands

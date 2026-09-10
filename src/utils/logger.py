@@ -1,6 +1,5 @@
-from typing import Any
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 import discord
 

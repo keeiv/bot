@@ -1,7 +1,6 @@
-from typing import Any
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Optional, Sequence
+from typing import Any, Optional, Sequence
 
 import discord
 from discord import app_commands
@@ -410,7 +409,12 @@ class Admin(commands.Cog):
     @commands.hybrid_command(name="kick", description="踢出成員")
     @app_commands.describe(user="要踢出的成員", reason="踢出原因")
     @commands.has_permissions(kick_members=True)
-    async def kick(self, ctx: commands.Context[Any], user: discord.Member, reason: str = "沒有提供原因") -> None:
+    async def kick(
+        self,
+        ctx: commands.Context[Any],
+        user: discord.Member,
+        reason: str = "沒有提供原因",
+    ) -> None:
         """踢出成員"""
         if not ctx.author.guild_permissions.kick_members:
             await ctx.send("[失敗] 你需要「踢出成員」權限", ephemeral=True)
@@ -441,7 +445,12 @@ class Admin(commands.Cog):
     @commands.hybrid_command(name="ban", description="封禁成員")
     @app_commands.describe(user="要封禁的成員", reason="封禁原因")
     @commands.has_permissions(ban_members=True)
-    async def ban(self, ctx: commands.Context[Any], user: discord.Member, reason: str = "沒有提供原因") -> None:
+    async def ban(
+        self,
+        ctx: commands.Context[Any],
+        user: discord.Member,
+        reason: str = "沒有提供原因",
+    ) -> None:
         """封禁成員"""
         if not ctx.author.guild_permissions.ban_members:
             await ctx.send("[失敗] 你需要「封禁成員」權限", ephemeral=True)
@@ -508,7 +517,12 @@ class Admin(commands.Cog):
     @commands.hybrid_command(name="warn", description="警告成員")
     @app_commands.describe(user="要警告的成員", reason="警告原因")
     @commands.has_permissions(moderate_members=True)
-    async def warn(self, ctx: commands.Context[Any], user: discord.Member, reason: str = "沒有提供原因") -> None:
+    async def warn(
+        self,
+        ctx: commands.Context[Any],
+        user: discord.Member,
+        reason: str = "沒有提供原因",
+    ) -> None:
         """警告成員"""
         if not ctx.author.guild_permissions.moderate_members:
             await ctx.send("[失敗] 你需要有管理成員的權限", ephemeral=True)
