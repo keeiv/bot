@@ -1,26 +1,23 @@
-﻿import asyncio
-from datetime import datetime
-from datetime import timezone
+import asyncio
 
 import discord
 from discord import app_commands
 from discord.ext import commands
 from discord.ext import tasks
 
-from src.services.management_service import _format_time
 from src.services.management_service import ManagementService
 
 
 class Management(commands.Cog):
     """伺服器管理指令，包含倉庫追蹤、身份組分配、表情符號管理和歡迎訊息"""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.service = ManagementService()
 
         self._repo_poll_task.start()
 
-    def cog_unload(self):
+    async def cog_unload(self) -> None:
         self._repo_poll_task.cancel()
 
     # Repository tracking commands
@@ -32,7 +29,10 @@ class Management(commands.Cog):
     @app_commands.describe(channel="發送通知的頻道")
     async def repo_track_add(
         self, interaction: discord.Interaction, channel: discord.TextChannel
-    ):
+    ) -> None:
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message(
                 "[失敗] 你需要「管理頻道」權限",
@@ -64,7 +64,10 @@ class Management(commands.Cog):
         )
 
     @repo_track.command(name="remove", description="移除 keeiv/bot 倉庫追蹤")
-    async def repo_track_remove(self, interaction: discord.Interaction):
+    async def repo_track_remove(self, interaction: discord.Interaction) -> None:
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message(
                 "[失敗] 你需要「管理頻道」權限",
@@ -90,7 +93,10 @@ class Management(commands.Cog):
             )
 
     @repo_track.command(name="status", description="顯示追蹤狀態")
-    async def repo_track_status(self, interaction: discord.Interaction):
+    async def repo_track_status(self, interaction: discord.Interaction) -> None:
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         guild_id = str(interaction.guild.id)
 
         if (
@@ -132,7 +138,7 @@ class Management(commands.Cog):
         await interaction.response.send_message(embed=embed)
 
     @tasks.loop(minutes=5)
-    async def _repo_poll_task(self):
+    async def _repo_poll_task(self) -> None:
         """每 5 分鐘檢查倉庫更新"""
         if not self.service.config:
             return
@@ -148,7 +154,7 @@ class Management(commands.Cog):
                     )
                     for event in events:
                         channel = self.bot.get_channel(event["channel_id"])
-                        if not channel:
+                        if not isinstance(channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
                             continue
                         if event["type"] == "commit":
                             embed = discord.Embed(
@@ -199,7 +205,10 @@ class Management(commands.Cog):
     @app_commands.describe(user="要分配身份組的用戶", role="要分配的身份組")
     async def role_assign(
         self, interaction: discord.Interaction, user: discord.Member, role: discord.Role
-    ):
+    ) -> None:
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if not interaction.user.guild_permissions.manage_roles:
             await interaction.response.send_message(
                 "[失敗] 你需要「管理身份組」權限",
@@ -243,7 +252,10 @@ class Management(commands.Cog):
     @app_commands.describe(user="要移除身份組的用戶", role="要移除的身份組")
     async def role_remove(
         self, interaction: discord.Interaction, user: discord.Member, role: discord.Role
-    ):
+    ) -> None:
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if not interaction.user.guild_permissions.manage_roles:
             await interaction.response.send_message(
                 "[失敗] 你需要「管理身份組」權限",
@@ -288,7 +300,7 @@ class Management(commands.Cog):
 
     @emoji.command(name="get", description="獲取表情符號大圖")
     @app_commands.describe(emoji="要獲取的表情符號")
-    async def emoji_get(self, interaction: discord.Interaction, emoji: str):
+    async def emoji_get(self, interaction: discord.Interaction, emoji: str) -> None:
         try:
             # Parse emoji
             if emoji.startswith("<:") and emoji.endswith(">"):
@@ -334,7 +346,10 @@ class Management(commands.Cog):
     @app_commands.describe(name="表情符號名稱", image="要上傳為表情符號的圖片檔案")
     async def emoji_upload(
         self, interaction: discord.Interaction, name: str, image: discord.Attachment
-    ):
+    ) -> None:
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if not interaction.user.guild_permissions.manage_emojis:
             await interaction.response.send_message(
                 "[失敗] 你需要「管理表情符號」權限",
@@ -380,11 +395,14 @@ class Management(commands.Cog):
         interaction: discord.Interaction,
         channel: discord.TextChannel,
         message: str = "歡迎 {user} 來到 {server}！",
-        embed_title: str = None,
-        embed_color: str = None,
-        auto_role: discord.Role = None,
+        embed_title: str | None = None,
+        embed_color: str | None = None,
+        auto_role: discord.Role | None = None,
         send_dm: bool = False,
-    ):
+    ) -> None:
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message(
                 "[失敗] 你需要「管理頻道」權限",
@@ -439,7 +457,7 @@ class Management(commands.Cog):
         await interaction.followup.send(response_msg)
 
     @welcome.command(name="templates", description="預設歡迎訊息模板")
-    async def welcome_templates(self, interaction: discord.Interaction):
+    async def welcome_templates(self, interaction: discord.Interaction) -> None:
         templates = [
             {
                 "name": "基本",
@@ -481,9 +499,12 @@ class Management(commands.Cog):
     async def welcome_preview(
         self,
         interaction: discord.Interaction,
-        test_user: str = None,
-        test_server: str = None,
-    ):
+        test_user: str | None = None,
+        test_server: str | None = None,
+    ) -> None:
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         guild_id = str(interaction.guild.id)
 
         if (
@@ -524,7 +545,10 @@ class Management(commands.Cog):
             await interaction.response.send_message(f"[預覽] {message}", ephemeral=True)
 
     @welcome.command(name="disable", description="停用歡迎訊息")
-    async def welcome_disable(self, interaction: discord.Interaction):
+    async def welcome_disable(self, interaction: discord.Interaction) -> None:
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message(
                 "[失敗] 你需要「管理頻道」權限",
@@ -563,7 +587,10 @@ class Management(commands.Cog):
         delay: int = 0,
         min_members: int = 0,
         require_verification: bool = False,
-    ):
+    ) -> None:
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if not interaction.user.guild_permissions.manage_roles:
             await interaction.response.send_message(
                 "[失敗] 你需要「管理身份組」權限",
@@ -625,7 +652,10 @@ class Management(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @auto_role.command(name="list", description="列出自動角色分配規則")
-    async def auto_role_list(self, interaction: discord.Interaction):
+    async def auto_role_list(self, interaction: discord.Interaction) -> None:
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         guild_id = str(interaction.guild.id)
 
         if (
@@ -666,7 +696,10 @@ class Management(commands.Cog):
 
     @auto_role.command(name="remove", description="移除自動角色分配規則")
     @app_commands.describe(rule_index="規則編號")
-    async def auto_role_remove(self, interaction: discord.Interaction, rule_index: int):
+    async def auto_role_remove(self, interaction: discord.Interaction, rule_index: int) -> None:
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if not interaction.user.guild_permissions.manage_roles:
             await interaction.response.send_message(
                 "[失敗] 你需要「管理身份組」權限",
@@ -698,7 +731,7 @@ class Management(commands.Cog):
         )
 
     @commands.Cog.listener()
-    async def on_member_join(self, member: discord.Member):
+    async def on_member_join(self, member: discord.Member) -> None:
         guild_id = str(member.guild.id)
 
         # Handle welcome messages
@@ -709,7 +742,7 @@ class Management(commands.Cog):
             welcome_config = self.service.config[guild_id]["welcome"]
             channel = member.guild.get_channel(welcome_config["channel_id"])
 
-            if channel:
+            if isinstance(channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
                 message = welcome_config["message"].format(
                     user=member.mention,
                     server=member.guild.name,
@@ -760,7 +793,18 @@ class Management(commands.Cog):
                     # 忽略權限或 API 錯誤，避免中斷歡迎流程
                     pass
 
-        # Handle auto roles
+        await self._apply_auto_roles(member)
+
+    @commands.Cog.listener()
+    async def on_member_update(self, before: discord.Member, after: discord.Member) -> None:
+        """成員完成 Discord 會員篩選後套用需要驗證的角色。"""
+        if before.pending and not after.pending:
+            await self._apply_auto_roles(after, verified_only=True)
+
+    async def _apply_auto_roles(
+        self, member: discord.Member, *, verified_only: bool = False
+    ) -> None:
+        guild_id = str(member.guild.id)
         if (
             guild_id in self.service.config
             and "auto_roles" in self.service.config[guild_id]
@@ -769,13 +813,15 @@ class Management(commands.Cog):
 
             for role_config in auto_roles:
                 try:
+                    requires_verification = role_config.get("require_verification", False)
+                    if verified_only and not requires_verification:
+                        continue
                     # Check conditions
                     if role_config.get("min_members", 0) > member.guild.member_count:
                         continue
 
-                    if role_config.get("require_verification", False):
-                        if not member.verified:
-                            continue
+                    if requires_verification and member.pending:
+                        continue
 
                     role = member.guild.get_role(role_config["role_id"])
                     if not role:
@@ -785,11 +831,16 @@ class Management(commands.Cog):
                     if role_config.get("delay", 0) > 0:
                         await asyncio.sleep(role_config["delay"])
 
+                    if requires_verification and member.pending:
+                        continue
+                    if role in member.roles:
+                        continue
+
                     await member.add_roles(role, reason="自動角色分配")
 
                 except (discord.Forbidden, discord.HTTPException):
                     continue
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Management(bot))

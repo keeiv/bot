@@ -9,17 +9,18 @@ from typing import Any, Dict, List, Optional
 
 
 class DatabaseConnectionPool:
-    def __init__(self, db_path: str, max_connections: int = 10):
+    def __init__(self, db_path: str, max_connections: int = 10) -> None:
         self.db_path = db_path
         self.max_connections = max_connections
-        self._pool = asyncio.Queue(maxsize=max_connections)
+        self._pool: asyncio.Queue[sqlite3.Connection] = asyncio.Queue(maxsize=max_connections)
         self._lock = threading.Lock()
         self._created_connections = 0
+        self._closed = False
 
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         self._initialize_database()
 
-    def _initialize_database(self):
+    def _initialize_database(self) -> None:
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS cache_entries (
@@ -66,6 +67,8 @@ class DatabaseConnectionPool:
             conn.commit()
 
     async def get_connection(self) -> sqlite3.Connection:
+        if self._closed:
+            raise RuntimeError("Database pool is closed")
         try:
             conn = self._pool.get_nowait()
             return conn
@@ -76,11 +79,12 @@ class DatabaseConnectionPool:
                     conn = sqlite3.connect(self.db_path, check_same_thread=False)
                     conn.row_factory = sqlite3.Row
                     return conn
-                else:
-                    conn = await self._pool.get()
-                    return conn
+            return await self._pool.get()
 
-    async def return_connection(self, conn: sqlite3.Connection):
+    async def return_connection(self, conn: sqlite3.Connection) -> None:
+        if self._closed:
+            conn.close()
+            return
         try:
             self._pool.put_nowait(conn)
         except asyncio.QueueFull:
@@ -88,21 +92,32 @@ class DatabaseConnectionPool:
             with self._lock:
                 self._created_connections -= 1
 
+    def close(self) -> None:
+        self._closed = True
+        while not self._pool.empty():
+            self._pool.get_nowait().close()
+
 
 class DatabaseManager:
-    def __init__(self, db_path: str = "data/storage/bot_database.db"):
+    def __init__(self, db_path: str = "data/storage/bot_database.db") -> None:
         self.pool = DatabaseConnectionPool(db_path)
-        self._cleanup_task = None
+        self._cleanup_task: asyncio.Task[None] | None = None
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Any:
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        await self.close()
+
+    async def close(self) -> None:
         if self._cleanup_task:
             self._cleanup_task.cancel()
+            await asyncio.gather(self._cleanup_task, return_exceptions=True)
+            self._cleanup_task = None
+        self.pool.close()
 
     @contextlib.asynccontextmanager
-    async def get_connection(self):
+    async def get_connection(self) -> Any:
         conn = await self.pool.get_connection()
         try:
             yield conn
@@ -176,13 +191,13 @@ class DatabaseManager:
                 )
 
                 conn.commit()
-                return cursor.rowcount
+                return int(cursor.rowcount)
         except Exception as e:
             print(f"[Database] Cache clear pattern error: {e}")
             return 0
 
     async def store_metric(
-        self, metric_name: str, value: float, metadata: Dict = None
+        self, metric_name: str, value: float, metadata: Dict[Any, Any] | None = None
     ) -> bool:
         try:
             async with self.get_connection() as conn:
@@ -204,8 +219,8 @@ class DatabaseManager:
             return False
 
     async def get_metrics(
-        self, metric_name: str = None, limit: int = 100
-    ) -> List[Dict]:
+        self, metric_name: str | None = None, limit: int = 100
+    ) -> List[Dict[Any, Any]]:
         try:
             async with self.get_connection() as conn:
                 if metric_name:
@@ -236,9 +251,9 @@ class DatabaseManager:
     async def log_audit(
         self,
         action: str,
-        user_id: str = None,
-        guild_id: str = None,
-        details: Dict = None,
+        user_id: str | None = None,
+        guild_id: str | None = None,
+        details: Dict[Any, Any] | None = None,
     ) -> bool:
         try:
             async with self.get_connection() as conn:
@@ -272,7 +287,7 @@ class DatabaseManager:
                 )
 
                 conn.commit()
-                return cursor.rowcount
+                return int(cursor.rowcount)
         except Exception as e:
             print(f"[Database] Cleanup expired cache error: {e}")
             return 0
@@ -301,8 +316,11 @@ class DatabaseManager:
             print(f"[Database] Get cache stats error: {e}")
             return {"total_entries": 0, "expired_entries": 0, "valid_entries": 0}
 
-    async def start_cleanup_task(self, interval: int = 300):
-        async def cleanup_loop():
+    async def start_cleanup_task(self, interval: int = 300) -> None:
+        if self._cleanup_task and not self._cleanup_task.done():
+            return
+
+        async def cleanup_loop() -> None:
             while True:
                 await asyncio.sleep(interval)
                 try:
@@ -315,13 +333,14 @@ class DatabaseManager:
         self._cleanup_task = asyncio.create_task(cleanup_loop())
 
 
-database_manager = None
+database_manager: DatabaseManager | None = None
 
 
-def init_database_manager():
+def init_database_manager() -> None:
     global database_manager
-    database_manager = DatabaseManager()
+    if database_manager is None or database_manager.pool._closed:
+        database_manager = DatabaseManager()
 
 
-def get_database_manager() -> DatabaseManager:
+def get_database_manager() -> DatabaseManager | None:
     return database_manager

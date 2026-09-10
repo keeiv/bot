@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -11,6 +12,7 @@ from discord import app_commands
 from discord.ext import commands
 from discord.ext import tasks
 
+from src.utils.github_manager import GitHubAPIManager
 from src.utils.github_manager import get_github_manager
 from src.utils.github_manager import init_github_manager
 
@@ -31,7 +33,7 @@ class GithubWatch(commands.Cog):
         name="repo_watch", description="GitHub 檔案庫更新通知"
     )
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.data_file = "data/storage/github_watch.json"
         os.makedirs("data/storage", exist_ok=True)
@@ -41,29 +43,35 @@ class GithubWatch(commands.Cog):
 
         self._poll_task.start()
 
-    def cog_unload(self):
+    async def cog_unload(self) -> None:
         self._poll_task.cancel()
 
-    def _load_config(self) -> dict:
+    def _load_config(self) -> dict[Any, Any]:
         if not os.path.exists(self.data_file):
             return {}
         try:
             with open(self.data_file, "r", encoding="utf-8") as f:
-                return json.load(f)
+                result_value = json.load(f)
+                if not isinstance(result_value, dict):
+                    raise TypeError("Unexpected stored or API value: expected dict")
+                return result_value
         except Exception:
             return {}
 
-    def _save_config(self):
+    def _save_config(self) -> None:
         with open(self.data_file, "w", encoding="utf-8") as f:
             json.dump(self._config, f, ensure_ascii=False, indent=2)
 
-    def _get_guild_cfg(self, guild_id: int) -> Optional[dict]:
+    def _get_guild_cfg(self, guild_id: int) -> Optional[dict[Any, Any]]:
         return self._config.get(str(guild_id))
 
-    async def _ensure_session(self) -> aiohttp.ClientSession:
-        return get_github_manager()
+    async def _ensure_session(self) -> GitHubAPIManager:
+        manager = get_github_manager()
+        if manager is None:
+            raise RuntimeError("GitHub manager is not initialized")
+        return manager
 
-    async def _fetch_latest_commit(self, owner: str, repo: str) -> Optional[dict]:
+    async def _fetch_latest_commit(self, owner: str, repo: str) -> Optional[dict[Any, Any]]:
         """取得最新 commit，回傳 None 表示無變更 (304)"""
         github_manager = await self._ensure_session()
 
@@ -109,8 +117,8 @@ class GithubWatch(commands.Cog):
             raise RuntimeError(f"GitHub API 失敗: {e}")
 
     async def _send_update_message(
-        self, guild_id: int, channel_id: int, owner: str, repo: str, commit: dict
-    ):
+        self, guild_id: int, channel_id: int, owner: str, repo: str, commit: dict[Any, Any]
+    ) -> None:
         guild = self.bot.get_guild(guild_id)
         if guild is None:
             return
@@ -154,7 +162,7 @@ class GithubWatch(commands.Cog):
         await channel.send(embed=embed)
 
     @tasks.loop(minutes=2)
-    async def _poll_task(self):
+    async def _poll_task(self) -> None:
         for guild_key, cfg in list(self._config.items()):
             try:
                 enabled = cfg.get("enabled", False)
@@ -192,7 +200,7 @@ class GithubWatch(commands.Cog):
                 print(f"[github_watch] 輪詢失敗 guild={guild_key}: {e}")
 
     @_poll_task.before_loop
-    async def _before_poll(self):
+    async def _before_poll(self) -> None:
         try:
             await self.bot.wait_until_ready()
         except RuntimeError:
@@ -213,7 +221,7 @@ class GithubWatch(commands.Cog):
         repo: str,
         channel: discord.TextChannel,
         interval_minutes: int = 2,
-    ):
+    ) -> None:
         await interaction.response.defer(ephemeral=True)
 
         interval_minutes = max(2, min(60, interval_minutes))
@@ -235,7 +243,10 @@ class GithubWatch(commands.Cog):
         )
 
     @repo_watch.command(name="status", description="查看 GitHub 檔案庫通知狀態")
-    async def repo_watch_status(self, interaction: discord.Interaction):
+    async def repo_watch_status(self, interaction: discord.Interaction) -> None:
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         await interaction.response.defer(ephemeral=True)
 
         cfg = self._get_guild_cfg(interaction.guild_id)
@@ -258,7 +269,10 @@ class GithubWatch(commands.Cog):
 
     @repo_watch.command(name="disable", description="停用 GitHub 檔案庫更新通知")
     @app_commands.checks.has_permissions(manage_guild=True)
-    async def repo_watch_disable(self, interaction: discord.Interaction):
+    async def repo_watch_disable(self, interaction: discord.Interaction) -> None:
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         await interaction.response.defer(ephemeral=True)
 
         cfg = self._get_guild_cfg(interaction.guild_id)
@@ -273,7 +287,7 @@ class GithubWatch(commands.Cog):
         await interaction.followup.send("已停用 repo 通知", ephemeral=True)
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     token = os.getenv("GITHUB_TOKEN")
     init_github_manager(token)
     await bot.add_cog(GithubWatch(bot))

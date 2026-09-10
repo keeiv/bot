@@ -15,15 +15,15 @@ class NetworkConfig:
     read_timeout: float = 30.0
     max_retries: int = 3
     retry_delay: float = 1.0
-    use_http2: bool = True
+    use_http2: bool = False
     verify_ssl: bool = True
     dns_cache_ttl: int = 300
     connection_pool_size: int = 10
 
 
 class DNSCache:
-    def __init__(self, ttl: int = 300):
-        self._cache: Dict[str, Dict] = {}
+    def __init__(self, ttl: int = 300) -> None:
+        self._cache: Dict[str, Dict[Any, Any]] = {}
         self._ttl = ttl
         self._lock = asyncio.Lock()
 
@@ -34,12 +34,15 @@ class DNSCache:
             if hostname in self._cache:
                 entry = self._cache[hostname]
                 if current_time - entry["timestamp"] < self._ttl:
-                    return entry["ips"]
+                    result_value = entry["ips"]
+                    if not isinstance(result_value, list):
+                        raise TypeError("Unexpected stored or API value: expected list")
+                    return result_value
 
         try:
             loop = asyncio.get_event_loop()
             ips = await loop.getaddrinfo(hostname, None, family=socket.AF_INET)
-            ip_addresses = [info[4][0] for info in ips]
+            ip_addresses = [str(info[4][0]) for info in ips]
 
             async with self._lock:
                 self._cache[hostname] = {"ips": ip_addresses, "timestamp": current_time}
@@ -49,7 +52,7 @@ class DNSCache:
             print(f"[DNS Cache] Error resolving {hostname}: {e}")
             return []
 
-    def clear(self, hostname: str = None):
+    def clear(self, hostname: str | None = None) -> None:
         if hostname:
             self._cache.pop(hostname, None)
         else:
@@ -60,7 +63,9 @@ class DNSCache:
 
 
 class ConnectionPool:
-    def __init__(self, config: NetworkConfig):
+    def __init__(self, config: NetworkConfig) -> None:
+        if config.use_http2:
+            raise ValueError("aiohttp 傳輸僅支援 HTTP/1.1，請停用 use_http2")
         self.config = config
         self._pools: Dict[str, aiohttp.TCPConnector] = {}
         self._sessions: Dict[str, aiohttp.ClientSession] = {}
@@ -81,7 +86,6 @@ class ConnectionPool:
                     ttl_dns_cache=self.config.dns_cache_ttl,
                     use_dns_cache=True,
                     ssl=self.config.verify_ssl,
-                    enable_cleanup_closed=True,
                 )
 
                 self._pools[key] = connector
@@ -100,18 +104,14 @@ class ConnectionPool:
                     connector=connector,
                     timeout=timeout,
                     headers=headers,
-                    version=(
-                        aiohttp.HttpVersion11
-                        if not self.config.use_http2
-                        else aiohttp.HttpVersion20
-                    ),
+                    version=aiohttp.HttpVersion11,
                 )
 
                 self._sessions[key] = session
 
             return self._sessions[key]
 
-    async def close_all(self):
+    async def close_all(self) -> None:
         async with self._lock:
             for session in self._sessions.values():
                 if not session.closed:
@@ -125,7 +125,8 @@ class ConnectionPool:
 
 
 class NetworkOptimizer:
-    def __init__(self, config: NetworkConfig = None):
+    def __init__(self, config: NetworkConfig | None = None) -> None:
+        self._closed = False
         self.config = config or NetworkConfig()
         self.dns_cache = DNSCache(self.config.dns_cache_ttl)
         self.connection_pool = ConnectionPool(self.config)
@@ -136,12 +137,12 @@ class NetworkOptimizer:
         self,
         method: str,
         url: str,
-        headers: Dict = None,
-        params: Dict = None,
+        headers: Dict[Any, Any] | None = None,
+        params: Dict[Any, Any] | None = None,
         data: Any = None,
-        json_data: Dict = None,
-        **kwargs,
-    ) -> Dict:
+        json_data: Dict[Any, Any] | None = None,
+        **kwargs: Any,
+    ) -> Dict[Any, Any]:
         start_time = time.time()
         parsed_url = urlparse(url)
         hostname = parsed_url.netloc
@@ -165,7 +166,10 @@ class NetworkOptimizer:
                         if response.status == 200:
                             result = await response.json()
                             self._record_metric(hostname, time.time() - start_time)
-                            return result
+                            result_value = result
+                            if not isinstance(result_value, dict):
+                                raise TypeError("Unexpected stored or API value: expected dict")
+                            return result_value
                         elif response.status in [429, 502, 503, 504]:
                             retry_after = float(
                                 response.headers.get(
@@ -199,7 +203,7 @@ class NetworkOptimizer:
                 0, self._active_requests.get(hostname, 0) - 1
             )
 
-    async def make_batch_requests(self, requests: List[Dict]) -> List[Dict]:
+    async def make_batch_requests(self, requests: List[Dict[Any, Any]]) -> List[Dict[Any, Any] | BaseException]:
         tasks = []
         for req in requests:
             task = self.make_request(
@@ -215,7 +219,7 @@ class NetworkOptimizer:
         results = await asyncio.gather(*tasks, return_exceptions=True)
         return results
 
-    def _record_metric(self, hostname: str, response_time: float):
+    def _record_metric(self, hostname: str, response_time: float) -> None:
         if hostname not in self._request_metrics:
             self._request_metrics[hostname] = []
 
@@ -225,7 +229,7 @@ class NetworkOptimizer:
             self._request_metrics[hostname] = self._request_metrics[hostname][-50:]
 
     def get_network_stats(self) -> Dict[str, Any]:
-        stats = {
+        stats: Dict[str, Any] = {
             "active_requests": dict(self._active_requests),
             "dns_cache_size": self.dns_cache.size(),
             "response_times": {},
@@ -243,7 +247,7 @@ class NetworkOptimizer:
 
         return stats
 
-    async def test_connectivity(self, urls: List[str] = None) -> Dict[str, Dict]:
+    async def test_connectivity(self, urls: List[str] | None = None) -> Dict[str, Dict[Any, Any]]:
         if urls is None:
             urls = [
                 "https://httpbin.org/get",
@@ -305,20 +309,21 @@ class NetworkOptimizer:
         except Exception as e:
             return {"status": "failed", "error": str(e)}
 
-    def clear_caches(self):
+    def clear_caches(self) -> None:
         self.dns_cache.clear()
         self._request_metrics.clear()
 
-    async def close(self):
+    async def close(self) -> None:
         await self.connection_pool.close_all()
+        self._closed = True
 
 
 class NetworkDiagnostics:
-    def __init__(self, optimizer: NetworkOptimizer):
+    def __init__(self, optimizer: NetworkOptimizer) -> None:
         self.optimizer = optimizer
 
     async def run_full_diagnostics(self) -> Dict[str, Any]:
-        diagnostics = {
+        diagnostics: Dict[str, Any] = {
             "timestamp": time.time(),
             "network_stats": self.optimizer.get_network_stats(),
             "connectivity_test": await self.optimizer.test_connectivity(),
@@ -341,13 +346,14 @@ class NetworkDiagnostics:
         return diagnostics
 
 
-network_optimizer = None
+network_optimizer: NetworkOptimizer | None = None
 
 
-def init_network_optimizer(config: NetworkConfig = None):
+def init_network_optimizer(config: NetworkConfig | None = None) -> None:
     global network_optimizer
-    network_optimizer = NetworkOptimizer(config)
+    if network_optimizer is None or network_optimizer._closed:
+        network_optimizer = NetworkOptimizer(config)
 
 
-def get_network_optimizer() -> NetworkOptimizer:
+def get_network_optimizer() -> NetworkOptimizer | None:
     return network_optimizer

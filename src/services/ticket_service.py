@@ -1,4 +1,5 @@
 """工單業務邏輯服務"""
+from typing import Any
 
 import asyncio
 from datetime import datetime
@@ -17,11 +18,11 @@ class TicketService:
 
     def __init__(self) -> None:
         self._lock = asyncio.Lock()
-        self._cache: Optional[dict] = None
+        self._cache: Optional[dict[Any, Any]] = None
 
     # ─────────────── 資料存取 ───────────────
 
-    def _load(self) -> dict:
+    def _load(self) -> dict[Any, Any]:
         if self._cache is not None:
             return self._cache
         if os.path.exists(_DATA_FILE):
@@ -34,7 +35,7 @@ class TicketService:
         self._cache = {"guilds": {}, "tickets": {}}
         return self._cache
 
-    def _save(self, data: dict) -> None:
+    def _save(self, data: dict[Any, Any]) -> None:
         os.makedirs(os.path.dirname(_DATA_FILE), exist_ok=True)
         with open(_DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -42,9 +43,14 @@ class TicketService:
 
     # ─────────────── 伺服器設定 ───────────────
 
-    def get_guild_config(self, guild_id: int) -> Optional[dict]:
+    def get_guild_config(self, guild_id: int) -> Optional[dict[Any, Any]]:
         """取得伺服器工單系統設定"""
-        return self._load().get("guilds", {}).get(str(guild_id))
+        result_value = self._load().get("guilds", {}).get(str(guild_id))
+        if result_value is None:
+            return None
+        if not isinstance(result_value, dict):
+            raise TypeError("Unexpected stored or API value: expected dict")
+        return result_value
 
     def save_guild_config(
         self,
@@ -66,9 +72,14 @@ class TicketService:
 
     # ─────────────── 工單 CRUD ───────────────
 
-    def get_ticket(self, thread_id: int) -> Optional[dict]:
+    def get_ticket(self, thread_id: int) -> Optional[dict[Any, Any]]:
         """取得工單資料"""
-        return self._load().get("tickets", {}).get(str(thread_id))
+        result_value = self._load().get("tickets", {}).get(str(thread_id))
+        if result_value is None:
+            return None
+        if not isinstance(result_value, dict):
+            raise TypeError("Unexpected stored or API value: expected dict")
+        return result_value
 
     def find_open_ticket(self, guild_id: int, user_id: int) -> Optional[int]:
         """尋找用戶在指定伺服器是否已有開啟中工單，回傳 thread_id"""
@@ -130,7 +141,10 @@ class TicketService:
         count = cfg.get("ticket_count", 0) + 1
         cfg["ticket_count"] = count
         self._save(data)
-        return count
+        result_value = count
+        if not isinstance(result_value, int):
+            raise TypeError("Unexpected stored or API value: expected int")
+        return result_value
 
     def can_close(self, thread_id: int, user_id: int, is_staff: bool) -> bool:
         """判斷用戶是否有權限關閉工單"""

@@ -1,4 +1,5 @@
 """審計日誌業務邏輯服務"""
+from typing import Any
 
 import json
 import os
@@ -14,10 +15,10 @@ class AuditLogService:
     """審計日誌頻道設定存取"""
 
     def __init__(self) -> None:
-        self._cache: dict = {}
+        self._cache: dict[Any, Any] = {}
         self._cache_time: float = 0.0
 
-    def load(self) -> dict:
+    def load(self) -> dict[Any, Any]:
         """載入所有伺服器日誌頻道設定 (帶快取)"""
         now = time.monotonic()
         if self._cache and (now - self._cache_time) < _CACHE_TTL:

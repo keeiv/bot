@@ -112,6 +112,7 @@ class RouletteGame:
             player2.id: False,
         }
         self.double_bet_active = False
+        self.blank_round_players: set[int] = set()
 
     @staticmethod
     def _random_items() -> List[str]:

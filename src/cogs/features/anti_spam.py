@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import timedelta
 
 import discord
@@ -22,7 +23,7 @@ from src.utils.config_manager import get_guild_log_channel
 class AntiSpam(commands.Cog):
     """頂級防炸群系統 Cog — 多層偵測、自動升級、突襲防護"""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.manager = AntiSpamManager()
         # guild_id -> {channel_id -> original send_messages (True/False/None)}
@@ -30,7 +31,7 @@ class AntiSpam(commands.Cog):
 
     # ───────────── 輔助方法 ─────────────
 
-    async def _send_log(self, guild_id: int, embed: discord.Embed):
+    async def _send_log(self, guild_id: int, embed: discord.Embed) -> None:
         """發送日誌到設定的頻道"""
         log_channel_id = get_guild_log_channel(guild_id)
         if not log_channel_id:
@@ -39,7 +40,8 @@ class AntiSpam(commands.Cog):
             ch = self.bot.get_channel(log_channel_id)
             if not ch:
                 ch = await self.bot.fetch_channel(log_channel_id)
-            await ch.send(embed=embed)
+            if isinstance(ch, discord.abc.Messageable):
+                await ch.send(embed=embed)
         except Exception:
             pass
 
@@ -53,6 +55,8 @@ class AntiSpam(commands.Cog):
         """執行懲罰動作。回傳 (success, fail_reason)。"""
         member = message.author
         guild = message.guild
+        if guild is None or not isinstance(member, discord.Member) or not isinstance(message.channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
+            return False, "不支援的成員或頻道"
         s = self.manager.get_settings(guild.id)
         reason = (
             f"防炸群: {DETECT_NAMES.get(detection_type, detection_type)} — {detail}"
@@ -121,7 +125,7 @@ class AntiSpam(commands.Cog):
         except Exception as exc:
             return False, str(exc)[:120]
 
-    async def _activate_lockdown(self, guild: discord.Guild):
+    async def _activate_lockdown(self, guild: discord.Guild) -> None:
         """啟用封鎖模式 — 鎖定所有文字頻道，并廮存原始權限"""
         if self.manager.is_lockdown(guild.id):
             return
@@ -134,7 +138,7 @@ class AntiSpam(commands.Cog):
                 overwrite = channel.overwrites_for(default_role)
                 # 廮存原始 send_messages 狀態，以便解除時精準回復
                 channel_states[channel.id] = overwrite.send_messages
-                overwrite.send_messages = False
+                overwrite.update(send_messages=False)
                 await channel.set_permissions(
                     default_role,
                     overwrite=overwrite,
@@ -144,7 +148,7 @@ class AntiSpam(commands.Cog):
                 continue
         self._lockdown_states[guild.id] = channel_states
 
-    async def _deactivate_lockdown(self, guild: discord.Guild):
+    async def _deactivate_lockdown(self, guild: discord.Guild) -> None:
         """解除封鎖模式，回復封鎖前原始權限"""
         self.manager.set_lockdown(guild.id, False)
         channel_states = self._lockdown_states.pop(guild.id, {})
@@ -154,7 +158,7 @@ class AntiSpam(commands.Cog):
             try:
                 overwrite = channel.overwrites_for(default_role)
                 # 回復到封鎖前的狀態；若無廮存則用 None (繼承伺服器預設)
-                overwrite.send_messages = channel_states.get(channel.id)
+                overwrite.update(send_messages=channel_states.get(channel.id))
                 await channel.set_permissions(
                     default_role,
                     overwrite=overwrite,
@@ -166,7 +170,7 @@ class AntiSpam(commands.Cog):
     # ───────────── 事件監聽 ─────────────
 
     @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
+    async def on_message(self, message: discord.Message) -> None:
         """監聽訊息 — 多層偵測"""
         if message.author.bot or message.guild is None:
             return
@@ -246,7 +250,7 @@ class AntiSpam(commands.Cog):
             self.manager.reset_user(message.guild.id, message.author.id)
 
     @commands.Cog.listener()
-    async def on_member_join(self, member: discord.Member):
+    async def on_member_join(self, member: discord.Member) -> None:
         """監聽成員加入 — 突襲偵測"""
         if member.bot:
             return
@@ -281,8 +285,11 @@ class AntiSpam(commands.Cog):
 
     @anti_spam_group.command(name="setup", description="快速設定防炸群 (啟用/禁用)")
     @app_commands.describe(enabled="是否啟用防炸群系統")
-    async def setup_cmd(self, interaction: discord.Interaction, enabled: bool = True):
+    async def setup_cmd(self, interaction: discord.Interaction, enabled: bool = True) -> None:
         """快速啟用/禁用"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         await interaction.response.defer()
         self.manager.update_settings(interaction.guild_id, {"enabled": enabled})
         status = "已啟用" if enabled else "已禁用"
@@ -308,8 +315,11 @@ class AntiSpam(commands.Cog):
         messages: int = 10,
         window: int = 10,
         action: str = "mute",
-    ):
+    ) -> None:
         """設定洪水偵測"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if action not in VALID_ACTIONS:
             await interaction.response.send_message(
                 f"[失敗] 無效動作，可選: {', '.join(VALID_ACTIONS)}", ephemeral=True
@@ -349,8 +359,11 @@ class AntiSpam(commands.Cog):
         count: int = 4,
         window: int = 30,
         action: str = "delete",
-    ):
+    ) -> None:
         """設定重複偵測"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if action not in VALID_ACTIONS:
             await interaction.response.send_message(
                 f"[失敗] 無效動作，可選: {', '.join(VALID_ACTIONS)}", ephemeral=True
@@ -390,8 +403,11 @@ class AntiSpam(commands.Cog):
         enabled: bool = True,
         limit: int = 8,
         action: str = "mute",
-    ):
+    ) -> None:
         """設定提及偵測"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if action not in VALID_ACTIONS:
             await interaction.response.send_message(
                 f"[失敗] 無效動作，可選: {', '.join(VALID_ACTIONS)}", ephemeral=True
@@ -433,8 +449,11 @@ class AntiSpam(commands.Cog):
         window: int = 15,
         action: str = "delete",
         invite_auto_delete: bool = True,
-    ):
+    ) -> None:
         """設定連結偵測"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if action not in VALID_ACTIONS:
             await interaction.response.send_message(
                 f"[失敗] 無效動作，可選: {', '.join(VALID_ACTIONS)}", ephemeral=True
@@ -480,8 +499,11 @@ class AntiSpam(commands.Cog):
         joins: int = 10,
         window: int = 30,
         action: str = "lockdown",
-    ):
+    ) -> None:
         """設定突襲偵測"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if action not in VALID_ACTIONS and action != "lockdown":
             await interaction.response.send_message(
                 f"[失敗] 無效動作，可選: {', '.join(VALID_ACTIONS)}", ephemeral=True
@@ -521,8 +543,11 @@ class AntiSpam(commands.Cog):
         enabled: bool = True,
         strikes: int = 3,
         window: int = 600,
-    ):
+    ) -> None:
         """設定自動升級"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         await interaction.response.defer()
         self.manager.update_settings(
             interaction.guild_id,
@@ -556,10 +581,13 @@ class AntiSpam(commands.Cog):
         self,
         interaction: discord.Interaction,
         action: str,
-        role: discord.Role = None,
-        channel: discord.TextChannel = None,
-    ):
+        role: discord.Role | None = None,
+        channel: discord.TextChannel | None = None,
+    ) -> None:
         """管理白名單"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if action not in ("add", "remove"):
             await interaction.response.send_message(
                 "[失敗] action 必須為 add 或 remove", ephemeral=True
@@ -606,8 +634,11 @@ class AntiSpam(commands.Cog):
         await interaction.followup.send(embed=embed)
 
     @anti_spam_group.command(name="lockdown_off", description="解除封鎖模式")
-    async def lockdown_off_cmd(self, interaction: discord.Interaction):
+    async def lockdown_off_cmd(self, interaction: discord.Interaction) -> None:
         """手動解除封鎖模式"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         if not self.manager.is_lockdown(interaction.guild_id):
             await interaction.response.send_message(
                 "[提示] 目前未處於封鎖模式", ephemeral=True
@@ -634,8 +665,11 @@ class AntiSpam(commands.Cog):
         )
 
     @anti_spam_group.command(name="status", description="查看防炸群系統完整狀態")
-    async def status_cmd(self, interaction: discord.Interaction):
+    async def status_cmd(self, interaction: discord.Interaction) -> None:
         """顯示完整防炸群設定狀態"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         await interaction.response.defer()
         s = self.manager.get_settings(interaction.guild_id)
 
@@ -733,8 +767,11 @@ class AntiSpam(commands.Cog):
     @app_commands.describe(seconds="禁言秒數 (預設 3600 = 1 小時)")
     async def mute_duration_cmd(
         self, interaction: discord.Interaction, seconds: int = 3600
-    ):
+    ) -> None:
         """設定禁言時長"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         await interaction.response.defer()
         sec = max(60, min(seconds, 2419200))  # 60s ~ 28d
         self.manager.update_settings(interaction.guild_id, {"mute_duration": sec})
@@ -753,12 +790,12 @@ class AntiSpam(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def anti_spam_set_legacy(
         self,
-        ctx,
+        ctx: commands.Context[Any],
         enabled: bool = True,
         messages_per_window: int = 10,
         window_seconds: int = 10,
         action: str = "mute",
-    ):
+    ) -> None:
         """向下相容的舊版設定指令"""
         if action not in VALID_ACTIONS:
             await ctx.send(
@@ -792,7 +829,7 @@ class AntiSpam(commands.Cog):
         name="anti_spam_status", description="查看防炸群狀態 (舊版相容)"
     )
     @commands.has_permissions(administrator=True)
-    async def anti_spam_status_legacy(self, ctx):
+    async def anti_spam_status_legacy(self, ctx: commands.Context[Any]) -> None:
         """向下相容的舊版狀態指令"""
         s = self.manager.get_settings(ctx.guild.id)
         status = "已啟用" if s["enabled"] else "已禁用"
@@ -816,6 +853,6 @@ class AntiSpam(commands.Cog):
         await ctx.send(embed=embed)
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     """載入 Cog"""
     await bot.add_cog(AntiSpam(bot))

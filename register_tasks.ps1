@@ -10,13 +10,13 @@ USAGE (Run as Administrator):
 
 Set-StrictMode -Version Latest
 
-$bat = Join-Path $PSScriptRoot 'run_bot.bat'
-if (-not (Test-Path $bat)) {
-    Write-Error "Batch file not found: $bat"
+$pythonPath = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
+if (-not (Test-Path -LiteralPath $pythonPath)) {
+    Write-Error "Python environment not found: $pythonPath. Create .venv and install requirements first."
     exit 1
 }
 
-$action = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument "/c `"$bat`""
+$action = New-ScheduledTaskAction -Execute $pythonPath -Argument '-m src.main' -WorkingDirectory $PSScriptRoot
 $trigStartup = New-ScheduledTaskTrigger -AtStartup
 $trigLogon = New-ScheduledTaskTrigger -AtLogOn
 $triggers = @($trigStartup, $trigLogon)

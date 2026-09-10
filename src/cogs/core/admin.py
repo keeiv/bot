@@ -1,3 +1,4 @@
+from typing import Any
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Optional, Sequence
@@ -266,8 +267,8 @@ def _help_markdown(title: str, lines: Sequence[str]) -> str:
     return f"### {title}\n{body}"
 
 
-class HelpCategorySelect(Select):
-    def __init__(self, parent_view: "HelpLayoutView"):
+class HelpCategorySelect(Select[Any]):
+    def __init__(self, parent_view: "HelpLayoutView") -> None:
         self.parent_view = parent_view
         options = [
             discord.SelectOption(
@@ -285,7 +286,7 @@ class HelpCategorySelect(Select):
             options=options,
         )
 
-    async def callback(self, interaction: discord.Interaction):
+    async def callback(self, interaction: discord.Interaction) -> None:
         if interaction.user.id != self.parent_view.author_id:
             await interaction.response.send_message(
                 "[拒絕] 只有發起指令的人可以切換幫助分區", ephemeral=True
@@ -303,7 +304,7 @@ class HelpCategorySelect(Select):
 
 
 class HelpLayoutView(LayoutView):
-    def __init__(self, bot: commands.Bot, author_id: int, category_key: str):
+    def __init__(self, bot: commands.Bot, author_id: int, category_key: str) -> None:
         super().__init__(timeout=900)
         self.bot = bot
         self.author_id = author_id
@@ -316,7 +317,7 @@ class HelpLayoutView(LayoutView):
 
     def _build(self) -> None:
         category = HELP_CATEGORY_MAP[self.category_key]
-        container = Container(accent_color=category.accent_color)
+        container = Container[Any](accent_color=category.accent_color)
 
         header_lines = (
             f"目前分區：**{category.label}**",
@@ -343,7 +344,7 @@ class HelpLayoutView(LayoutView):
             )
             container.add_item(TextDisplay(_help_markdown(block.title, block.lines)))
 
-        action_row = ActionRow()
+        action_row = ActionRow[Any]()
         action_row.add_item(self.category_select)
         container.add_item(
             Separator(visible=True, spacing=discord.SeparatorSpacing.large)
@@ -366,13 +367,13 @@ class HelpLayoutView(LayoutView):
 class Admin(commands.Cog):
     """管理員命令 Cog"""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
-    def is_blacklisted_check(self):
+    def is_blacklisted_check(self) -> Any:
         """黑名單檢查裝飾器"""
 
-        async def predicate(ctx):
+        async def predicate(ctx: commands.Context[Any]) -> Any:
             blacklist_manager = getattr(self.bot, "blacklist_manager", None)
             if blacklist_manager is not None and blacklist_manager.local_check(
                 ctx.author.id
@@ -392,7 +393,7 @@ class Admin(commands.Cog):
     @app_commands.describe(amount="要刪除的訊息數量 (1-100，預設 10)")
     @commands.has_permissions(manage_messages=True)
     @commands.cooldown(1, 5, commands.BucketType.user)
-    async def clear(self, ctx, amount: int = 10):
+    async def clear(self, ctx: commands.Context[Any], amount: int = 10) -> None:
         """清除訊息"""
         if not ctx.author.guild_permissions.manage_messages:
             await ctx.send("[失敗] 你需要「管理訊息」權限", ephemeral=True)
@@ -409,7 +410,7 @@ class Admin(commands.Cog):
     @commands.hybrid_command(name="kick", description="踢出成員")
     @app_commands.describe(user="要踢出的成員", reason="踢出原因")
     @commands.has_permissions(kick_members=True)
-    async def kick(self, ctx, user: discord.Member, reason: str = "沒有提供原因"):
+    async def kick(self, ctx: commands.Context[Any], user: discord.Member, reason: str = "沒有提供原因") -> None:
         """踢出成員"""
         if not ctx.author.guild_permissions.kick_members:
             await ctx.send("[失敗] 你需要「踢出成員」權限", ephemeral=True)
@@ -440,7 +441,7 @@ class Admin(commands.Cog):
     @commands.hybrid_command(name="ban", description="封禁成員")
     @app_commands.describe(user="要封禁的成員", reason="封禁原因")
     @commands.has_permissions(ban_members=True)
-    async def ban(self, ctx, user: discord.Member, reason: str = "沒有提供原因"):
+    async def ban(self, ctx: commands.Context[Any], user: discord.Member, reason: str = "沒有提供原因") -> None:
         """封禁成員"""
         if not ctx.author.guild_permissions.ban_members:
             await ctx.send("[失敗] 你需要「封禁成員」權限", ephemeral=True)
@@ -475,11 +476,11 @@ class Admin(commands.Cog):
     @commands.has_permissions(moderate_members=True)
     async def mute(
         self,
-        ctx,
+        ctx: commands.Context[Any],
         user: discord.Member,
         duration: int = 60,
         reason: str = "沒有提供原因",
-    ):
+    ) -> None:
         """禁言成員"""
         if not ctx.author.guild_permissions.moderate_members:
             await ctx.send("[失敗] 你需要有管理成員的權限", ephemeral=True)
@@ -507,7 +508,7 @@ class Admin(commands.Cog):
     @commands.hybrid_command(name="warn", description="警告成員")
     @app_commands.describe(user="要警告的成員", reason="警告原因")
     @commands.has_permissions(moderate_members=True)
-    async def warn(self, ctx, user: discord.Member, reason: str = "沒有提供原因"):
+    async def warn(self, ctx: commands.Context[Any], user: discord.Member, reason: str = "沒有提供原因") -> None:
         """警告成員"""
         if not ctx.author.guild_permissions.moderate_members:
             await ctx.send("[失敗] 你需要有管理成員的權限", ephemeral=True)
@@ -529,7 +530,7 @@ class Admin(commands.Cog):
             )
 
     @commands.hybrid_command(name="help", description="顯示機器人幫助資訊")
-    async def help_command(self, ctx):
+    async def help_command(self, ctx: commands.Context[Any]) -> None:
         """幫助指令"""
         view = HelpLayoutView(self.bot, ctx.author.id, "overview")
         message = await ctx.send(view=view)
@@ -537,6 +538,6 @@ class Admin(commands.Cog):
             view.message = message
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     """載入 Cog"""
     await bot.add_cog(Admin(bot))

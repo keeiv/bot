@@ -9,15 +9,15 @@ from src.utils.network_optimizer import get_network_optimizer
 class PerformanceMonitorCog(commands.Cog):
     """機器人效能背景監控 Cog"""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self._monitor_task.start()
 
-    def cog_unload(self):
+    async def cog_unload(self) -> None:
         self._monitor_task.cancel()
 
     @tasks.loop(minutes=5)
-    async def _monitor_task(self):
+    async def _monitor_task(self) -> None:
         await self.bot.wait_until_ready()
 
         try:
@@ -25,7 +25,7 @@ class PerformanceMonitorCog(commands.Cog):
         except Exception as e:
             print(f"[效能監控] 收集指標時發生錯誤: {e}")
 
-    async def collect_performance_metrics(self):
+    async def collect_performance_metrics(self) -> None:
         """收集效能指標"""
         db_manager = get_database_manager()
         if db_manager:
@@ -69,5 +69,5 @@ class PerformanceMonitorCog(commands.Cog):
             )
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(PerformanceMonitorCog(bot))

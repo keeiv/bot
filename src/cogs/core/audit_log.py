@@ -5,18 +5,17 @@ from discord.ext import commands
 
 from src.services.audit_log_service import AuditLogService
 from src.utils.time_utils import get_current_time_str
-from src.utils.time_utils import get_now
 from src.utils.time_utils import TZ_OFFSET
 
 
 class AuditLog(commands.Cog):
     """伺服器審計日誌 Cog — 記錄成員、語音、角色、暱稱、頻道事件"""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.service = AuditLogService()
 
-    async def send_log_embed(self, guild_id: int, embed: discord.Embed):
+    async def send_log_embed(self, guild_id: int, embed: discord.Embed) -> None:
         """發送日誌 Embed 到設定的日誌頻道"""
         log_channel_id = self.service.get_channel_id(guild_id)
         if not log_channel_id:
@@ -33,7 +32,7 @@ class AuditLog(commands.Cog):
     # ===== 成員加入 / 離開 =====
 
     @commands.Cog.listener()
-    async def on_member_join(self, member: discord.Member):
+    async def on_member_join(self, member: discord.Member) -> None:
         """成員加入伺服器"""
         if member.bot:
             return
@@ -65,7 +64,7 @@ class AuditLog(commands.Cog):
         await self.send_log_embed(member.guild.id, embed)
 
     @commands.Cog.listener()
-    async def on_member_remove(self, member: discord.Member):
+    async def on_member_remove(self, member: discord.Member) -> None:
         """成員離開伺服器"""
         if member.bot:
             return
@@ -124,7 +123,7 @@ class AuditLog(commands.Cog):
         member: discord.Member,
         before: discord.VoiceState,
         after: discord.VoiceState,
-    ):
+    ) -> None:
         """語音狀態變更"""
         if member.bot:
             return
@@ -206,7 +205,7 @@ class AuditLog(commands.Cog):
     # ===== 角色變更 / 暱稱變更 =====
 
     @commands.Cog.listener()
-    async def on_member_update(self, before: discord.Member, after: discord.Member):
+    async def on_member_update(self, before: discord.Member, after: discord.Member) -> None:
         """成員資料更新（角色、暱稱）"""
         if before.bot:
             return
@@ -301,7 +300,7 @@ class AuditLog(commands.Cog):
         return type_map.get(channel.type, "未知類型")
 
     @commands.Cog.listener()
-    async def on_guild_channel_create(self, channel: discord.abc.GuildChannel):
+    async def on_guild_channel_create(self, channel: discord.abc.GuildChannel) -> None:
         """頻道建立"""
         embed = discord.Embed(
             title="[頻道] 頻道建立",
@@ -326,7 +325,7 @@ class AuditLog(commands.Cog):
         await self.send_log_embed(channel.guild.id, embed)
 
     @commands.Cog.listener()
-    async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel):
+    async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
         """頻道刪除"""
         embed = discord.Embed(
             title="[頻道] 頻道刪除",
@@ -355,7 +354,7 @@ class AuditLog(commands.Cog):
         self,
         before: discord.abc.GuildChannel,
         after: discord.abc.GuildChannel,
-    ):
+    ) -> None:
         """頻道修改"""
         changes = []
 
@@ -441,6 +440,6 @@ class AuditLog(commands.Cog):
         await self.send_log_embed(after.guild.id, embed)
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     """載入 Cog"""
     await bot.add_cog(AuditLog(bot))

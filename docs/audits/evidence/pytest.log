@@ -1,0 +1,22 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.7, pytest-9.1.1, pluggy-1.6.0 -- C:\\Users\\Finn0\\OneDrive\\\u6587\u4ef6\\new_bot\\.venv\\Scripts\\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\Finn0\AppData\Local\Temp\new_bot_audit_20260910_123148
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.14.1, asyncio-1.4.0, cov-7.1.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 6 items
+
+tests/test_bot_startup.py::test_bot_class_can_be_instantiated PASSED     [ 16%]
+tests/test_bot_startup.py::test_cogs_can_be_loaded_without_running PASSED [ 33%]
+tests/test_cogs/test_genshin_service.py::test_encryption_decryption PASSED [ 50%]
+tests/test_cogs/test_genshin_service.py::test_map_game_biz PASSED        [ 66%]
+tests/test_cogs/test_genshin_service.py::test_to_traditional_chinese PASSED [ 83%]
+tests/test_services/test_petition_service.py::test_sign_tracks_streak_and_persists PASSED [100%]
+
+=============================== tests coverage ================================
+_______________ coverage: platform win32, python 3.13.7-final-0 _______________
+
+Coverage JSON written to file coverage.json
+============================== 6 passed in 3.92s ==============================

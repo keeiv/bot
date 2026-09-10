@@ -1,4 +1,4 @@
-﻿"""成就系統 Cog"""
+"""成就系統 Cog"""
 
 from datetime import datetime
 from datetime import timedelta
@@ -17,7 +17,7 @@ TZ_OFFSET = timezone(timedelta(hours=8))
 class Achievements(commands.Cog):
     """成就系統 Cog"""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.service = AchievementService()
 
@@ -61,9 +61,12 @@ class Achievements(commands.Cog):
     @app_commands.command(name="achievements", description="查看成就")
     @app_commands.describe(user="要查詢的用戶 (不填默認為自己)")
     async def achievements_command(
-        self, interaction: discord.Interaction, user: discord.User = None
-    ):
+        self, interaction: discord.Interaction, user: discord.User | discord.Member | None = None
+    ) -> None:
         """查看成就"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         await interaction.response.defer()
         if user is None:
             user = interaction.user
@@ -111,8 +114,11 @@ class Achievements(commands.Cog):
         await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="achievement_codex", description="查看成就圖鑑")
-    async def achievement_codex(self, interaction: discord.Interaction):
+    async def achievement_codex(self, interaction: discord.Interaction) -> None:
         """查看所有可用成就的圖鑑"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return
         await interaction.response.defer()
         self.service.unlock(
             interaction.user.id, interaction.guild.id, "achievement_explorer"
@@ -161,7 +167,7 @@ class Achievements(commands.Cog):
     @app_commands.describe(achievement="成就名稱或 ID")
     async def achievement_info(
         self, interaction: discord.Interaction, achievement: str
-    ):
+    ) -> None:
         """查看成就詳細資訊"""
         achievement_id = None
         achievement_data = None
@@ -198,26 +204,26 @@ class Achievements(commands.Cog):
 
     # ─────────────── 成就觸發 (供其他 Cog 呼叫) ───────────────
 
-    def trigger_edit_achievement(self, user_id: int, guild_id: int):
+    def trigger_edit_achievement(self, user_id: int, guild_id: int) -> None:
         """觸發編輯成就"""
         self.service.unlock(user_id, guild_id, "first_edit")
 
-    def trigger_delete_achievement(self, user_id: int, guild_id: int):
+    def trigger_delete_achievement(self, user_id: int, guild_id: int) -> None:
         """觸發刪除成就"""
         self.service.unlock(user_id, guild_id, "first_delete")
 
-    def trigger_interaction_achievement(self, user_id: int, guild_id: int):
+    def trigger_interaction_achievement(self, user_id: int, guild_id: int) -> None:
         """觸發互動成就"""
         self.service.unlock(user_id, guild_id, "first_interaction")
 
-    def trigger_game_loss(self, user_id: int, guild_id: int, game_type: str):
+    def trigger_game_loss(self, user_id: int, guild_id: int, game_type: str) -> None:
         """觸發遊戲失敗成就"""
         if game_type == "russian_roulette":
             self.service.unlock(user_id, guild_id, "halo_broken")
         elif game_type == "submarine":
             self.service.unlock(user_id, guild_id, "kursk_sinking")
 
-    def trigger_codex_achievement(self, user_id: int, guild_id: int):
+    def trigger_codex_achievement(self, user_id: int, guild_id: int) -> None:
         """觸發圖鑑成就"""
         self.service.unlock(user_id, guild_id, "achievement_explorer")
 
@@ -228,6 +234,6 @@ class Achievements(commands.Cog):
         return self.service.unlock(user_id, guild_id, achievement_id)
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     """載入 Cog"""
     await bot.add_cog(Achievements(bot))

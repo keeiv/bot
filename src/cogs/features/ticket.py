@@ -1,4 +1,5 @@
-﻿"""工單系統 Cog"""
+from typing import Any
+"""工單系統 Cog"""
 
 from datetime import datetime
 from datetime import timedelta
@@ -19,7 +20,7 @@ _service = TicketService()
 class CloseReasonModal(ui.Modal, title="關閉工單"):
     """關閉工單原因表單"""
 
-    reason = ui.TextInput(
+    reason = ui.TextInput[Any](
         label="關閉原因",
         placeholder="請輸入關閉工單的原因...",
         style=discord.TextStyle.paragraph,
@@ -27,7 +28,7 @@ class CloseReasonModal(ui.Modal, title="關閉工單"):
         required=True,
     )
 
-    async def on_submit(self, interaction: discord.Interaction):
+    async def on_submit(self, interaction: discord.Interaction) -> None:
         """提交關閉原因並鎖定討論串"""
         thread = interaction.channel
         if not isinstance(thread, discord.Thread):
@@ -60,11 +61,14 @@ class CloseReasonModal(ui.Modal, title="關閉工單"):
 class TicketCloseView(ui.View):
     """工單關閉按鈕視圖 (持久化)"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(timeout=None)
 
     async def _check_close_permission(self, interaction: discord.Interaction) -> bool:
         """檢查關閉工單權限 (管理員或工單建立者)"""
+        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+            return False
         thread = interaction.channel
         if not isinstance(thread, discord.Thread):
             await interaction.response.send_message(
@@ -86,12 +90,15 @@ class TicketCloseView(ui.View):
         style=discord.ButtonStyle.secondary,
         custom_id="ticket_close",
     )
-    async def close_button(self, interaction: discord.Interaction, button: ui.Button):
+    async def close_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
         """直接關閉工單"""
         if not await self._check_close_permission(interaction):
             return
 
         thread = interaction.channel
+
+        if not isinstance(thread, discord.Thread):
+            return
 
         embed = discord.Embed(
             title="[關閉] 工單已關閉",
@@ -116,8 +123,8 @@ class TicketCloseView(ui.View):
         custom_id="ticket_close_reason",
     )
     async def close_reason_button(
-        self, interaction: discord.Interaction, button: ui.Button
-    ):
+        self, interaction: discord.Interaction, button: ui.Button[Any]
+    ) -> None:
         """帶原因的關閉工單"""
         if not await self._check_close_permission(interaction):
             return
@@ -128,7 +135,7 @@ class TicketCloseView(ui.View):
 class TicketOpenView(ui.View):
     """開啟工單按鈕視圖 (持久化)"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(timeout=None)
 
     @ui.button(
@@ -136,7 +143,7 @@ class TicketOpenView(ui.View):
         style=discord.ButtonStyle.primary,
         custom_id="ticket_open",
     )
-    async def open_button(self, interaction: discord.Interaction, button: ui.Button):
+    async def open_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
         """開啟新工單"""
         guild = interaction.guild
         if not guild:
@@ -167,6 +174,9 @@ class TicketOpenView(ui.View):
 
         # 建立私人討論串
         channel = interaction.channel
+        if not isinstance(channel, discord.TextChannel):
+            await interaction.response.send_message("工單面板必須位於文字頻道。", ephemeral=True)
+            return
         try:
             thread = await channel.create_thread(
                 name=thread_name,
@@ -227,20 +237,20 @@ class TicketOpenView(ui.View):
 class Ticket(commands.Cog):
     """工單系統 Cog"""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.service = _service
 
     @commands.Cog.listener()
-    async def on_ready(self):
+    async def on_ready(self) -> None:
         """重新載入持久化視圖"""
         self.bot.add_view(TicketOpenView())
         self.bot.add_view(TicketCloseView())
 
     @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
+    async def on_message(self, message: discord.Message) -> None:
         """處理 >>> 前綴指令"""
-        if message.author.bot or not message.guild:
+        if message.author.bot or not message.guild or not isinstance(message.author, discord.Member):
             return
         if not message.content.startswith(">>>ticket"):
             return
@@ -258,8 +268,10 @@ class Ticket(commands.Cog):
                 delete_after=10,
             )
 
-    async def _handle_setup(self, message: discord.Message):
+    async def _handle_setup(self, message: discord.Message) -> None:
         """處理工單設定指令"""
+        if message.guild is None:
+            return
         if not message.channel_mentions or not message.role_mentions:
             await message.reply(
                 "[失敗] 請提供頻道和身份組\n"
@@ -269,6 +281,9 @@ class Ticket(commands.Cog):
             return
 
         channel = message.channel_mentions[0]
+        if not isinstance(channel, discord.TextChannel):
+            await message.reply("工單面板必須位於文字頻道。")
+            return
         role = message.role_mentions[0]
         guild = message.guild
 
@@ -324,6 +339,6 @@ class Ticket(commands.Cog):
         await message.reply(embed=embed)
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     """載入 Cog"""
     await bot.add_cog(Ticket(bot))

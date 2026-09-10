@@ -1,3 +1,4 @@
+from typing import Any
 from collections import defaultdict
 import copy
 from datetime import datetime
@@ -112,9 +113,9 @@ class AntiSpamManager:
 
     SETTINGS_FILE = "data/storage/anti_spam_settings.json"
 
-    def __init__(self):
+    def __init__(self) -> None:
         # {guild_id: settings}
-        self.settings: Dict[int, dict] = self._load_all_settings()
+        self.settings: Dict[int, dict[Any, Any]] = self._load_all_settings()
         # {guild_id: {user_id: [timestamp]}} — 訊息時間戳
         self.message_log: Dict[int, Dict[int, List[float]]] = defaultdict(
             lambda: defaultdict(list)
@@ -138,7 +139,7 @@ class AntiSpamManager:
 
     # --- 設定管理 ---
 
-    def _load_all_settings(self) -> Dict[int, dict]:
+    def _load_all_settings(self) -> Dict[int, dict[Any, Any]]:
         """從檔案載入所有伺服器設定"""
         if not os.path.exists(self.SETTINGS_FILE):
             return {}
@@ -150,7 +151,7 @@ class AntiSpamManager:
             print(f"[防刷屏] 無法載入設定: {e}")
             return {}
 
-    def _save_all_settings(self):
+    def _save_all_settings(self) -> None:
         """儲存所有伺服器設定到檔案"""
         os.makedirs(os.path.dirname(self.SETTINGS_FILE), exist_ok=True)
         try:
@@ -164,13 +165,13 @@ class AntiSpamManager:
         except OSError as e:
             print(f"[防刷屏] 無法儲存設定: {e}")
 
-    def get_settings(self, guild_id: int) -> dict:
+    def get_settings(self, guild_id: int) -> dict[Any, Any]:
         """取得伺服器設定 (不存在則建立預設)"""
         if guild_id not in self.settings:
             self.settings[guild_id] = copy.deepcopy(DEFAULT_SETTINGS)
         return self.settings[guild_id]
 
-    def update_settings(self, guild_id: int, updates: dict):
+    def update_settings(self, guild_id: int, updates: dict[Any, Any]) -> None:
         """更新伺服器設定並儲存"""
         s = self.get_settings(guild_id)
         s.update(updates)
@@ -288,11 +289,11 @@ class AntiSpamManager:
         """是否處於封鎖模式"""
         return self.lockdown_active.get(guild_id, False)
 
-    def set_lockdown(self, guild_id: int, active: bool):
+    def set_lockdown(self, guild_id: int, active: bool) -> None:
         """設定封鎖模式"""
         self.lockdown_active[guild_id] = active
 
-    def reset_user(self, guild_id: int, user_id: int):
+    def reset_user(self, guild_id: int, user_id: int) -> None:
         """重設用戶所有紀錄"""
         for log in (self.message_log, self.content_log, self.link_log):
             if guild_id in log and user_id in log[guild_id]:
@@ -309,7 +310,7 @@ class AntiSpamManager:
     # --- 各偵測子模組 ---
 
     def _check_flood(
-        self, guild_id: int, user_id: int, now: float, s: dict
+        self, guild_id: int, user_id: int, now: float, s: dict[Any, Any]
     ) -> Optional[Tuple[str, str, str]]:
         """洪水偵測"""
         window = s["flood_window"]
@@ -330,7 +331,7 @@ class AntiSpamManager:
         return None
 
     def _check_duplicate(
-        self, guild_id: int, user_id: int, now: float, content: str, s: dict
+        self, guild_id: int, user_id: int, now: float, content: str, s: dict[Any, Any]
     ) -> Optional[Tuple[str, str, str]]:
         """重複內容偵測"""
         window = s["duplicate_window"]
@@ -358,7 +359,7 @@ class AntiSpamManager:
             )
         return None
 
-    def _check_mentions(self, content: str, s: dict) -> Optional[Tuple[str, str, str]]:
+    def _check_mentions(self, content: str, s: dict[Any, Any]) -> Optional[Tuple[str, str, str]]:
         """提及轟炸偵測"""
         limit = s["mention_limit"]
         mention_count = (
@@ -374,7 +375,7 @@ class AntiSpamManager:
         return None
 
     def _check_links(
-        self, guild_id: int, user_id: int, now: float, content: str, s: dict
+        self, guild_id: int, user_id: int, now: float, content: str, s: dict[Any, Any]
     ) -> Optional[Tuple[str, str, str]]:
         """連結轟炸偵測"""
         urls = URL_RE.findall(content)
@@ -399,7 +400,7 @@ class AntiSpamManager:
             return (DETECT_LINK, s["link_action"], detail)
         return None
 
-    def _check_emoji(self, content: str, s: dict) -> Optional[Tuple[str, str, str]]:
+    def _check_emoji(self, content: str, s: dict[Any, Any]) -> Optional[Tuple[str, str, str]]:
         """表情轟炸偵測"""
         limit = s["emoji_limit"]
         count = len(EMOJI_RE.findall(content))
@@ -412,7 +413,7 @@ class AntiSpamManager:
             )
         return None
 
-    def _check_newline(self, content: str, s: dict) -> Optional[Tuple[str, str, str]]:
+    def _check_newline(self, content: str, s: dict[Any, Any]) -> Optional[Tuple[str, str, str]]:
         """換行轟炸偵測"""
         limit = s["newline_limit"]
         count = content.count("\n")
@@ -433,7 +434,7 @@ class AntiSpamManager:
         user_id: int,
         now: float,
         triggers: List[Tuple[str, str, str]],
-        s: dict,
+        s: dict[Any, Any],
     ) -> List[Tuple[str, str, str]]:
         """根據違規紀錄自動升級懲罰"""
         window = s["escalate_window"]

@@ -19,7 +19,7 @@ class GenshinService:
     def __init__(self) -> None:
         self._key = self._get_encryption_key()
         self._fernet = Fernet(self._key)
-        self._accounts: dict = self._load_accounts()
+        self._accounts: dict[Any, Any] = self._load_accounts()
 
     def _get_encryption_key(self) -> bytes:
         """獲取或生成加密密鑰，並安全地寫入 .env 檔案中"""
@@ -57,14 +57,17 @@ class GenshinService:
         except Exception as e:
             print(f"[警告] 無法將加密密鑰寫入 .env: {e}")
 
-    def _load_accounts(self) -> dict:
+    def _load_accounts(self) -> dict[Any, Any]:
         """載入本地帳號檔案"""
         os.makedirs(os.path.dirname(_DATA_FILE), exist_ok=True)
         if not os.path.exists(_DATA_FILE):
             return {}
         try:
             with open(_DATA_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                result_value = json.load(f)
+                if not isinstance(result_value, dict):
+                    raise TypeError("Unexpected stored or API value: expected dict")
+                return result_value
         except (json.JSONDecodeError, OSError):
             return {}
 
@@ -102,17 +105,17 @@ class GenshinService:
         client = genshin.Client(cookies=cookie, region=region, lang="zh-tw")
         return client
 
-    def get_bound_user(self, discord_user_id: int) -> Optional[dict]:
+    def get_bound_user(self, discord_user_id: int) -> Optional[dict[Any, Any]]:
         """獲取已綁定的使用者設定"""
         return self._accounts.get(str(discord_user_id))
 
-    def get_all_bound_users(self) -> dict:
+    def get_all_bound_users(self) -> dict[Any, Any]:
         """獲取所有已綁定的使用者"""
         return self._accounts
 
     async def bind_account(
         self, discord_user_id: int, cookie: str, region_str: str
-    ) -> list[dict]:
+    ) -> list[dict[Any, Any]]:
         """驗證並綁定 Cookie"""
         region = (
             genshin.Region.CHINESE if region_str == "cn" else genshin.Region.OVERSEAS
@@ -170,7 +173,7 @@ class GenshinService:
 
     # ─────────────── 業務 API ───────────────
 
-    async def get_notes(self, discord_user_id: int, game_str: str) -> dict:
+    async def get_notes(self, discord_user_id: int, game_str: str) -> dict[Any, Any]:
         """獲取指定遊戲的實時便箋"""
         client = self.get_client(discord_user_id)
         user_data = self._accounts[str(discord_user_id)]
@@ -182,7 +185,10 @@ class GenshinService:
             if self._map_game_biz_to_str(acc["game_biz"]) == game_str
         ]
 
-        uid = uids[0] if uids else None
+        uid = int(uids[0]) if uids else None
+
+        if uid is None:
+            raise ValueError(f"沒有找到已綁定的 {game_str} 帳號。")
 
         if game_str == "genshin":
             notes = await client.get_genshin_notes(uid)
@@ -220,20 +226,20 @@ class GenshinService:
                 ),
             }
         elif game_str == "starrail":
-            notes = await client.get_starrail_notes(uid)
+            starrail_notes = await client.get_starrail_notes(uid)
             return {
                 "type": "starrail",
                 "uid": uid,
-                "current_stamina": notes.current_stamina,
-                "max_stamina": notes.max_stamina,
+                "current_stamina": starrail_notes.current_stamina,
+                "max_stamina": starrail_notes.max_stamina,
                 "stamina_recovery": self._timedelta_to_seconds(
-                    notes.stamina_recover_time
+                    starrail_notes.stamina_recover_time
                 ),
-                "reserve_stamina": notes.current_reserve_stamina,
-                "train_score": notes.current_train_score,
-                "max_train_score": notes.max_train_score,
-                "rogue_score": notes.current_rogue_score,
-                "max_rogue_score": notes.max_rogue_score,
+                "reserve_stamina": starrail_notes.current_reserve_stamina,
+                "train_score": starrail_notes.current_train_score,
+                "max_train_score": starrail_notes.max_train_score,
+                "rogue_score": starrail_notes.current_rogue_score,
+                "max_rogue_score": starrail_notes.max_rogue_score,
                 "expeditions": [
                     {
                         "name": getattr(exp, "name", ""),
@@ -241,15 +247,15 @@ class GenshinService:
                             getattr(exp, "remaining_time", 0)
                         ),
                     }
-                    for exp in notes.expeditions
+                    for exp in starrail_notes.expeditions
                 ],
-                "max_expeditions": notes.total_expedition_num,
+                "max_expeditions": starrail_notes.total_expedition_num,
             }
         elif game_str == "zzz":
-            notes = await client.get_zzz_notes(uid)
+            zzz_notes = await client.get_zzz_notes(uid)
             # battery_charge is BatteryCharge object with (current, max, seconds_till_full)
-            battery = getattr(notes, "battery_charge", None)
-            video = getattr(notes, "video_store_state", None)
+            battery = getattr(zzz_notes, "battery_charge", None)
+            video = getattr(zzz_notes, "video_store_state", None)
             video_str = "未知"
             if video:
                 if video.name == "REVENUE_AVAILABLE":
@@ -265,28 +271,28 @@ class GenshinService:
                 "battery": battery.current if battery else 0,
                 "max_battery": battery.max if battery else 240,
                 "battery_recovery": battery.seconds_till_full if battery else 0,
-                "engagement": notes.engagement,
-                "scratch_completed": notes.scratch_card_completed,
+                "engagement": zzz_notes.engagement,
+                "scratch_completed": zzz_notes.scratch_card_completed,
                 "video_store": video_str,
             }
         elif game_str == "honkai":
-            notes = await client.get_honkai_notes(uid)
+            honkai_notes = await client.get_honkai_notes(uid)
             return {
                 "type": "honkai",
                 "uid": uid,
-                "current_stamina": notes.current_stamina,
-                "max_stamina": notes.max_stamina,
+                "current_stamina": honkai_notes.current_stamina,
+                "max_stamina": honkai_notes.max_stamina,
                 "stamina_recovery": self._timedelta_to_seconds(
-                    notes.stamina_recover_time
+                    honkai_notes.stamina_recover_time
                 ),
-                "train_score": notes.current_train_score,
+                "train_score": honkai_notes.current_train_score,
             }
         else:
             raise ValueError("不支援的遊戲類型。")
 
     async def redeem_code(
         self, discord_user_id: int, game_str: str, code: str
-    ) -> list[dict]:
+    ) -> list[dict[Any, Any]]:
         """為使用者在此遊戲的所有繫結 UID 兌換禮包碼"""
         client = self.get_client(discord_user_id)
         user_data = self._accounts[str(discord_user_id)]
@@ -355,7 +361,7 @@ class GenshinService:
 
         return results
 
-    async def get_stats(self, discord_user_id: int, game_str: str) -> dict:
+    async def get_stats(self, discord_user_id: int, game_str: str) -> dict[Any, Any]:
         """獲取使用者的遊戲統計數據"""
         client = self.get_client(discord_user_id)
         user_data = self._accounts[str(discord_user_id)]
@@ -365,7 +371,7 @@ class GenshinService:
             for acc in user_data.get("game_accounts", [])
             if self._map_game_biz_to_str(acc["game_biz"]) == game_str
         ]
-        uid = uids[0] if uids else None
+        uid = int(uids[0]) if uids else None
         if not uid:
             raise ValueError(f"沒有找到已綁定的 {game_str} 帳號。")
 
@@ -387,17 +393,17 @@ class GenshinService:
                 "teapot_level": data.teapot.level if data.teapot else 0,
             }
         elif game_str == "starrail":
-            data = await client.get_starrail_user(uid)
+            starrail_data = await client.get_starrail_user(uid)
             return {
-                "nickname": data.info.nickname,
-                "level": data.info.level,
-                "days_active": data.stats.active_days,
-                "achievements": data.stats.achievement_num,
-                "characters": data.stats.avatar_num,
-                "chests_opened": data.stats.chest_num,
+                "nickname": starrail_data.info.nickname,
+                "level": starrail_data.info.level,
+                "days_active": starrail_data.stats.active_days,
+                "achievements": starrail_data.stats.achievement_num,
+                "characters": starrail_data.stats.avatar_num,
+                "chests_opened": starrail_data.stats.chest_num,
             }
         elif game_str == "zzz":
-            data = await client.get_zzz_user(uid)
+            zzz_data = await client.get_zzz_user(uid)
             acc_info = next(
                 (
                     acc
@@ -411,23 +417,23 @@ class GenshinService:
             return {
                 "nickname": nickname,
                 "level": level,
-                "days_active": data.stats.active_days,
-                "achievements": data.stats.achievement_count,
-                "characters": data.stats.character_num,
-                "bangboo_obtained": data.stats.bangboo_obtained,
+                "days_active": zzz_data.stats.active_days,
+                "achievements": zzz_data.stats.achievement_count,
+                "characters": zzz_data.stats.character_num,
+                "bangboo_obtained": zzz_data.stats.bangboo_obtained,
             }
         elif game_str == "honkai":
-            data = await client.get_honkai_user(uid)
+            honkai_data = await client.get_honkai_user(uid)
             return {
-                "nickname": data.info.nickname,
-                "level": data.info.level,
-                "days_active": data.stats.active_days,
-                "characters": data.stats.battlesuits,
+                "nickname": honkai_data.info.nickname,
+                "level": honkai_data.info.level,
+                "days_active": honkai_data.stats.active_days,
+                "characters": honkai_data.stats.battlesuits,
             }
         else:
             raise ValueError("不支援的遊戲類型")
 
-    async def get_abyss_stats(self, discord_user_id: int, game_str: str) -> dict:
+    async def get_abyss_stats(self, discord_user_id: int, game_str: str) -> dict[Any, Any]:
         """獲取深淵數據 (當前期數)"""
         client = self.get_client(discord_user_id)
         user_data = self._accounts[str(discord_user_id)]
@@ -437,7 +443,7 @@ class GenshinService:
             for acc in user_data.get("game_accounts", [])
             if self._map_game_biz_to_str(acc["game_biz"]) == game_str
         ]
-        uid = uids[0] if uids else None
+        uid = int(uids[0]) if uids else None
         if not uid:
             raise ValueError(f"沒有找到已綁定的 {game_str} 帳號。")
 
@@ -464,14 +470,14 @@ class GenshinService:
 
             moc_stars = (
                 challenge.total_stars
-                if not isinstance(challenge, Exception)
+                if not isinstance(challenge, BaseException)
                 and challenge is not None
                 and getattr(challenge, "has_data", False)
                 else 0
             )
             moc_max = (
                 challenge.max_floor
-                if not isinstance(challenge, Exception)
+                if not isinstance(challenge, BaseException)
                 and challenge is not None
                 and getattr(challenge, "has_data", False)
                 and challenge.max_floor
@@ -479,7 +485,7 @@ class GenshinService:
             )
             moc_name = (
                 challenge.name
-                if not isinstance(challenge, Exception)
+                if not isinstance(challenge, BaseException)
                 and challenge is not None
                 and getattr(challenge, "has_data", False)
                 else "混沌回憶"
@@ -487,14 +493,14 @@ class GenshinService:
 
             pf_stars = (
                 pf.total_stars
-                if not isinstance(pf, Exception)
+                if not isinstance(pf, BaseException)
                 and pf is not None
                 and getattr(pf, "has_data", False)
                 else 0
             )
             pf_max = (
                 pf.max_floor
-                if not isinstance(pf, Exception)
+                if not isinstance(pf, BaseException)
                 and pf is not None
                 and getattr(pf, "has_data", False)
                 and pf.max_floor
@@ -502,7 +508,7 @@ class GenshinService:
             )
             pf_name = (
                 pf.name
-                if not isinstance(pf, Exception)
+                if not isinstance(pf, BaseException)
                 and pf is not None
                 and getattr(pf, "has_data", False)
                 else "虛構敘事"
@@ -510,14 +516,14 @@ class GenshinService:
 
             shadow_stars = (
                 shadow.total_stars
-                if not isinstance(shadow, Exception)
+                if not isinstance(shadow, BaseException)
                 and shadow is not None
                 and getattr(shadow, "has_data", False)
                 else 0
             )
             shadow_max = (
                 shadow.max_floor
-                if not isinstance(shadow, Exception)
+                if not isinstance(shadow, BaseException)
                 and shadow is not None
                 and getattr(shadow, "has_data", False)
                 and shadow.max_floor
@@ -526,7 +532,7 @@ class GenshinService:
 
             shadow_name = "末日幻影"
             if (
-                not isinstance(shadow, Exception)
+                not isinstance(shadow, BaseException)
                 and shadow is not None
                 and getattr(shadow, "has_data", False)
             ):
@@ -534,13 +540,13 @@ class GenshinService:
                     shadow_name = shadow.seasons[0].name
 
             # Anomaly Arbitration (異相仲裁)
-            anomaly_stars_val = 0
+            anomaly_stars_val: int | str = 0
             anomaly_max = "無數據"
             anomaly_name = "異相仲裁"
 
             anomaly_record = None
             if (
-                not isinstance(anomaly, Exception)
+                not isinstance(anomaly, BaseException)
                 and anomaly is not None
                 and hasattr(anomaly, "records")
                 and anomaly.records
@@ -594,16 +600,16 @@ class GenshinService:
                 "anomaly_max": to_traditional_chinese(anomaly_max),
             }
         elif game_str == "zzz":
-            data = await client.get_zzz_user(uid)
+            zzz_data = await client.get_zzz_user(uid)
             return {
                 "shiyu_defense": (
-                    data.stats.shiyu_defense_frontiers if data.stats else "未知"
+                    zzz_data.stats.shiyu_defense_frontiers if zzz_data.stats else "未知"
                 ),
             }
         else:
             raise ValueError("該遊戲不支援或暫無深淵數據統計接口。")
 
-    async def claim_daily_signin_for_user(self, discord_user_id: int) -> list[dict]:
+    async def claim_daily_signin_for_user(self, discord_user_id: int) -> list[dict[Any, Any]]:
         """手動或定時為單個使用者擁有的所有遊戲帳號簽到"""
         client = self.get_client(discord_user_id)
         user_data = self._accounts[str(discord_user_id)]
@@ -653,7 +659,7 @@ class GenshinService:
 
         return results
 
-    async def run_global_auto_sign_in(self) -> dict[int, list[dict]]:
+    async def run_global_auto_sign_in(self) -> dict[int, list[dict[Any, Any]]]:
         """定時背景任務：為所有啟用自動簽到的使用者執行簽到"""
         results = {}
         for user_id, info in self._accounts.items():

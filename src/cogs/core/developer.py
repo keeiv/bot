@@ -1,4 +1,5 @@
-﻿from datetime import datetime
+from typing import Any
+from datetime import datetime
 from datetime import timezone
 import platform
 import sys
@@ -24,8 +25,8 @@ def _dev_markdown(title: str, lines: Sequence[str]) -> str:
     return f"### {title}\n{body}"
 
 
-class DevInfoSectionSelect(Select):
-    def __init__(self, parent_view: "DevInfoLayoutView"):
+class DevInfoSectionSelect(Select[Any]):
+    def __init__(self, parent_view: "DevInfoLayoutView") -> None:
         self.parent_view = parent_view
         options = [
             discord.SelectOption(
@@ -54,7 +55,7 @@ class DevInfoSectionSelect(Select):
             options=options,
         )
 
-    async def callback(self, interaction: discord.Interaction):
+    async def callback(self, interaction: discord.Interaction) -> None:
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
                 "[拒絕] 僅限開發者使用", ephemeral=True
@@ -67,7 +68,7 @@ class DevInfoSectionSelect(Select):
 
 
 class DevInfoLayoutView(LayoutView):
-    def __init__(self, bot: commands.Bot, section: str = "overview"):
+    def __init__(self, bot: commands.Bot, section: str = "overview") -> None:
         super().__init__(timeout=600)
         self.bot = bot
         self.section = (
@@ -78,7 +79,7 @@ class DevInfoLayoutView(LayoutView):
         self._build()
 
     def _build(self) -> None:
-        container = Container(accent_color=discord.Color.from_rgb(155, 89, 182))
+        container = Container[Any](accent_color=discord.Color.from_rgb(155, 89, 182))
 
         total_guilds = len(self.bot.guilds)
 
@@ -159,7 +160,7 @@ class DevInfoLayoutView(LayoutView):
             )
             container.add_item(TextDisplay(_dev_markdown("系統資訊", system_lines)))
 
-        action_row = ActionRow()
+        action_row = ActionRow[Any]()
         action_row.add_item(self._section_select)
         container.add_item(
             Separator(visible=True, spacing=discord.SeparatorSpacing.large)
@@ -181,7 +182,7 @@ class DevInfoLayoutView(LayoutView):
 class Developer(commands.Cog):
     """開發者專用指令 Cog - 只有開發者可見和使用"""
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
     def is_developer_slash(self, interaction: discord.Interaction) -> bool:
@@ -189,13 +190,13 @@ class Developer(commands.Cog):
         return interaction.user.id in DEVELOPER_IDS
 
     @commands.Cog.listener()
-    async def on_ready(self):
+    async def on_ready(self) -> None:
         """記錄機器人啟動時間"""
         if not hasattr(self.bot, "_start_time"):
             self.bot._start_time = datetime.now(timezone.utc)
 
     @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
+    async def on_message(self, message: discord.Message) -> None:
         """處理 >>>info 開發者面板指令"""
         if message.author.bot:
             return
@@ -210,7 +211,7 @@ class Developer(commands.Cog):
         view.message = msg
 
     @app_commands.command(name="dev-status", description="查看開發者狀態")
-    async def dev_status_slash(self, interaction: discord.Interaction):
+    async def dev_status_slash(self, interaction: discord.Interaction) -> None:
         """開發者狀態檢查"""
         if not self.is_developer_slash(interaction):
             await interaction.response.send_message(
@@ -233,7 +234,7 @@ class Developer(commands.Cog):
 
     @commands.command(name="dev-status", description="開發者狀態檢查")
     @commands.check(lambda ctx: ctx.author.id in DEVELOPER_IDS)
-    async def dev_status_command(self, ctx):
+    async def dev_status_command(self, ctx: Any) -> None:
         """開發者狀態檢查"""
         embed = discord.Embed(
             title="[開發者] 系統狀態", color=discord.Color.from_rgb(155, 89, 182)
@@ -249,6 +250,6 @@ class Developer(commands.Cog):
         await ctx.send(embed=embed, ephemeral=True)
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     """載入 Cog"""
     await bot.add_cog(Developer(bot))

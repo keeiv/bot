@@ -1,4 +1,5 @@
 """抽獎業務邏輯服務"""
+from typing import Any
 
 import asyncio
 from datetime import datetime
@@ -8,7 +9,6 @@ import json
 import os
 import random
 import re
-import time
 from typing import Optional
 
 TZ_OFFSET = timezone(timedelta(hours=8))
@@ -20,11 +20,11 @@ class GiveawayService:
 
     def __init__(self) -> None:
         self._lock = asyncio.Lock()
-        self._cache: Optional[dict] = None
+        self._cache: Optional[dict[Any, Any]] = None
 
     # ─────────────── 資料存取 ───────────────
 
-    def _load(self) -> dict:
+    def _load(self) -> dict[Any, Any]:
         if self._cache is not None:
             return self._cache
         if os.path.exists(_DATA_FILE):
@@ -37,7 +37,7 @@ class GiveawayService:
         self._cache = {}
         return self._cache
 
-    def _save(self, data: dict) -> None:
+    def _save(self, data: dict[Any, Any]) -> None:
         os.makedirs(os.path.dirname(_DATA_FILE), exist_ok=True)
         with open(_DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -45,11 +45,11 @@ class GiveawayService:
 
     # ─────────────── 查詢 ───────────────
 
-    def get(self, giveaway_id: str) -> Optional[dict]:
+    def get(self, giveaway_id: str) -> Optional[dict[Any, Any]]:
         """取得單筆抽獎資料"""
         return self._load().get(giveaway_id)
 
-    def list_active(self, guild_id: int) -> list[tuple[str, dict]]:
+    def list_active(self, guild_id: int) -> list[tuple[str, dict[Any, Any]]]:
         """列出伺服器所有進行中的抽獎"""
         data = self._load()
         return [
@@ -58,14 +58,14 @@ class GiveawayService:
             if ga.get("guild_id") == guild_id and not ga.get("ended")
         ]
 
-    def list_all_active(self) -> list[tuple[str, dict]]:
+    def list_all_active(self) -> list[tuple[str, dict[Any, Any]]]:
         """列出所有進行中的抽獎 (跨伺服器，供定時檢查用)"""
         data = self._load()
         return [(gid, ga) for gid, ga in data.items() if not ga.get("ended")]
 
     # ─────────────── 建立 ───────────────
 
-    def create(self, giveaway_id: str, giveaway_data: dict) -> None:
+    def create(self, giveaway_id: str, giveaway_data: dict[Any, Any]) -> None:
         """建立新抽獎記錄"""
         data = self._load()
         data[giveaway_id] = giveaway_data
@@ -87,7 +87,7 @@ class GiveawayService:
         if not ga or ga.get("ended"):
             return None, 0
 
-        participants: list = ga.setdefault("participants", [])
+        participants: list[Any] = ga.setdefault("participants", [])
         if user_id in participants:
             participants.remove(user_id)
             action = "left"
@@ -134,10 +134,10 @@ class GiveawayService:
         self._save(data)
         return winner_ids
 
-    def check_expired(self) -> list[tuple[str, dict]]:
+    def check_expired(self) -> list[tuple[str, dict[Any, Any]]]:
         """找出所有已到期但尚未結束的抽獎，並標記為結束 (不選得獎者)"""
         now = datetime.now(TZ_OFFSET).timestamp()
-        expired: list[tuple[str, dict]] = []
+        expired: list[tuple[str, dict[Any, Any]]] = []
         data = self._load()
         changed = False
 

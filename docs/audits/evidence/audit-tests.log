@@ -1,0 +1,136 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.7, pytest-9.1.1, pluggy-1.6.0 -- C:\\Users\\Finn0\\OneDrive\\\u6587\u4ef6\\new_bot\\.venv\\Scripts\\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\Finn0\AppData\Local\Temp\new_bot_audit_20260910_123148
+configfile: pyproject.toml
+plugins: anyio-4.14.1, asyncio-1.4.0, cov-7.1.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 11 items
+
+test_audit.py::test_all_extensions_registered PASSED                     [  9%]
+test_audit.py::test_cleanup_nonempty_logs FAILED                         [ 18%]
+test_audit.py::test_network_default_session FAILED                       [ 27%]
+test_audit.py::test_config_missing_file_completes FAILED                 [ 36%]
+test_audit.py::test_unused_type_module_imports FAILED                    [ 45%]
+test_audit.py::test_giveaway_restart_keeps_both_views FAILED             [ 54%]
+test_audit.py::test_shuffle_item FAILED                                  [ 63%]
+test_audit.py::test_activated_blank_halves_damage FAILED                 [ 72%]
+test_audit.py::test_repeated_initialization_no_task_leak FAILED          [ 81%]
+test_audit.py::test_rate_limit_returns_http_error FAILED                 [ 90%]
+test_audit.py::test_auto_role_verification_member_api FAILED             [100%]
+
+================================== FAILURES ===================================
+_________________________ test_cleanup_nonempty_logs __________________________
+test_audit.py:28: in test_cleanup_nonempty_logs
+    assert service.cleanup_old_logs() == 1
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\services\message_log_service.py:179: in cleanup_old_logs
+    datetime.now(TZ_OFFSET) - timedelta(days=LOG_RETENTION_DAYS)
+                              ^^^^^^^^^
+E   NameError: name 'timedelta' is not defined
+________________________ test_network_default_session _________________________
+test_audit.py:34: in test_network_default_session
+    session = await pool.get_session('https://example.com')
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\utils\network_optimizer.py:106: in get_session
+    else aiohttp.HttpVersion20
+         ^^^^^^^^^^^^^^^^^^^^^
+..\\..\\..\\..\\OneDrive\\\u6587\u4ef6\\new_bot\\.venv\\Lib\\site-packages\\aiohttp\\__init__.py:279: in __getattr__
+    raise AttributeError(f"module {__name__} has no attribute {name}")
+E   AttributeError: module aiohttp has no attribute HttpVersion20. Did you mean: 'HttpVersion10'?
+_____________________ test_config_missing_file_completes ______________________
+test_audit.py:41: in test_config_missing_file_completes
+    subprocess.run([sys.executable, '-c', code], timeout=3, check=True, capture_output=True)
+..\..\Programs\Python\Python313\Lib\subprocess.py:556: in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\Programs\Python\Python313\Lib\subprocess.py:1222: in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\Programs\Python\Python313\Lib\subprocess.py:1646: in _communicate
+    raise TimeoutExpired(self.args, orig_timeout)
+E   subprocess.TimeoutExpired: Command '['C:\\\\Users\\\\Finn0\\\\OneDrive\\\\\u6587\u4ef6\\\\new_bot\\\\.venv\\\\Scripts\\\\python.exe', '-c', 'import asyncio\\nfrom src.utils.config_optimizer import OptimizedConfigManager\\nasync def run():\\n m=OptimizedConfigManager(\\'C:\\\\\\\\Users\\\\\\\\Finn0\\\\\\\\AppData\\\\\\\\Local\\\\\\\\Temp\\\\\\\\pytest-of-Finn0\\\\\\\\pytest-10\\\\\\\\test_config_missing_file_compl0\\')\\n await m.load_config("new.json", {"ok":True})\\nasyncio.run(run())']' timed out after 3 seconds
+_______________________ test_unused_type_module_imports _______________________
+test_audit.py:44: in test_unused_type_module_imports
+    importlib.import_module('src.bot_types.bot_types')
+..\..\Programs\Python\Python313\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1387: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1331: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:935: in _load_unlocked
+    ???
+<frozen importlib._bootstrap_external>:1026: in exec_module
+    ???
+<frozen importlib._bootstrap>:488: in _call_with_frames_removed
+    ???
+src\bot_types\bot_types.py:30: in <module>
+    Context = Union[discord.ApplicationContext, discord.Interaction]
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'discord' has no attribute 'ApplicationContext'
+___________________ test_giveaway_restart_keeps_both_views ____________________
+test_audit.py:53: in test_giveaway_restart_keeps_both_views
+    assert len(bot.persistent_views) == 2
+E   assert 1 == 2
+E    +  where 1 = len([<GiveawayView timeout=None children=1>])
+E    +    where [<GiveawayView timeout=None children=1>] = <discord.client.Client object at 0x00000211E4F0CD70>.persistent_views
+------------------------------ Captured log call ------------------------------
+WARNING  discord.state:state.py:238 Guilds intent seems to be disabled. This may cause state related issues.
+______________________________ test_shuffle_item ______________________________
+test_audit.py:70: in test_shuffle_item
+    await view._use_item(interaction,'\u547d\u904b\u6d17\u724c')
+src\cogs\games\russian_roulette.py:281: in _use_item
+    self.game.bullet_position = random.randint(1, 6)
+                                ^^^^^^
+E   NameError: name 'random' is not defined. Did you forget to import 'random'?
+_____________________ test_activated_blank_halves_damage ______________________
+test_audit.py:83: in test_activated_blank_halves_damage
+    assert game.player1_chips == 4250
+E   assert 3500 == 4250
+E    +  where 3500 = <src.services.game_service.RouletteGame object at 0x00000211E529CF50>.player1_chips
+__________________ test_repeated_initialization_no_task_leak __________________
+test_audit.py:92: in test_repeated_initialization_no_task_leak
+    assert len(asyncio.all_tasks()) == first
+E   AssertionError: assert 5 == 3
+E    +  where 5 = len({<Task pending name='Task-27' coro=<DatabaseManager.start_cleanup_task.<locals>.cleanup_loop() running at C:\Users\Finn0\AppData\Local\Temp\new_bot_audit_20260910_123148\src\utils\database_manager.py:307> wait_for=<Future pending cb=[Task.task_wakeup()]>>, <Task pending name='Task-28' coro=<OptimizedConfigManager._start_batch_writer.<locals>.batch_writer() running at C:\Users\Finn0\AppData\Local\Temp\new_bot_audit_20260910_123148\src\utils\config_optimizer.py:177>>, <Task pending name='Task-25' coro=<OptimizedConfigManager._start_batch_writer.<locals>.batch_writer() running at C:\Users\Finn0\AppData\Local\Temp\new_bot_audit_20260910_123148\src\utils\config_optimizer.py:185> wait_for=<Future pending cb=[Task.task_wakeup()]>>, <Task pending name='Task-22' coro=<test_repeated_initialization_no_task_leak() running at C:\Users\Finn0\AppData\Local\Temp\new_bot_audit_20260910_123148\test_audit.py:92> cb=[_run_until_complete_cb() at C:\Users\Finn0\AppData\Local\Programs\Python\Python313\Lib\asyncio\base_events.py:181]>, <Task pending name='Task-24' coro=<DatabaseManager.start_cleanup_task.<locals>.cleanup_loop() running at C:\Users\Finn0\AppData\Local\Temp\new_bot_audit_20260910_123148\src\utils\database_manager.py:307> wait_for=<Future pending cb=[Task.task_wakeup()]>>})
+E    +    where {<Task pending name='Task-27' coro=<DatabaseManager.start_cleanup_task.<locals>.cleanup_loop() running at C:\Users\Finn0\AppData\Local\Temp\new_bot_audit_20260910_123148\src\utils\database_manager.py:307> wait_for=<Future pending cb=[Task.task_wakeup()]>>, <Task pending name='Task-28' coro=<OptimizedConfigManager._start_batch_writer.<locals>.batch_writer() running at C:\Users\Finn0\AppData\Local\Temp\new_bot_audit_20260910_123148\src\utils\config_optimizer.py:177>>, <Task pending name='Task-25' coro=<OptimizedConfigManager._start_batch_writer.<locals>.batch_writer() running at C:\Users\Finn0\AppData\Local\Temp\new_bot_audit_20260910_123148\src\utils\config_optimizer.py:185> wait_for=<Future pending cb=[Task.task_wakeup()]>>, <Task pending name='Task-22' coro=<test_repeated_initialization_no_task_leak() running at C:\Users\Finn0\AppData\Local\Temp\new_bot_audit_20260910_123148\test_audit.py:92> cb=[_run_until_complete_cb() at C:\Users\Finn0\AppData\Local\Programs\Python\Python313\Lib\asyncio\base_events.py:181]>, <Task pending name='Task-24' coro=<DatabaseManager.start_cleanup_task.<locals>.cleanup_loop() running at C:\Users\Finn0\AppData\Local\Temp\new_bot_audit_20260910_123148\src\utils\database_manager.py:307> wait_for=<Future pending cb=[Task.task_wakeup()]>>} = <function all_tasks at 0x00000211E3EDED40>()
+E    +      where <function all_tasks at 0x00000211E3EDED40> = asyncio.all_tasks
+---------------------------- Captured stdout call -----------------------------
+[Init] \u521d\u59cb\u5316\u6578\u64da\u5eab\u7ba1\u7406\u5668...\n[Init] \u521d\u59cb\u5316\u914d\u7f6e\u512a\u5316\u5668...\n[Init] \u521d\u59cb\u5316\u7db2\u8def\u512a\u5316\u5668...\n[Init] \u555f\u52d5\u6578\u64da\u5eab\u6e05\u7406\u4efb\u52d9...\n[Init] \u6240\u6709\u512a\u5316\u6a21\u7d44\u521d\u59cb\u5316\u5b8c\u6210\n[Init] \u521d\u59cb\u5316\u6578\u64da\u5eab\u7ba1\u7406\u5668...\n[Init] \u521d\u59cb\u5316\u914d\u7f6e\u512a\u5316\u5668...\n[Init] \u521d\u59cb\u5316\u7db2\u8def\u512a\u5316\u5668...\n[Init] \u555f\u52d5\u6578\u64da\u5eab\u6e05\u7406\u4efb\u52d9...\n[Init] \u6240\u6709\u512a\u5316\u6a21\u7d44\u521d\u59cb\u5316\u5b8c\u6210
+_____________________ test_rate_limit_returns_http_error ______________________
+test_audit.py:99: in test_rate_limit_returns_http_error
+    await optimizer.optimized_send_message(SimpleNamespace(send=AsyncMock()),'hello')
+src\utils\api_optimizer.py:123: in optimized_send_message
+    raise discord.HTTPException("Rate limited")
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: HTTPException.__init__() missing 1 required positional argument: 'message'
+___________________ test_auto_role_verification_member_api ____________________
+test_audit.py:109: in test_auto_role_verification_member_api
+    await cog.on_member_join(member)
+src\cogs\features\management.py:777: in on_member_join
+    if not member.verified:
+           ^^^^^^^^^^^^^^^
+..\..\Programs\Python\Python313\Lib\unittest\mock.py:690: in __getattr__
+    raise AttributeError("Mock object has no attribute %r" % name)
+E   AttributeError: Mock object has no attribute 'verified'
+============================== warnings summary ===============================
+test_audit.py::test_network_default_session
+  C:\\Users\\Finn0\\OneDrive\\\u6587\u4ef6\\new_bot\\.venv\\Lib\\site-packages\\aiohttp\\connector.py:988: DeprecationWarning: enable_cleanup_closed ignored because https://github.com/python/cpython/pull/118960 is fixed in Python version sys.version_info(major=3, minor=13, micro=7, releaselevel='final', serial=0)\n    super().__init__(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED test_audit.py::test_cleanup_nonempty_logs - NameError: name 'timedelta...
+FAILED test_audit.py::test_network_default_session - AttributeError: module a...
+FAILED test_audit.py::test_config_missing_file_completes - subprocess.Timeout...
+FAILED test_audit.py::test_unused_type_module_imports - AttributeError: modul...
+FAILED test_audit.py::test_giveaway_restart_keeps_both_views - assert 1 == 2
+FAILED test_audit.py::test_shuffle_item - NameError: name 'random' is not def...
+FAILED test_audit.py::test_activated_blank_halves_damage - assert 3500 == 4250
+FAILED test_audit.py::test_repeated_initialization_no_task_leak - AssertionEr...
+FAILED test_audit.py::test_rate_limit_returns_http_error - TypeError: HTTPExc...
+FAILED test_audit.py::test_auto_role_verification_member_api - AttributeError...
+=================== 10 failed, 1 passed, 1 warning in 4.67s ===================

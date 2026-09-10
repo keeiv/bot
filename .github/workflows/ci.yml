@@ -37,6 +37,13 @@ jobs:
         run: |
           pytest -v --cov=src --cov-report=xml
 
+      - name: Check source quality
+        run: |
+          python -m flake8 src services tests
+          python -m black --check src services tests
+          python -m isort --check-only src services tests
+          python -m bandit -r src services -ll
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         with:

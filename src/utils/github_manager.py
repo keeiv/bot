@@ -1,3 +1,4 @@
+from collections.abc import Mapping, Coroutine
 import asyncio
 from datetime import datetime
 from datetime import timezone
@@ -8,14 +9,14 @@ import aiohttp
 
 
 class GitHubRateLimitManager:
-    def __init__(self):
-        self.rate_limits: Dict[str, Dict] = {}
-        self.request_queue: List[Dict] = {}
+    def __init__(self) -> None:
+        self.rate_limits: Dict[str, Dict[Any, Any]] = {}
+        self.request_queue: List[Dict[Any, Any]] = []
         self.max_retries = 3
         self.base_delay = 1.0
         self.max_delay = 60.0
 
-    def parse_rate_limit_headers(self, headers: Dict) -> Dict:
+    def parse_rate_limit_headers(self, headers: Mapping[str, str]) -> Dict[Any, Any]:
         return {
             "remaining": int(headers.get("X-RateLimit-Remaining", 5000)),
             "reset_time": int(headers.get("X-RateLimit-Reset", time.time() + 3600)),
@@ -23,7 +24,7 @@ class GitHubRateLimitManager:
             "used": int(headers.get("X-RateLimit-Used", 0)),
         }
 
-    async def wait_for_rate_limit(self, endpoint: str, headers: Dict) -> None:
+    async def wait_for_rate_limit(self, endpoint: str, headers: Mapping[str, str]) -> None:
         rate_info = self.parse_rate_limit_headers(headers)
         self.rate_limits[endpoint] = rate_info
 
@@ -38,14 +39,14 @@ class GitHubRateLimitManager:
                 await asyncio.sleep(wait_time)
 
     def get_retry_delay(self, attempt: int) -> float:
-        return min(self.base_delay * (2**attempt), self.max_delay)
+        return float(min(self.base_delay * (2**attempt), self.max_delay))
 
     def should_retry(self, status_code: int) -> bool:
         return status_code in [403, 429, 500, 502, 503, 504]
 
 
 class GitHubAPIManager:
-    def __init__(self, token: str = None):
+    def __init__(self, token: str | None = None) -> None:
         self.token = token
         self.session: Optional[aiohttp.ClientSession] = None
         self.rate_manager = GitHubRateLimitManager()
@@ -71,8 +72,8 @@ class GitHubAPIManager:
         return self.session
 
     async def make_request(
-        self, method: str, endpoint: str, **kwargs
-    ) -> Optional[Dict]:
+        self, method: str, endpoint: str, **kwargs: Any
+    ) -> Any:
         """發送 API 請求，支援 ETag 條件請求。回傳 None 表示 304 無變更"""
         session = await self.get_session()
         url = f"{self.base_url}{endpoint}"
@@ -153,43 +154,49 @@ class GitHubAPIManager:
 
         raise Exception(f"Max retries exceeded for {endpoint}")
 
-    async def get_commits(self, owner: str, repo: str, per_page: int = 1) -> List[Dict]:
+    async def get_commits(self, owner: str, repo: str, per_page: int = 1) -> List[Dict[Any, Any]] | None:
         params = {"per_page": per_page}
-        return await self.make_request(
+        result = await self.make_request(
             "GET", f"/repos/{owner}/{repo}/commits", params=params
         )
+        if result is None or isinstance(result, list):
+            return result
+        raise TypeError("GitHub commits response must be a list")
 
     async def get_pull_requests(
         self, owner: str, repo: str, per_page: int = 1
-    ) -> List[Dict]:
+    ) -> List[Dict[Any, Any]] | None:
         params = {"per_page": per_page, "state": "all"}
-        return await self.make_request(
+        result = await self.make_request(
             "GET", f"/repos/{owner}/{repo}/pulls", params=params
         )
+        if result is None or isinstance(result, list):
+            return result
+        raise TypeError("GitHub pulls response must be a list")
 
-    async def get_repo_info(self, owner: str, repo: str) -> Dict:
-        return await self.make_request("GET", f"/repos/{owner}/{repo}")
+    async def get_repo_info(self, owner: str, repo: str) -> Dict[Any, Any]:
+        return dict(await self.make_request("GET", f"/repos/{owner}/{repo}") or {})
 
-    async def get_rate_limit_status(self) -> Dict:
-        return await self.make_request("GET", "/rate_limit")
+    async def get_rate_limit_status(self) -> Dict[Any, Any]:
+        return dict(await self.make_request("GET", "/rate_limit") or {})
 
-    def get_rate_limit_info(self, endpoint: str) -> Optional[Dict]:
+    def get_rate_limit_info(self, endpoint: str) -> Optional[Dict[Any, Any]]:
         return self.rate_manager.rate_limits.get(endpoint)
 
-    async def close(self):
+    async def close(self) -> None:
         if self.session and not self.session.closed:
             await self.session.close()
 
 
 class GitHubRequestQueue:
-    def __init__(self, api_manager: GitHubAPIManager):
+    def __init__(self, api_manager: GitHubAPIManager) -> None:
         self.api_manager = api_manager
-        self.queue: List[Dict] = []
+        self.queue: List[Dict[Any, Any]] = []
         self.processing = False
         self.batch_size = 5
         self.batch_delay = 2.0
 
-    def add_request(self, request_type: str, **kwargs):
+    def add_request(self, request_type: str, **kwargs: Any) -> None:
         self.queue.append(
             {
                 "type": request_type,
@@ -199,7 +206,7 @@ class GitHubRequestQueue:
             }
         )
 
-    async def process_queue(self):
+    async def process_queue(self) -> None:
         if self.processing or not self.queue:
             return
 
@@ -210,6 +217,7 @@ class GitHubRequestQueue:
             self.queue = self.queue[self.batch_size :]
 
             tasks = []
+            task: Coroutine[Any, Any, Any]
             for request in batch:
                 if request["type"] == "commits":
                     task = self.api_manager.get_commits(
@@ -247,11 +255,11 @@ class GitHubRequestQueue:
 
 
 class GitHubDiagnostics:
-    def __init__(self, api_manager: GitHubAPIManager):
+    def __init__(self, api_manager: GitHubAPIManager) -> None:
         self.api_manager = api_manager
 
-    async def run_diagnostics(self) -> Dict:
-        results = {
+    async def run_diagnostics(self) -> Dict[Any, Any]:
+        results: Dict[str, Any] = {
             "api_status": "unknown",
             "rate_limit": "unknown",
             "token_valid": False,
@@ -280,8 +288,8 @@ class GitHubDiagnostics:
 
         return results
 
-    async def test_specific_repo(self, owner: str, repo: str) -> Dict:
-        results = {
+    async def test_specific_repo(self, owner: str, repo: str) -> Dict[Any, Any]:
+        results: Dict[str, Any] = {
             "repo_accessible": False,
             "commits_accessible": False,
             "pulls_accessible": False,
@@ -309,13 +317,13 @@ class GitHubDiagnostics:
         return results
 
 
-github_api_manager = None
+github_api_manager: GitHubAPIManager | None = None
 
 
-def init_github_manager(token: str = None):
+def init_github_manager(token: str | None = None) -> None:
     global github_api_manager
     github_api_manager = GitHubAPIManager(token)
 
 
-def get_github_manager() -> GitHubAPIManager:
+def get_github_manager() -> GitHubAPIManager | None:
     return github_api_manager
