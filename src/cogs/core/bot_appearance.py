@@ -1,6 +1,6 @@
-from typing import Any
 import base64
 from datetime import datetime
+from typing import Any
 import uuid
 
 import discord
@@ -25,7 +25,9 @@ class AppearanceApprovalView(ui.View):
         self.cog = cog
 
     @ui.button(label="核准", style=discord.ButtonStyle.success)
-    async def approve_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
+    async def approve_button(
+        self, interaction: discord.Interaction, button: ui.Button[Any]
+    ) -> None:
         """核准變更"""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
@@ -35,7 +37,9 @@ class AppearanceApprovalView(ui.View):
         await self.cog.handle_approval(interaction, self.request_id, approved=True)
 
     @ui.button(label="拒絕", style=discord.ButtonStyle.danger)
-    async def reject_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
+    async def reject_button(
+        self, interaction: discord.Interaction, button: ui.Button[Any]
+    ) -> None:
         """拒絕變更"""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
@@ -67,8 +71,14 @@ class BotAppearance(commands.Cog):
         image_url: str,
     ) -> None:
         """發送審核請求給開發者"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         request_id = str(uuid.uuid4())[:8]
 
@@ -163,7 +173,15 @@ class BotAppearance(commands.Cog):
                 # 通知申請者
                 try:
                     channel = self.bot.get_channel(request["channel_id"])
-                    if isinstance(channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
+                    if isinstance(
+                        channel,
+                        (
+                            discord.TextChannel,
+                            discord.Thread,
+                            discord.VoiceChannel,
+                            discord.StageChannel,
+                        ),
+                    ):
                         notify_embed = discord.Embed(
                             title=f"[成功] {type_name}已更新",
                             description=(
@@ -192,7 +210,15 @@ class BotAppearance(commands.Cog):
             # 通知申請者
             try:
                 channel = self.bot.get_channel(request["channel_id"])
-                if isinstance(channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
+                if isinstance(
+                    channel,
+                    (
+                        discord.TextChannel,
+                        discord.Thread,
+                        discord.VoiceChannel,
+                        discord.StageChannel,
+                    ),
+                ):
                     notify_embed = discord.Embed(
                         title=f"[拒絕] {type_name}變更未通過",
                         description=(
@@ -207,10 +233,18 @@ class BotAppearance(commands.Cog):
 
     @appearance_group.command(name="name", description="更改機器人在此伺服器的名稱")
     @app_commands.describe(name="新的暱稱 (留空則還原預設)")
-    async def change_name(self, interaction: discord.Interaction, name: str | None = None) -> None:
+    async def change_name(
+        self, interaction: discord.Interaction, name: str | None = None
+    ) -> None:
         """更改機器人在伺服器中的暱稱"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message(
@@ -253,8 +287,14 @@ class BotAppearance(commands.Cog):
         self, interaction: discord.Interaction, image: discord.Attachment
     ) -> None:
         """更改機器人在此伺服器的頭像 (需審核)"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message(
@@ -305,8 +345,14 @@ class BotAppearance(commands.Cog):
         self, interaction: discord.Interaction, image: discord.Attachment
     ) -> None:
         """更改機器人在此伺服器的橫幅 (需審核)"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message(
@@ -366,8 +412,14 @@ class BotAppearance(commands.Cog):
         target: app_commands.Choice[str],
     ) -> None:
         """將機器人伺服器級頭像/橫幅還原為全域預設"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message(

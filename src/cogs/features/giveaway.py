@@ -1,9 +1,9 @@
 """抽獎系統 Cog"""
-from typing import Any
 
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
+from typing import Any
 
 import discord
 from discord import app_commands
@@ -33,7 +33,9 @@ class GiveawayView(ui.View):
         emoji=GIVEAWAY_EMOJI,
         custom_id="giveaway_enter",
     )
-    async def enter_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
+    async def enter_button(
+        self, interaction: discord.Interaction, button: ui.Button[Any]
+    ) -> None:
         """參加抽獎 (使用鎖防止競態條件)"""
         async with _service.lock:
             action, count = _service.toggle_participant(
@@ -145,8 +147,14 @@ class Giveaway(commands.Cog):
         description: str | None = None,
     ) -> None:
         """建立新抽獎"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         total_seconds = self.service.parse_duration(duration)
         if total_seconds is None or total_seconds < 60:
@@ -164,7 +172,9 @@ class Giveaway(commands.Cog):
 
         target_channel = channel or interaction.channel
         if not isinstance(target_channel, (discord.TextChannel, discord.Thread)):
-            await interaction.response.send_message("請選擇文字頻道或討論串。", ephemeral=True)
+            await interaction.response.send_message(
+                "請選擇文字頻道或討論串。", ephemeral=True
+            )
             return
         now = datetime.now(TZ_OFFSET)
         end_dt = now + timedelta(seconds=total_seconds)
@@ -283,8 +293,14 @@ class Giveaway(commands.Cog):
     @giveaway_group.command(name="list", description="查看進行中的抽獎")
     async def list_cmd(self, interaction: discord.Interaction) -> None:
         """列出伺服器所有進行中的抽獎"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         await interaction.response.defer()
         active = self.service.list_active(interaction.guild_id)
@@ -345,7 +361,15 @@ class Giveaway(commands.Cog):
 
         try:
             ch = self.bot.get_channel(ga["channel_id"])
-            if not isinstance(ch, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
+            if not isinstance(
+                ch,
+                (
+                    discord.TextChannel,
+                    discord.Thread,
+                    discord.VoiceChannel,
+                    discord.StageChannel,
+                ),
+            ):
                 ch = await self.bot.fetch_channel(ga["channel_id"])
 
             try:

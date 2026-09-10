@@ -1,6 +1,6 @@
 import asyncio
-import hashlib
 from copy import deepcopy
+import hashlib
 import json
 from pathlib import Path
 import threading
@@ -112,7 +112,9 @@ class OptimizedConfigManager:
     def _get_cache_key(self, file_path: str) -> str:
         return f"config:{file_path}"
 
-    async def load_config(self, file_name: str, default: Dict[Any, Any] | None = None) -> Dict[str, Any]:
+    async def load_config(
+        self, file_name: str, default: Dict[Any, Any] | None = None
+    ) -> Dict[str, Any]:
         file_path = self.base_path / file_name
         cache_key = self._get_cache_key(str(file_path))
 
@@ -158,7 +160,9 @@ class OptimizedConfigManager:
             await self._write_queue.put(
                 {"file_name": file_name, "data": snapshot, "timestamp": time.time()}
             )
-            self._cache.set(self._get_cache_key(str(self.base_path / file_name)), snapshot)
+            self._cache.set(
+                self._get_cache_key(str(self.base_path / file_name)), snapshot
+            )
             return True
         except Exception as e:
             print(f"[Config] Error queueing save for {file_name}: {e}")
@@ -201,7 +205,9 @@ class OptimizedConfigManager:
     async def _process_write_batch(self, batch: list[Any]) -> None:
         for item in batch:
             try:
-                if not await self._write_config_immediate(item["file_name"], item["data"]):
+                if not await self._write_config_immediate(
+                    item["file_name"], item["data"]
+                ):
                     self._write_errors.append(item["file_name"])
             except Exception as e:
                 self._write_errors.append(item["file_name"])
@@ -296,7 +302,9 @@ class OptimizedConfigManager:
                 watcher.stop_watching()
             self._watchers.clear()
 
-    async def backup_config(self, file_name: str, backup_suffix: str | None = None) -> str:
+    async def backup_config(
+        self, file_name: str, backup_suffix: str | None = None
+    ) -> str:
         file_path = self.base_path / file_name
         if not file_path.exists():
             raise FileNotFoundError(f"Config file {file_name} not found")

@@ -1,6 +1,5 @@
-from typing import Any
 import random
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import discord
 from discord import app_commands
@@ -108,7 +107,9 @@ class RussianRoulette(commands.Cog):
                 await self._show_game_status()
 
         @ui.button(label="使用道具", style=discord.ButtonStyle.primary)
-        async def use_item(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
+        async def use_item(
+            self, interaction: discord.Interaction, button: ui.Button[Any]
+        ) -> None:
             """使用道具"""
             if not self.game.game_active:
                 await interaction.response.send_message("遊戲已結束", ephemeral=True)
@@ -294,7 +295,9 @@ class RussianRoulette(commands.Cog):
             elif item == "空包彈":
                 if player.id in self.game.blank_round_players:
                     items.append(item)
-                    await interaction.response.send_message("空包彈已啟用", ephemeral=True)
+                    await interaction.response.send_message(
+                        "空包彈已啟用", ephemeral=True
+                    )
                     return
                 self.game.blank_round_players.add(player.id)
                 embed = discord.Embed(
@@ -343,8 +346,12 @@ class RussianRoulette(commands.Cog):
         self, interaction: discord.Interaction, opponent: discord.Member
     ) -> None:
         """開始俄羅斯輪盤遊戲"""
-        if not isinstance(interaction.channel, discord.TextChannel) or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("請在伺服器文字頻道內開始遊戲。", ephemeral=True)
+        if not isinstance(interaction.channel, discord.TextChannel) or not isinstance(
+            interaction.user, discord.Member
+        ):
+            await interaction.response.send_message(
+                "請在伺服器文字頻道內開始遊戲。", ephemeral=True
+            )
             return
         # 檢查是否已在遊戲中
         if interaction.channel.id in self.active_games:
@@ -414,7 +421,9 @@ class GameInviteView(ui.View):
         await self.game.channel.send(embed=embed)
 
     @ui.button(label="接受", style=discord.ButtonStyle.success)
-    async def accept(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
+    async def accept(
+        self, interaction: discord.Interaction, button: ui.Button[Any]
+    ) -> None:
         """接受邀請"""
         if interaction.user != self.opponent:
             await interaction.response.send_message(
@@ -447,7 +456,9 @@ class GameInviteView(ui.View):
         self.stop()
 
     @ui.button(label="拒絕", style=discord.ButtonStyle.danger)
-    async def decline(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
+    async def decline(
+        self, interaction: discord.Interaction, button: ui.Button[Any]
+    ) -> None:
         """拒絕邀請"""
         if interaction.user != self.opponent:
             await interaction.response.send_message(

@@ -1,7 +1,8 @@
-from typing import Any
 import logging
+from typing import Any
 
-from deep_translator import GoogleTranslator  # type: ignore[import-untyped]  # upstream package has no typing metadata
+# deep_translator has no typing metadata.
+from deep_translator import GoogleTranslator  # type: ignore[import-untyped]
 import discord
 from discord import app_commands
 from discord.ext import commands

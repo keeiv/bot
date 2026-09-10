@@ -61,11 +61,19 @@ class Achievements(commands.Cog):
     @app_commands.command(name="achievements", description="查看成就")
     @app_commands.describe(user="要查詢的用戶 (不填默認為自己)")
     async def achievements_command(
-        self, interaction: discord.Interaction, user: discord.User | discord.Member | None = None
+        self,
+        interaction: discord.Interaction,
+        user: discord.User | discord.Member | None = None,
     ) -> None:
         """查看成就"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         await interaction.response.defer()
         if user is None:
@@ -116,8 +124,14 @@ class Achievements(commands.Cog):
     @app_commands.command(name="achievement_codex", description="查看成就圖鑑")
     async def achievement_codex(self, interaction: discord.Interaction) -> None:
         """查看所有可用成就的圖鑑"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         await interaction.response.defer()
         self.service.unlock(

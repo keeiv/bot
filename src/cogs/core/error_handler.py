@@ -1,6 +1,6 @@
-from typing import Any
 from datetime import datetime
 import traceback
+from typing import Any
 
 import discord
 from discord import app_commands
@@ -157,7 +157,9 @@ class ErrorHandler(commands.Cog):
             traceback_str=tb,
         )
 
-    async def _handle_unexpected_prefix(self, ctx: commands.Context[Any], error: Exception) -> None:
+    async def _handle_unexpected_prefix(
+        self, ctx: commands.Context[Any], error: Exception
+    ) -> None:
         """處理未預期的 Prefix Command 錯誤"""
         await ctx.send("[錯誤] 發生未預期的錯誤，開發者已收到通知")
 
@@ -208,7 +210,15 @@ class ErrorHandler(commands.Cog):
         # 發送到指定錯誤日誌頻道
         try:
             channel = self.bot.get_channel(ERROR_LOG_CHANNEL_ID)
-            if isinstance(channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
+            if isinstance(
+                channel,
+                (
+                    discord.TextChannel,
+                    discord.Thread,
+                    discord.VoiceChannel,
+                    discord.StageChannel,
+                ),
+            ):
                 await channel.send(embed=embed)
         except (discord.Forbidden, discord.HTTPException):
             pass

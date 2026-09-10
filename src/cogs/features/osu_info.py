@@ -1,5 +1,4 @@
-from typing import Any
-from typing import Optional
+from typing import Any, Optional
 
 import discord
 from discord import app_commands
@@ -19,7 +18,9 @@ class OsuInfo(commands.Cog):
 
     @app_commands.command(name="user_info_osu", description="查詢 osu! 用戶資訊")
     @app_commands.describe(username="osu! 用戶名")
-    async def user_info_osu(self, interaction: discord.Interaction, username: str) -> None:
+    async def user_info_osu(
+        self, interaction: discord.Interaction, username: str
+    ) -> None:
         """查詢 osu! 用戶資訊"""
         try:
             await interaction.response.defer()
@@ -135,7 +136,10 @@ class OsuInfo(commands.Cog):
         username="osu! 用戶名 (不填則使用你已綁定的帳號)", limit="顯示筆數 (1~10)"
     )
     async def osu_best(
-        self, interaction: discord.Interaction, username: str | None = None, limit: int = 5
+        self,
+        interaction: discord.Interaction,
+        username: str | None = None,
+        limit: int = 5,
     ) -> None:
         try:
             await interaction.response.defer()
@@ -173,7 +177,10 @@ class OsuInfo(commands.Cog):
         username="osu! 用戶名 (不填則使用你已綁定的帳號)", limit="顯示筆數 (1~10)"
     )
     async def osu_recent(
-        self, interaction: discord.Interaction, username: str | None = None, limit: int = 5
+        self,
+        interaction: discord.Interaction,
+        username: str | None = None,
+        limit: int = 5,
     ) -> None:
         try:
             await interaction.response.defer()

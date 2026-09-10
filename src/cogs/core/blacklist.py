@@ -1,7 +1,6 @@
-from typing import TYPE_CHECKING
-from typing import Any
 import asyncio
 from datetime import datetime
+from typing import Any, TYPE_CHECKING
 
 import discord
 from discord import app_commands
@@ -84,7 +83,9 @@ class AppealReviewView(ui.View):
     @ui.button(
         label="接受", style=discord.ButtonStyle.success, custom_id="appeal_accept"
     )
-    async def accept_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
+    async def accept_button(
+        self, interaction: discord.Interaction, button: ui.Button[Any]
+    ) -> None:
         """接受申訴 - 開啟表單"""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
@@ -98,7 +99,9 @@ class AppealReviewView(ui.View):
     @ui.button(
         label="駁回", style=discord.ButtonStyle.danger, custom_id="appeal_reject"
     )
-    async def reject_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
+    async def reject_button(
+        self, interaction: discord.Interaction, button: ui.Button[Any]
+    ) -> None:
         """駁回申訴"""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
@@ -143,7 +146,9 @@ class BlockedNoticeView(ui.View):
         style=discord.ButtonStyle.primary,
         custom_id="blacklist_appeal",
     )
-    async def appeal_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
+    async def appeal_button(
+        self, interaction: discord.Interaction, button: ui.Button[Any]
+    ) -> None:
         """點擊申訴按鈕"""
         manager = self.cog.bot.blacklist_manager
         entry = await manager.check(interaction.user.id)
@@ -316,7 +321,9 @@ class Blacklist(commands.Cog):
 
     @blacklist_group.command(name="remove", description="移除本地黑名單")
     @app_commands.describe(user="目標用戶")
-    async def bl_remove(self, interaction: discord.Interaction, user: discord.User) -> None:
+    async def bl_remove(
+        self, interaction: discord.Interaction, user: discord.User
+    ) -> None:
         """移除本地黑名單"""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
@@ -369,7 +376,9 @@ class Blacklist(commands.Cog):
 
     @blacklist_group.command(name="info", description="查詢用戶黑名單狀態")
     @app_commands.describe(user="目標用戶")
-    async def bl_info(self, interaction: discord.Interaction, user: discord.User) -> None:
+    async def bl_info(
+        self, interaction: discord.Interaction, user: discord.User
+    ) -> None:
         """查詢特定用戶的封鎖狀態 (本地 + API)"""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(

@@ -36,8 +36,14 @@ class AgeGuard(commands.Cog):
     async def set_adult_role(
         self, interaction: discord.Interaction, role: discord.Role
     ) -> None:
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         self.service.set_adult_role(interaction.guild_id, role.id)
         embed = discord.Embed(
@@ -56,8 +62,14 @@ class AgeGuard(commands.Cog):
     async def set_punishment_role(
         self, interaction: discord.Interaction, role: discord.Role
     ) -> None:
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         self.service.set_punishment_role(interaction.guild_id, role.id)
         embed = discord.Embed(
@@ -70,8 +82,14 @@ class AgeGuard(commands.Cog):
 
     @age_guard.command(name="toggle", description="開啟或關閉年齡守門員")
     async def toggle(self, interaction: discord.Interaction) -> None:
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         new_state = self.service.toggle_enabled(interaction.guild_id)
         state_str = "開啟" if new_state else "關閉"
@@ -89,8 +107,14 @@ class AgeGuard(commands.Cog):
 
     @age_guard.command(name="status", description="查看年齡守門員目前設定")
     async def status(self, interaction: discord.Interaction) -> None:
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         cfg = self.service.get_config(interaction.guild_id)
         enabled = cfg.get("enabled", False)
@@ -182,7 +206,15 @@ class AgeGuard(commands.Cog):
         if not log_channel_id:
             return
         log_channel = guild.get_channel(log_channel_id)
-        if not isinstance(log_channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel, discord.StageChannel)):
+        if not isinstance(
+            log_channel,
+            (
+                discord.TextChannel,
+                discord.Thread,
+                discord.VoiceChannel,
+                discord.StageChannel,
+            ),
+        ):
             return
 
         content = message.content or ""

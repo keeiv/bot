@@ -1,7 +1,6 @@
-from typing import Any
 import json
 import os
-from typing import Optional
+from typing import Any, Optional
 
 _DATA_FILE = "data/storage/temp_voice.json"
 

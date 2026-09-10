@@ -1,4 +1,5 @@
 from typing import Any
+
 """工單系統 Cog"""
 
 from datetime import datetime
@@ -66,8 +67,14 @@ class TicketCloseView(ui.View):
 
     async def _check_close_permission(self, interaction: discord.Interaction) -> bool:
         """檢查關閉工單權限 (管理員或工單建立者)"""
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return False
         thread = interaction.channel
         if not isinstance(thread, discord.Thread):
@@ -90,7 +97,9 @@ class TicketCloseView(ui.View):
         style=discord.ButtonStyle.secondary,
         custom_id="ticket_close",
     )
-    async def close_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
+    async def close_button(
+        self, interaction: discord.Interaction, button: ui.Button[Any]
+    ) -> None:
         """直接關閉工單"""
         if not await self._check_close_permission(interaction):
             return
@@ -143,7 +152,9 @@ class TicketOpenView(ui.View):
         style=discord.ButtonStyle.primary,
         custom_id="ticket_open",
     )
-    async def open_button(self, interaction: discord.Interaction, button: ui.Button[Any]) -> None:
+    async def open_button(
+        self, interaction: discord.Interaction, button: ui.Button[Any]
+    ) -> None:
         """開啟新工單"""
         guild = interaction.guild
         if not guild:
@@ -175,7 +186,9 @@ class TicketOpenView(ui.View):
         # 建立私人討論串
         channel = interaction.channel
         if not isinstance(channel, discord.TextChannel):
-            await interaction.response.send_message("工單面板必須位於文字頻道。", ephemeral=True)
+            await interaction.response.send_message(
+                "工單面板必須位於文字頻道。", ephemeral=True
+            )
             return
         try:
             thread = await channel.create_thread(
@@ -250,7 +263,11 @@ class Ticket(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
         """處理 >>> 前綴指令"""
-        if message.author.bot or not message.guild or not isinstance(message.author, discord.Member):
+        if (
+            message.author.bot
+            or not message.guild
+            or not isinstance(message.author, discord.Member)
+        ):
             return
         if not message.content.startswith(">>>ticket"):
             return

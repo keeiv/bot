@@ -1,10 +1,9 @@
-from typing import Any
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 import json
 import os
-from typing import Optional
+from typing import Any, Optional
 
 import aiohttp
 import discord
@@ -12,8 +11,8 @@ from discord import app_commands
 from discord.ext import commands
 from discord.ext import tasks
 
-from src.utils.github_manager import GitHubAPIManager
 from src.utils.github_manager import get_github_manager
+from src.utils.github_manager import GitHubAPIManager
 from src.utils.github_manager import init_github_manager
 
 # UTC+8 時區
@@ -71,7 +70,9 @@ class GithubWatch(commands.Cog):
             raise RuntimeError("GitHub manager is not initialized")
         return manager
 
-    async def _fetch_latest_commit(self, owner: str, repo: str) -> Optional[dict[Any, Any]]:
+    async def _fetch_latest_commit(
+        self, owner: str, repo: str
+    ) -> Optional[dict[Any, Any]]:
         """取得最新 commit，回傳 None 表示無變更 (304)"""
         github_manager = await self._ensure_session()
 
@@ -117,7 +118,12 @@ class GithubWatch(commands.Cog):
             raise RuntimeError(f"GitHub API 失敗: {e}")
 
     async def _send_update_message(
-        self, guild_id: int, channel_id: int, owner: str, repo: str, commit: dict[Any, Any]
+        self,
+        guild_id: int,
+        channel_id: int,
+        owner: str,
+        repo: str,
+        commit: dict[Any, Any],
     ) -> None:
         guild = self.bot.get_guild(guild_id)
         if guild is None:
@@ -244,8 +250,14 @@ class GithubWatch(commands.Cog):
 
     @repo_watch.command(name="status", description="查看 GitHub 檔案庫通知狀態")
     async def repo_watch_status(self, interaction: discord.Interaction) -> None:
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         await interaction.response.defer(ephemeral=True)
 
@@ -270,8 +282,14 @@ class GithubWatch(commands.Cog):
     @repo_watch.command(name="disable", description="停用 GitHub 檔案庫更新通知")
     @app_commands.checks.has_permissions(manage_guild=True)
     async def repo_watch_disable(self, interaction: discord.Interaction) -> None:
-        if interaction.guild is None or interaction.guild_id is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("此功能只能在伺服器內使用。", ephemeral=True)
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                "此功能只能在伺服器內使用。", ephemeral=True
+            )
             return
         await interaction.response.defer(ephemeral=True)
 

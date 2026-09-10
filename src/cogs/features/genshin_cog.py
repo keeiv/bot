@@ -1,10 +1,10 @@
-from typing import Any
 import asyncio
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 import json
 import os
+from typing import Any
 
 import discord
 from discord import app_commands
@@ -20,7 +20,9 @@ TZ_OFFSET = timezone(timedelta(hours=8))
 class CookieBindModal(discord.ui.Modal):
     """彈出式輸入視窗：安全輸入 Cookie 各個欄位"""
 
-    def __init__(self, service: "GenshinService", cog: "GenshinCog", region: str) -> None:
+    def __init__(
+        self, service: "GenshinService", cog: "GenshinCog", region: str
+    ) -> None:
         title = (
             "安全綁定國服 (米游社) 帳號"
             if region == "cn"
@@ -695,7 +697,9 @@ class GenshinCog(commands.Cog):
             app_commands.Choice(name="崩壞3rd (Honkai Impact 3rd)", value="honkai"),
         ]
     )
-    async def mhy_redeem(self, interaction: discord.Interaction, game: str, code: str) -> None:
+    async def mhy_redeem(
+        self, interaction: discord.Interaction, game: str, code: str
+    ) -> None:
         await interaction.response.defer(ephemeral=True)
 
         try:

@@ -19,7 +19,8 @@ def test_cleanup_nonempty_logs():
 
 
 async def test_network_default_session():
-    from src.utils.network_optimizer import ConnectionPool, NetworkConfig
+    from src.utils.network_optimizer import ConnectionPool
+    from src.utils.network_optimizer import NetworkConfig
 
     pool = ConnectionPool(NetworkConfig())
     try:
@@ -112,9 +113,10 @@ async def test_activated_blank_halves_damage():
 
 
 async def test_repeated_initialization_no_task_leak():
-    from src.utils.runtime import initialize_optimizations, close_optimizations
     from src.utils.config_optimizer import get_config_manager
     from src.utils.database_manager import get_database_manager
+    from src.utils.runtime import close_optimizations
+    from src.utils.runtime import initialize_optimizations
 
     try:
         await initialize_optimizations()
@@ -131,7 +133,8 @@ async def test_repeated_initialization_no_task_leak():
 
 
 async def test_rate_limit_returns_http_error():
-    from src.utils.api_optimizer import APIOptimizer, RateLimitError
+    from src.utils.api_optimizer import APIOptimizer
+    from src.utils.api_optimizer import RateLimitError
 
     optimizer = APIOptimizer(None)
     optimizer.check_rate_limit = AsyncMock(return_value=False)
@@ -142,8 +145,9 @@ async def test_rate_limit_returns_http_error():
 
 
 async def test_auto_role_verification_member_api():
-    from src.cogs.features.management import Management
     from unittest.mock import Mock
+
+    from src.cogs.features.management import Management
 
     role = object()
     member = Mock(spec=discord.Member)
