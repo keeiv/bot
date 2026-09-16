@@ -579,6 +579,7 @@ class Management(commands.Cog):
 
         message = welcome_config["message"].format(
             user=user_mention,
+            username=interaction.user.display_name,
             server=server_name,
             count=interaction.guild.member_count,
             created_at=interaction.guild.created_at.strftime("%Y/%m/%d"),
@@ -835,6 +836,7 @@ class Management(commands.Cog):
             ):
                 message = welcome_config["message"].format(
                     user=member.mention,
+                    username=member.display_name,
                     server=member.guild.name,
                     count=member.guild.member_count,
                     created_at=member.guild.created_at.strftime("%Y/%m/%d"),
@@ -864,6 +866,7 @@ class Management(commands.Cog):
                     try:
                         dm_message = welcome_config["message"].format(
                             user=member.mention,
+                            username=member.display_name,
                             server=member.guild.name,
                             count=member.guild.member_count,
                             created_at=member.guild.created_at.strftime("%Y/%m/%d"),

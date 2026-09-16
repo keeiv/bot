@@ -161,7 +161,11 @@ class TicketOpenView(ui.View):
             return
 
         guild_config = _service.get_guild_config(guild.id)
-        if not guild_config:
+        if (
+            not guild_config
+            or not guild_config.get("enabled", True)
+            or interaction.channel_id != guild_config.get("channel_id")
+        ):
             await interaction.response.send_message(
                 "[失敗] 工單系統尚未設定", ephemeral=True
             )

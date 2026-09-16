@@ -3,6 +3,7 @@ from datetime import timedelta
 from datetime import timezone
 import json
 import os
+import time
 from typing import Any, Optional
 
 import aiohttp
@@ -38,6 +39,7 @@ class GithubWatch(commands.Cog):
         os.makedirs("data/storage", exist_ok=True)
 
         self._config = self._load_config()
+        self._last_poll: dict[str, float] = {}
         self._session: aiohttp.ClientSession | None = None
 
         self._poll_task.start()
@@ -167,7 +169,7 @@ class GithubWatch(commands.Cog):
 
         await channel.send(embed=embed)
 
-    @tasks.loop(minutes=2)
+    @tasks.loop(seconds=30)
     async def _poll_task(self) -> None:
         for guild_key, cfg in list(self._config.items()):
             try:
@@ -175,6 +177,13 @@ class GithubWatch(commands.Cog):
                 if not enabled:
                     continue
 
+                now = time.monotonic()
+                if (
+                    now - self._last_poll.get(guild_key, -float("inf"))
+                    < cfg.get("interval_minutes", 2) * 60
+                ):
+                    continue
+                self._last_poll[guild_key] = now
                 owner = cfg.get("owner")
                 repo = cfg.get("repo")
                 channel_id = cfg.get("channel_id")
@@ -231,7 +240,6 @@ class GithubWatch(commands.Cog):
         await interaction.response.defer(ephemeral=True)
 
         interval_minutes = max(2, min(60, interval_minutes))
-        self._poll_task.change_interval(minutes=interval_minutes)
 
         self._config[str(interaction.guild_id)] = {
             "enabled": True,
