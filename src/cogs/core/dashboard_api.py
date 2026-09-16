@@ -5,12 +5,17 @@ import hmac
 import logging
 import math
 import os
+import sqlite3
 import time
 
 from aiohttp import web
 import discord
 from discord.ext import commands
 
+from src.services.dashboard_account import DashboardAccount
+from src.services.dashboard_checks import inspect_settings
+from src.services.dashboard_checks import resources
+from src.services.dashboard_history import StatusHistory
 from src.services.dashboard_service import atomic_json
 from src.services.dashboard_service import DashboardService
 from src.services.dashboard_service import MAPPINGS
@@ -26,6 +31,11 @@ class DashboardAPI(commands.Cog):
         self.runner = None
         self.lock = asyncio.Lock()
         self.started_at = time.monotonic()
+        self.history = None
+        self.history_task = None
+        self.accounts = DashboardAccount(bot)
+        self.account_locks = {}
+        self.account_attempts = {}
 
     async def cog_load(self) -> None:
         if os.getenv("BOT_API_ENABLED", "false").lower() != "true":
@@ -42,12 +52,20 @@ class DashboardAPI(commands.Cog):
                 os.getenv("BOT_API_HOST", "127.0.0.1"),
                 int(os.getenv("BOT_API_PORT", "8080")),
             ).start()
+            self.history = StatusHistory()
+            self.history_task = asyncio.create_task(self.record_history())
         except Exception:
             await self.runner.cleanup()
             self.runner = None
             raise
 
     async def cog_unload(self) -> None:
+        if self.history_task:
+            self.history_task.cancel()
+            try:
+                await self.history_task
+            except asyncio.CancelledError:
+                pass
         if self.runner:
             await self.runner.cleanup()
 
@@ -58,7 +76,10 @@ class DashboardAPI(commands.Cog):
                 request.headers.get("X-Bot-Secret", "").encode(), secret.encode()
             ):
                 return web.json_response({"error": "Unauthorized"}, status=401)
-            if not self.bot.is_ready():
+            if not self.bot.is_ready() and request.path not in (
+                "/status",
+                "/status/history",
+            ):
                 return web.json_response({"error": "機器人尚未就緒"}, status=503)
             try:
                 response = await handler(request)
@@ -77,6 +98,11 @@ class DashboardAPI(commands.Cog):
         app = web.Application(middlewares=[guard], client_max_size=16384)
         app.router.add_get("/guilds", self.guilds)
         app.router.add_get("/status", self.status)
+        app.router.add_get("/status/history", self.status_history)
+        app.router.add_get("/account", self.account)
+        app.router.add_post("/account", self.update_account)
+        app.router.add_get("/guilds/{guild_id}/resources", self.guild_resources)
+        app.router.add_post("/guilds/{guild_id}/checks", self.check_settings)
         app.router.add_get("/guilds/{guild_id}/settings", self.get_settings)
         app.router.add_patch("/guilds/{guild_id}/settings", self.save_settings)
         app.router.add_post("/guilds/{guild_id}/panel", self.deploy_panel)
@@ -85,24 +111,90 @@ class DashboardAPI(commands.Cog):
     async def guilds(self, request):
         return web.json_response({"guildIds": [str(g.id) for g in self.bot.guilds]})
 
-    async def status(self, request):
+    def runtime_status(self):
         latency = self.bot.latency
         latency_ms = (
             round(latency * 1000)
             if isinstance(latency, (int, float)) and math.isfinite(latency)
             else None
         )
+        return {
+            "online": self.bot.is_ready(),
+            "latencyMs": latency_ms,
+            "uptimeSeconds": max(0, round(time.monotonic() - self.started_at)),
+            "guildCount": len(self.bot.guilds),
+            "memberCount": sum(g.member_count or 0 for g in self.bot.guilds),
+            "shardCount": self.bot.shard_count or 1,
+            "region": os.getenv("BOT_REGION", "Taipei, Taiwan"),
+            "version": os.getenv("BOT_VERSION", "development"),
+        }
+
+    async def status(self, request):
+        return web.json_response(self.runtime_status())
+
+    async def record_history(self):
+        while True:
+            try:
+                status = self.runtime_status()
+                await asyncio.to_thread(
+                    self.history.record, status["online"], status["latencyMs"]
+                )
+            except (OSError, RuntimeError, sqlite3.Error):
+                log.exception("Unable to record dashboard history")
+            await asyncio.sleep(60)
+
+    async def status_history(self, request):
+        hours = request.query.get("hours", "24")
+        if hours not in ("24", "168"):
+            raise ValueError("Invalid history window")
+        if self.history is None:
+            return web.json_response({"error": "History unavailable"}, status=503)
+        return web.json_response(await asyncio.to_thread(self.history.read, int(hours)))
+
+    def account_actor(self, request):
+        actor = request.headers.get("X-Discord-User", "")
+        if not actor.isdecimal() or not 17 <= len(actor) <= 20:
+            raise web.HTTPForbidden()
+        return int(actor)
+
+    async def account(self, request):
+        return web.json_response(self.accounts.read(self.account_actor(request)))
+
+    async def update_account(self, request):
+        actor = self.account_actor(request)
+        now = time.monotonic()
+        self.account_attempts = {
+            key: value
+            for key, value in self.account_attempts.items()
+            if now - value < 60
+        }
+        if (
+            actor in self.account_locks
+            or now - self.account_attempts.get(actor, -60) < 5
+            or len(self.account_attempts) >= 2000
+        ):
+            return web.json_response(
+                {"error": "Please wait before trying again"}, status=429
+            )
+        self.account_attempts[actor] = now
+        self.account_locks[actor] = True
+        try:
+            return web.json_response(
+                await self.accounts.update(actor, await request.json())
+            )
+        finally:
+            self.account_locks.pop(actor, None)
+
+    async def guild_resources(self, request):
+        return web.json_response(resources(await self.authorized_guild(request)))
+
+    async def check_settings(self, request):
+        guild = await self.authorized_guild(request)
+        body = await request.json()
+        if not isinstance(body, dict) or set(body) != {"settings"}:
+            raise ValueError("Invalid settings document")
         return web.json_response(
-            {
-                "online": True,
-                "latencyMs": latency_ms,
-                "uptimeSeconds": max(0, round(time.monotonic() - self.started_at)),
-                "guildCount": len(self.bot.guilds),
-                "memberCount": sum(g.member_count or 0 for g in self.bot.guilds),
-                "shardCount": self.bot.shard_count or 1,
-                "region": os.getenv("BOT_REGION", "Taipei, Taiwan"),
-                "version": os.getenv("BOT_VERSION", "development"),
-            }
+            inspect_settings(self.service, guild, body["settings"])
         )
 
     async def authorized_guild(self, request):
