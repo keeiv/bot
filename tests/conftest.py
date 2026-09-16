@@ -15,6 +15,8 @@ for credential in (
     "OSU_CLIENT_SECRET",
     "GITHUB_TOKEN",
     "API_KEY",
+    "BOT_API_ENABLED",
+    "BOT_API_SECRET",
 ):
     os.environ.pop(credential, None)
 
