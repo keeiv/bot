@@ -401,24 +401,25 @@ class Management(commands.Cog):
             )
             return
 
-        if not image.content_type.startswith("image/"):
+        if not (image.content_type or "").startswith("image/"):
             await interaction.response.send_message(
                 "[失敗] 請上傳圖片檔案", ephemeral=True
             )
             return
 
+        await interaction.response.defer()
         try:
             image_data = await image.read()
             emoji = await interaction.guild.create_custom_emoji(
                 name=name, image=image_data, reason=f"由 {interaction.user} 上傳"
             )
-            await interaction.response.send_message(f"[成功] 已上傳表情符號: {emoji}")
+            await interaction.followup.send(f"[成功] 已上傳表情符號: {emoji}")
         except discord.Forbidden:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "[失敗] 機器人沒有權限上傳表情符號", ephemeral=True
             )
         except Exception as e:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"[失敗] 上傳表情符號失敗: {e}", ephemeral=True
             )
 

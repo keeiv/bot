@@ -9,6 +9,7 @@ import psutil  # type: ignore[import-untyped]  # upstream package has no typing 
 from .bot import Bot
 from .utils.api_optimizer import init_api_optimizer
 from .utils.config_manager import ensure_data_dir
+from .utils.runtime_logging import runtime_logging
 
 # Load environment variables
 load_dotenv()
@@ -64,7 +65,8 @@ def main() -> None:
 
     try:
         print("[資訊] 啟動機器人")
-        bot.run(TOKEN)
+        with runtime_logging():
+            bot.run(TOKEN, log_handler=None)
     except KeyboardInterrupt:
         print("[資訊] 用戶請求機器人關閉")
     except Exception as e:

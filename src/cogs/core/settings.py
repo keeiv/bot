@@ -380,7 +380,7 @@ class Settings(commands.Cog):
                 color=discord.Color.from_rgb(231, 76, 60),
             )
 
-        config = getattr(management_cog, "_config", {})
+        config = management_cog.service.config
         guild_config = config.get(str(guild_id), {})
         welcome = guild_config.get("welcome", {})
 
@@ -434,7 +434,7 @@ class Settings(commands.Cog):
         management_cog = self.bot.get_cog("Management")
         if not management_cog:
             return "[未載入]"
-        config = getattr(management_cog, "_config", {})
+        config = management_cog.service.config
         guild_config = config.get(str(guild_id), {})
         welcome = guild_config.get("welcome", {})
         if not welcome:
@@ -446,7 +446,7 @@ class Settings(commands.Cog):
         management_cog = self.bot.get_cog("Management")
         if not management_cog:
             return 0
-        config = getattr(management_cog, "_config", {})
+        config = management_cog.service.config
         guild_config = config.get(str(guild_id), {})
         return len(guild_config.get("tracked_repos", {}))
 

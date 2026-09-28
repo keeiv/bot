@@ -273,6 +273,7 @@ class Giveaway(commands.Cog):
             await interaction.response.send_message("[失敗] 沒有參與者", ephemeral=True)
             return
 
+        await interaction.response.defer(ephemeral=True)
         mentions = ", ".join(f"<@{uid}>" for uid in winner_ids)
         try:
             ch = self.bot.get_channel(ga["channel_id"])
@@ -286,7 +287,7 @@ class Giveaway(commands.Cog):
         except Exception:
             pass
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"[成功] 重新抽取完成！得獎者: {mentions}", ephemeral=True
         )
 

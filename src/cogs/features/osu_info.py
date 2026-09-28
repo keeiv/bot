@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any, Optional
 
 import discord
@@ -28,7 +29,9 @@ class OsuInfo(commands.Cog):
             self.service.ensure_api()
 
             # 抓取玩家資料
-            user = self.service.api.user(username)
+            user = await asyncio.wait_for(
+                asyncio.to_thread(self.service.api.user, username), timeout=10
+            )
 
             # 創建嵌入消息
             embed = discord.Embed(
@@ -109,7 +112,9 @@ class OsuInfo(commands.Cog):
 
             self.service.ensure_api()
 
-            osu_user = self.service.api.user(username)
+            osu_user = await asyncio.wait_for(
+                asyncio.to_thread(self.service.api.user, username), timeout=10
+            )
             self.service.bind(interaction.user.id, osu_user.username)
 
             await interaction.followup.send(
@@ -149,8 +154,15 @@ class OsuInfo(commands.Cog):
             limit = max(1, min(10, limit))
             username = self._resolve_username(interaction.user.id, username)
 
-            osu_user = self.service.api.user(username)
-            scores = self.service.api.user_scores(osu_user.id, type="best", limit=limit)
+            osu_user = await asyncio.wait_for(
+                asyncio.to_thread(self.service.api.user, username), timeout=10
+            )
+            scores = await asyncio.wait_for(
+                asyncio.to_thread(
+                    self.service.api.user_scores, osu_user.id, type="best", limit=limit
+                ),
+                timeout=10,
+            )
 
             embed = discord.Embed(
                 title=f"osu! BP - {osu_user.username}",
@@ -190,9 +202,17 @@ class OsuInfo(commands.Cog):
             limit = max(1, min(10, limit))
             username = self._resolve_username(interaction.user.id, username)
 
-            osu_user = self.service.api.user(username)
-            scores = self.service.api.user_scores(
-                osu_user.id, type="recent", limit=limit
+            osu_user = await asyncio.wait_for(
+                asyncio.to_thread(self.service.api.user, username), timeout=10
+            )
+            scores = await asyncio.wait_for(
+                asyncio.to_thread(
+                    self.service.api.user_scores,
+                    osu_user.id,
+                    type="recent",
+                    limit=limit,
+                ),
+                timeout=10,
             )
 
             embed = discord.Embed(

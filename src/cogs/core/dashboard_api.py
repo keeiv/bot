@@ -72,9 +72,13 @@ class DashboardAPI(commands.Cog):
     def create_app(self, secret: str) -> web.Application:
         @web.middleware
         async def guard(request, handler):
-            if not hmac.compare_digest(
-                request.headers.get("X-Bot-Secret", "").encode(), secret.encode()
-            ):
+            supplied = request.headers.get("X-Bot-Secret", "")
+            if "Authorization" in request.headers:
+                scheme, separator, token = request.headers["Authorization"].partition(
+                    " "
+                )
+                supplied = token if separator and scheme.lower() == "bearer" else ""
+            if not hmac.compare_digest(supplied.encode(), secret.encode()):
                 return web.json_response({"error": "Unauthorized"}, status=401)
             if not self.bot.is_ready() and request.path not in (
                 "/status",

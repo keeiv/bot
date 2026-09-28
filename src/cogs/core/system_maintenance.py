@@ -1,5 +1,6 @@
 import asyncio
 import gc
+import logging
 import time
 
 from discord.ext import commands
@@ -9,6 +10,8 @@ import psutil  # type: ignore[import-untyped]  # upstream package has no typing 
 from src.utils.api_optimizer import get_api_optimizer
 from src.utils.api_optimizer import performance_monitor
 from src.utils.database_manager import get_database_manager
+
+log = logging.getLogger(__name__)
 
 
 class SystemMaintenance(commands.Cog):
@@ -35,8 +38,8 @@ class SystemMaintenance(commands.Cog):
             await self.perform_system_cleanup()
             await self.optimize_caches()
             await self.check_system_health()
-        except Exception as e:
-            print(f"[系統維護] 定期任務錯誤: {e}")
+        except Exception:
+            log.exception("[系統維護] 定期任務錯誤")
 
     @tasks.loop(minutes=5)
     async def _performance_task(self) -> None:
@@ -44,8 +47,8 @@ class SystemMaintenance(commands.Cog):
 
         try:
             await self.collect_performance_metrics()
-        except Exception as e:
-            print(f"[效能監控] 收集指標錯誤: {e}")
+        except Exception:
+            log.exception("[效能監控] 收集指標錯誤")
 
     async def perform_system_cleanup(self) -> None:
         timing_id = performance_monitor.start_timing("system_cleanup")
@@ -88,14 +91,14 @@ class SystemMaintenance(commands.Cog):
             cpu_percent = await asyncio.to_thread(psutil.cpu_percent, 1)
 
             if memory_percent > self.memory_threshold:
-                print(f"[診斷] 記憶體使用率過高: {memory_percent}%")
+                log.warning("[診斷] 記憶體使用率過高: %.1f%%", memory_percent)
                 await self.perform_emergency_cleanup()
 
             if cpu_percent > self.cpu_threshold:
-                print(f"[診斷] CPU 使用率過高: {cpu_percent}%")
+                log.warning("[診斷] CPU 使用率過高: %.1f%%", cpu_percent)
 
-        except Exception as e:
-            print(f"[診斷] 健康檢查錯誤: {e}")
+        except Exception:
+            log.exception("[診斷] 健康檢查錯誤")
 
     async def perform_emergency_cleanup(self) -> None:
         timing_id = performance_monitor.start_timing("emergency_cleanup")
