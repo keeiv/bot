@@ -194,6 +194,7 @@ class TicketOpenView(ui.View):
                 "工單面板必須位於文字頻道。", ephemeral=True
             )
             return
+        await interaction.response.defer(ephemeral=True)
         try:
             thread = await channel.create_thread(
                 name=thread_name,
@@ -201,14 +202,12 @@ class TicketOpenView(ui.View):
                 auto_archive_duration=1440,
             )
         except discord.Forbidden:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "[失敗] 機器人權限不足，無法建立私人討論串", ephemeral=True
             )
             return
         except Exception as e:
-            await interaction.response.send_message(
-                f"[失敗] 建立工單失敗: {e}", ephemeral=True
-            )
+            await interaction.followup.send(f"[失敗] 建立工單失敗: {e}", ephemeral=True)
             return
 
         # 儲存工單資料
@@ -246,7 +245,7 @@ class TicketOpenView(ui.View):
             view=TicketCloseView(),
         )
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"[成功] 已建立工單: {thread.mention}", ephemeral=True
         )
 

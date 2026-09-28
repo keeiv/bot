@@ -179,6 +179,26 @@ async def test_api_disabled_by_default(setup_bot, monkeypatch):
     assert api.runner is None
 
 
+@pytest.mark.parametrize(
+    "headers,expected",
+    [
+        ({"Authorization": f"Bearer {SECRET}"}, 200),
+        ({"Authorization": f"bearer {SECRET}"}, 200),
+        ({"X-Bot-Secret": SECRET}, 200),
+        ({}, 401),
+        ({"Authorization": "Bearer wrong"}, 401),
+        ({"Authorization": f"Basic {SECRET}"}, 401),
+        ({"Authorization": "Bearer"}, 401),
+        ({"Authorization": "Bearer wrong", "X-Bot-Secret": SECRET}, 401),
+    ],
+)
+async def test_api_accepts_bearer_and_legacy_secret(setup_bot, headers, expected):
+    api = DashboardAPI(setup_bot[0])
+    async with TestClient(TestServer(api.create_app(SECRET))) as client:
+        response = await client.get("/guilds", headers=headers)
+        assert response.status == expected
+
+
 async def test_status_reports_safe_runtime_metrics(setup_bot, monkeypatch):
     bot, guild, _ = setup_bot
     bot.latency = 0.042

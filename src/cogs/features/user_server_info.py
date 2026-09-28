@@ -1,7 +1,9 @@
+import asyncio
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
-from typing import Any, cast, Mapping, Optional, Protocol, Sequence, Tuple
+import logging
+from typing import Any, cast, Optional, Protocol, Sequence, Tuple
 
 import discord
 from discord import app_commands
@@ -14,16 +16,17 @@ from discord.ui import Separator
 from discord.ui import TextDisplay
 from discord.ui import Thumbnail
 
+from src.services.achievement_service import AchievementService
+from src.services.osu_service import OsuService
+
+log = logging.getLogger(__name__)
+
 # UTC+8 時區
 TZ_OFFSET = timezone(timedelta(hours=8))
 
 
 class AchievementsCogProtocol(Protocol):
-    def get_progress(
-        self, user_id: int, guild_id: Optional[int]
-    ) -> Mapping[str, Any]: ...
-
-    def get_progress_bar(self, percentage: Any, length: int) -> str: ...
+    service: AchievementService
 
     def unlock_achievement(
         self, user_id: int, guild_id: Optional[int], achievement: str
@@ -31,9 +34,7 @@ class AchievementsCogProtocol(Protocol):
 
 
 class OsuInfoCogProtocol(Protocol):
-    api: Any
-
-    def get_bound_osu_username(self, user_id: int) -> Optional[str]: ...
+    service: OsuService
 
 
 class UserServerInfo(commands.Cog):
@@ -289,6 +290,7 @@ class UserServerInfo(commands.Cog):
     ) -> None:
         """顯示用戶資訊"""
         try:
+            await interaction.response.defer(thinking=True)
             target_user = user or interaction.user
             member = await self.get_member(interaction.guild, target_user.id)
 
@@ -320,10 +322,10 @@ class UserServerInfo(commands.Cog):
                         self.bot.get_cog("Achievements"),
                     )
                     if achievements_cog:
-                        progress = achievements_cog.get_progress(
+                        progress = achievements_cog.service.get_progress(
                             target_user.id, interaction.guild_id
                         )
-                        progress_bar = achievements_cog.get_progress_bar(
+                        progress_bar = achievements_cog.service.get_progress_bar(
                             progress["percentage"], 15
                         )
                         achievement_text = (
@@ -335,7 +337,7 @@ class UserServerInfo(commands.Cog):
                             target_user.id, interaction.guild_id, "info_explorer"
                         )
                 except Exception as e:
-                    print(f"[成就] 顯示進度失敗: {e}")
+                    log.warning("[成就] 顯示進度失敗: %s", type(e).__name__)
 
             osu_text = None
             if not target_user.bot:
@@ -345,12 +347,15 @@ class UserServerInfo(commands.Cog):
                         self.bot.get_cog("OsuInfo"),
                     )
                     if osu_cog:
-                        if getattr(osu_cog, "api", None) is None:
-                            raise RuntimeError("osu 功能尚未啟用")
-
-                        bound_username = osu_cog.get_bound_osu_username(target_user.id)
+                        service = osu_cog.service
+                        bound_username = service.get_bound_username(target_user.id)
                         if bound_username:
-                            osu_user = osu_cog.api.user(bound_username)
+                            osu_text = f"已綁定: {bound_username}\n即時資料暫時無法取得，綁定仍保留。"
+                            service.ensure_api()
+                            osu_user = await asyncio.wait_for(
+                                asyncio.to_thread(service.api.user, bound_username),
+                                timeout=10,
+                            )
                             stats = osu_user.statistics
 
                             global_rank = getattr(stats, "global_rank", None)
@@ -384,7 +389,7 @@ class UserServerInfo(commands.Cog):
                             ]
                             osu_text = self.truncate_text("\n".join(osu_lines), 3500)
                 except Exception as e:
-                    print(f"[osu] 顯示綁定資訊失敗: {e}")
+                    log.warning("[osu] 即時資料取得失敗: %s", type(e).__name__)
 
             view = self.build_user_info_view(
                 target_user,
@@ -397,16 +402,28 @@ class UserServerInfo(commands.Cog):
                 osu_text,
                 queried_at,
             )
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 view=view,
                 allowed_mentions=discord.AllowedMentions.none(),
             )
 
-        except Exception as e:
-            print(f"[user_info] 錯誤: {e}")
-            await interaction.response.send_message(
-                f"[錯誤] 無法獲取用戶資訊: {str(e)}", ephemeral=True
-            )
+        except discord.NotFound as exc:
+            if exc.code != 10062:
+                raise
+            log.warning("[user_info] 互動已過期，無法回覆；請重新執行指令")
+        except Exception:
+            log.exception("[user_info] 查詢失敗")
+            try:
+                if interaction.response.is_done():
+                    await interaction.followup.send(
+                        "[錯誤] 無法獲取用戶資訊，請稍後重試。", ephemeral=True
+                    )
+                else:
+                    await interaction.response.send_message(
+                        "[錯誤] 無法獲取用戶資訊，請稍後重試。", ephemeral=True
+                    )
+            except discord.HTTPException:
+                log.warning("[user_info] 無法傳送錯誤回覆")
 
     @app_commands.command(name="server_info", description="顯示伺服器資訊")
     async def server_info(self, interaction: discord.Interaction) -> None:

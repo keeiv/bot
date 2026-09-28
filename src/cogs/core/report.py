@@ -69,17 +69,18 @@ class MuteModal(ui.Modal, title="禁言處理"):
             )
             return
 
+        await interaction.response.defer(thinking=True)
         success, error_msg = await _service.execute_mute(
             self.target, interaction.user, d, h, m, self.reason.value
         )
         if not success:
-            await interaction.response.send_message(error_msg, ephemeral=True)
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
 
         embed = _service.build_mute_embed(
             self.target, interaction.user, d, h, m, self.reason.value
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
 
 # ========== Ban 表單 ==========
@@ -134,11 +135,12 @@ class BanModal(ui.Modal, title="封禁處理"):
         except ValueError:
             del_days = 0
 
+        await interaction.response.defer(thinking=True)
         success, error_msg = await _service.execute_ban(
             self.target, interaction.user, reason_text, del_days
         )
         if not success:
-            await interaction.response.send_message(error_msg, ephemeral=True)
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
 
         try:
@@ -149,7 +151,7 @@ class BanModal(ui.Modal, title="封禁處理"):
         embed = _service.build_ban_embed(
             self.target, interaction.user, reason_text, is_temp, del_days, temp_seconds
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
 
 # ========== 警告表單 ==========
@@ -196,13 +198,14 @@ class WarnModal(ui.Modal, title="警告處理"):
             count = 1
 
         reason_text = self.reason.value
+        await interaction.response.defer(thinking=True)
         dm_sent = await _service.execute_warn(
             self.target, interaction.guild.name, count, reason_text
         )
         embed = _service.build_warn_result_embed(
             self.target, interaction.user, count, reason_text, dm_sent
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
 
 # ========== 舉報處理面板 (按鈕) ==========
@@ -394,6 +397,7 @@ class Report(commands.Cog):
             text=f"訊息 ID: {message.id} | 伺服器: {interaction.guild.name}"
         )
 
+        await interaction.response.defer(ephemeral=True)
         # 取得被舉報者的 Member 物件
         target_member = interaction.guild.get_member(message.author.id)
         if not target_member:
@@ -414,7 +418,7 @@ class Report(commands.Cog):
             await report_channel.send(embed=embed)
 
         # 回覆舉報者
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "[成功] 你的舉報已送出，管理員將會進行審查", ephemeral=True
         )
 

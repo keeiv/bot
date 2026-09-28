@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Any
 
@@ -54,7 +55,9 @@ class LanguageSelect(discord.ui.Select[Any]):
 
         try:
             translator = GoogleTranslator(source="auto", target=target_lang)
-            translated = translator.translate(self.original_text)
+            translated = await asyncio.wait_for(
+                asyncio.to_thread(translator.translate, self.original_text), timeout=15
+            )
         except Exception as e:
             logger.error(f"翻譯失敗: {e}")
             await interaction.followup.send(

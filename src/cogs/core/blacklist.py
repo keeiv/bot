@@ -386,6 +386,7 @@ class Blacklist(commands.Cog):
             )
             return
 
+        await interaction.response.defer(ephemeral=True)
         manager = self.bot.blacklist_manager
         local_entry = manager.local_check(user.id)
         try:
@@ -426,7 +427,7 @@ class Blacklist(commands.Cog):
                 inline=False,
             )
 
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 async def setup(bot: "Bot") -> None:

@@ -151,6 +151,7 @@ class BotAppearance(commands.Cog):
                 )
                 return
 
+            await interaction.response.defer()
             try:
                 b64 = base64.b64encode(request["image_bytes"]).decode("ascii")
                 data_uri = f"data:{request['content_type']};base64,{b64}"
@@ -168,7 +169,7 @@ class BotAppearance(commands.Cog):
                     description=f"已套用至 {request['guild_name']}",
                     color=discord.Color.from_rgb(46, 204, 113),
                 )
-                await interaction.response.edit_message(embed=embed, view=None)
+                await interaction.edit_original_response(embed=embed, view=None)
 
                 # 通知申請者
                 try:
@@ -195,9 +196,7 @@ class BotAppearance(commands.Cog):
                     pass
 
             except Exception as e:
-                await interaction.response.send_message(
-                    f"[失敗] 套用失敗: {e}", ephemeral=True
-                )
+                await interaction.followup.send(f"[失敗] 套用失敗: {e}", ephemeral=True)
         else:
             # 拒絕
             embed = discord.Embed(
@@ -252,6 +251,7 @@ class BotAppearance(commands.Cog):
             )
             return
 
+        await interaction.response.defer(thinking=True)
         try:
             bot_member = interaction.guild.me
             await bot_member.edit(nick=name)
@@ -268,16 +268,14 @@ class BotAppearance(commands.Cog):
                     description="機器人名稱已還原為預設",
                     color=discord.Color.from_rgb(46, 204, 113),
                 )
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except discord.Forbidden:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "[失敗] 機器人缺少更改暱稱的權限", ephemeral=True
             )
         except Exception as e:
-            await interaction.response.send_message(
-                f"[失敗] 無法更改名稱: {e}", ephemeral=True
-            )
+            await interaction.followup.send(f"[失敗] 無法更改名稱: {e}", ephemeral=True)
 
     @appearance_group.command(
         name="avatar", description="更改機器人在此伺服器的頭像 (需審核)"
