@@ -7,6 +7,7 @@ import socket
 import pytest
 
 os.environ["PYTHON_DOTENV_DISABLED"] = "1"
+os.environ["STORAGE_BACKEND"] = "json"
 os.environ["GENSHIN_ENCRYPTION_KEY"] = base64.urlsafe_b64encode(b"0" * 32).decode()
 for credential in (
     "DISCORD_TOKEN",

@@ -9,6 +9,8 @@ from typing import Any, Optional
 
 import discord
 
+from src.utils.document_store import document_exists
+from src.utils.document_store import open_document
 from src.utils.message_cache import get_message_cache
 from src.utils.time_utils import get_current_time_str
 from src.utils.time_utils import TZ_OFFSET
@@ -37,12 +39,12 @@ class MessageLogService:
         now = time.monotonic()
         if self._ch_cache and (now - self._ch_cache_time) < _CHANNELS_TTL:
             return self._ch_cache
-        if not os.path.exists(_CHANNELS_FILE):
+        if not document_exists(_CHANNELS_FILE):
             self._ch_cache = {}
             self._ch_cache_time = now
             return self._ch_cache
         try:
-            with open(_CHANNELS_FILE, "r", encoding="utf-8") as f:
+            with open_document(_CHANNELS_FILE, "r", encoding="utf-8") as f:
                 self._ch_cache = json.load(f)
         except (json.JSONDecodeError, OSError):
             self._ch_cache = {}
@@ -52,7 +54,7 @@ class MessageLogService:
     def save_log_channels(self, data: dict[Any, Any]) -> None:
         """儲存日誌頻道設定"""
         try:
-            with open(_CHANNELS_FILE, "w", encoding="utf-8") as f:
+            with open_document(_CHANNELS_FILE, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             self._ch_cache = data
             self._ch_cache_time = time.monotonic()
@@ -76,12 +78,12 @@ class MessageLogService:
         now = time.monotonic()
         if self._msg_cache is not None and (now - self._msg_cache_time) < _CACHE_TTL:
             return self._msg_cache
-        if not os.path.exists(_LOG_FILE):
+        if not document_exists(_LOG_FILE):
             self._msg_cache = {}
             self._msg_cache_time = now
             return self._msg_cache
         try:
-            with open(_LOG_FILE, "r", encoding="utf-8") as f:
+            with open_document(_LOG_FILE, "r", encoding="utf-8") as f:
                 self._msg_cache = json.load(f)
         except (json.JSONDecodeError, OSError):
             self._msg_cache = {}
@@ -92,7 +94,7 @@ class MessageLogService:
         """儲存訊息日誌"""
         os.makedirs(os.path.dirname(_LOG_FILE), exist_ok=True)
         try:
-            with open(_LOG_FILE, "w", encoding="utf-8") as f:
+            with open_document(_LOG_FILE, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             self._msg_cache = data
             self._msg_cache_time = time.monotonic()

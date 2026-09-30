@@ -6,8 +6,12 @@ import os
 from typing import Any, Optional
 
 from cryptography.fernet import Fernet
+from dotenv import dotenv_values
+from dotenv import set_key
 import genshin
 
+from src.utils.document_store import document_exists
+from src.utils.document_store import open_document
 from src.utils.text_converter import to_traditional_chinese
 
 _DATA_FILE = "data/storage/genshin_accounts.json"
@@ -22,48 +26,69 @@ class GenshinService:
         self._accounts: dict[Any, Any] = self._load_accounts()
 
     def _get_encryption_key(self) -> bytes:
-        """獲取或生成加密密鑰，並安全地寫入 .env 檔案中"""
+        """優先沿用既有金鑰；新金鑰必須成功保存才能啟用。"""
         env_path = os.path.abspath(
             os.path.join(os.path.dirname(__file__), "..", "..", ".env")
         )
         key_str = os.getenv("GENSHIN_ENCRYPTION_KEY")
-        if not key_str:
-            key_bytes = Fernet.generate_key()
-            key_str = key_bytes.decode()
-            self._write_key_to_env(env_path, key_str)
-            os.environ["GENSHIN_ENCRYPTION_KEY"] = key_str
+        if key_str:
             return key_str.encode()
+
+        # 不依賴呼叫端是否先執行 load_dotenv，也不展開其他環境變數。
+        try:
+            with open(env_path, encoding="utf-8") as stream:
+                key_str = dotenv_values(stream=stream, interpolate=False).get(
+                    "GENSHIN_ENCRYPTION_KEY"
+                )
+        except FileNotFoundError:
+            key_str = None
+
+        if key_str:
+            # 驗證後才發布到程序環境，無效設定不能觸發自動換鑰。
+            Fernet(key_str.encode())
+        else:
+            # 既有密文不能用新金鑰復原；讀不到資料也不能假定沒有帳號。
+            try:
+                with open_document(_DATA_FILE, encoding="utf-8") as stream:
+                    accounts = json.load(stream)
+            except FileNotFoundError:
+                accounts = {}
+            except (OSError, ValueError) as exc:
+                raise RuntimeError(
+                    "無法確認既有帳號資料；缺少 GENSHIN_ENCRYPTION_KEY，"
+                    "帳號服務初始化已中止。"
+                ) from exc
+            if accounts != {}:
+                raise RuntimeError(
+                    "已有帳號資料但缺少 GENSHIN_ENCRYPTION_KEY，"
+                    "帳號服務初始化已中止，需恢復原加密金鑰。"
+                )
+            key_str = Fernet.generate_key().decode()
+            self._write_key_to_env(env_path, key_str)
+
+        os.environ["GENSHIN_ENCRYPTION_KEY"] = key_str
         return key_str.encode()
 
     def _write_key_to_env(self, env_path: str, key_str: str) -> None:
-        """將加密密鑰寫入 .env 檔案"""
-        if not os.path.exists(env_path):
-            return
+        """以暫存檔原子替換 .env；保存失敗時中止服務初始化。"""
         try:
-            with open(env_path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-            key_exists = False
-            for i, line in enumerate(lines):
-                if line.startswith("GENSHIN_ENCRYPTION_KEY="):
-                    lines[i] = f"GENSHIN_ENCRYPTION_KEY={key_str}\n"
-                    key_exists = True
-                    break
-            if not key_exists:
-                if lines and not lines[-1].endswith("\n"):
-                    lines.append("\n")
-                lines.append(f"GENSHIN_ENCRYPTION_KEY={key_str}\n")
-            with open(env_path, "w", encoding="utf-8") as f:
-                f.writelines(lines)
-        except Exception as e:
-            print(f"[警告] 無法將加密密鑰寫入 .env: {e}")
+            saved, _, _ = set_key(
+                env_path, "GENSHIN_ENCRYPTION_KEY", key_str, encoding="utf-8"
+            )
+            if saved is not True:
+                raise OSError("Key persistence was not confirmed")
+        except OSError as exc:
+            raise RuntimeError(
+                "無法保存 GENSHIN_ENCRYPTION_KEY；帳號服務初始化已中止。"
+            ) from exc
 
     def _load_accounts(self) -> dict[Any, Any]:
         """載入本地帳號檔案"""
         os.makedirs(os.path.dirname(_DATA_FILE), exist_ok=True)
-        if not os.path.exists(_DATA_FILE):
+        if not document_exists(_DATA_FILE):
             return {}
         try:
-            with open(_DATA_FILE, "r", encoding="utf-8") as f:
+            with open_document(_DATA_FILE, "r", encoding="utf-8") as f:
                 result_value = json.load(f)
                 if not isinstance(result_value, dict):
                     raise TypeError("Unexpected stored or API value: expected dict")
@@ -75,7 +100,7 @@ class GenshinService:
         """儲存本地帳號檔案"""
         os.makedirs(os.path.dirname(_DATA_FILE), exist_ok=True)
         try:
-            with open(_DATA_FILE, "w", encoding="utf-8") as f:
+            with open_document(_DATA_FILE, "w", encoding="utf-8") as f:
                 json.dump(self._accounts, f, ensure_ascii=False, indent=2)
         except OSError as e:
             print(f"[錯誤] 無法儲存米游社帳號檔案: {e}")

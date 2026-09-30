@@ -10,6 +10,9 @@ import random
 import re
 from typing import Any, Optional
 
+from src.utils.document_store import document_exists
+from src.utils.document_store import open_document
+
 TZ_OFFSET = timezone(timedelta(hours=8))
 _DATA_FILE = "data/storage/giveaways.json"
 
@@ -26,9 +29,9 @@ class GiveawayService:
     def _load(self) -> dict[Any, Any]:
         if self._cache is not None:
             return self._cache
-        if os.path.exists(_DATA_FILE):
+        if document_exists(_DATA_FILE):
             try:
-                with open(_DATA_FILE, "r", encoding="utf-8") as f:
+                with open_document(_DATA_FILE, "r", encoding="utf-8") as f:
                     self._cache = json.load(f)
                     return self._cache
             except (json.JSONDecodeError, OSError):
@@ -38,7 +41,7 @@ class GiveawayService:
 
     def _save(self, data: dict[Any, Any]) -> None:
         os.makedirs(os.path.dirname(_DATA_FILE), exist_ok=True)
-        with open(_DATA_FILE, "w", encoding="utf-8") as f:
+        with open_document(_DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         self._cache = data
 

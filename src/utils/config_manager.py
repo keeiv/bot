@@ -7,6 +7,10 @@ import os
 import time
 from typing import Any, Optional
 
+from src.utils.document_store import document_exists
+from src.utils.document_store import open_document
+from src.utils.document_store import write_document
+
 CONFIG_FILE = "data/config/bot.json"
 MESSAGES_LOG_FILE = "data/logs/messages/訊息.json"
 DATA_DIR = "data"
@@ -42,10 +46,10 @@ def load_config() -> Any:
     if _config_cache is not None and (now - _config_cache_time) < _CONFIG_CACHE_TTL:
         return _config_cache
 
-    if not os.path.exists(CONFIG_FILE):
+    if not document_exists(CONFIG_FILE):
         save_config({"guilds": {}})
 
-    with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+    with open_document(CONFIG_FILE, "r", encoding="utf-8") as f:
         _config_cache = json.load(f)
     _config_cache_time = now
     return _config_cache
@@ -54,10 +58,7 @@ def load_config() -> Any:
 def save_config(config: Any) -> None:
     """儲存配置檔案並更新快取 (原子寫入)"""
     global _config_cache, _config_cache_time
-    _temp = CONFIG_FILE + ".tmp"
-    with open(_temp, "w", encoding="utf-8") as f:
-        json.dump(config, f, ensure_ascii=False, indent=2)
-    os.replace(_temp, CONFIG_FILE)
+    write_document(CONFIG_FILE, config)
     _config_cache = config
     _config_cache_time = time.monotonic()
 
@@ -133,13 +134,13 @@ def load_messages_log() -> dict[Any, Any]:
     ):
         return _messages_cache
 
-    if not os.path.exists(MESSAGES_LOG_FILE):
+    if not document_exists(MESSAGES_LOG_FILE):
         _messages_cache = {}
         _messages_cache_time = now
         return _messages_cache
 
     try:
-        with open(MESSAGES_LOG_FILE, "r", encoding="utf-8") as f:
+        with open_document(MESSAGES_LOG_FILE, "r", encoding="utf-8") as f:
             _messages_cache = json.load(f)
     except (json.JSONDecodeError, OSError):
         _messages_cache = {}
@@ -151,7 +152,7 @@ def save_messages_log(data: dict[Any, Any]) -> None:
     """儲存統一的訊息紀錄日誌並更新快取"""
     global _messages_cache, _messages_cache_time
     try:
-        with open(MESSAGES_LOG_FILE, "w", encoding="utf-8") as f:
+        with open_document(MESSAGES_LOG_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     except OSError as e:
         print(f"[錯誤] 無法保存訊息日誌: {e}")

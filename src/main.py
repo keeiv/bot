@@ -9,6 +9,7 @@ import psutil  # type: ignore[import-untyped]  # upstream package has no typing 
 from .bot import Bot
 from .utils.api_optimizer import init_api_optimizer
 from .utils.config_manager import ensure_data_dir
+from .utils.mysql_runtime import prepare_storage
 from .utils.runtime_logging import runtime_logging
 
 # Load environment variables
@@ -43,7 +44,7 @@ def main() -> None:
             # 檢查進程是否仍在運行
             try:
                 if psutil.pid_exists(int(old_pid)):
-                    print("[錯誤] 機器人已在運行，請先停止舊實例")
+                    print("[錯誤] 已有機器人實例運行，取消啟動")
                     sys.exit(1)
             except OSError:
                 print("[資訊] 舊實例已停止，繼續啟動")
@@ -54,16 +55,12 @@ def main() -> None:
     with open(lock_file, "w", encoding="utf-8") as f:
         f.write(str(os.getpid()))
 
-    # 初始化數據目錄
-    ensure_data_dir()
-
-    # 建立並運行機器人
-    bot = Bot()
-
-    # 初始化 API 優化器
-    init_api_optimizer(bot)
-
     try:
+        # Include all initialization in cleanup, even when MySQL is unavailable.
+        ensure_data_dir()
+        prepare_storage()
+        bot = Bot()
+        init_api_optimizer(bot)
         print("[資訊] 啟動機器人")
         with runtime_logging():
             bot.run(TOKEN, log_handler=None)

@@ -3,15 +3,14 @@
 import copy
 import hashlib
 import json
-import os
-from pathlib import Path
 import re
 from string import Formatter
-import tempfile
 import time
 from typing import Any
 
 import discord
+
+from src.utils.document_store import write_document
 
 MAPPINGS = {
     "welcome": (
@@ -90,20 +89,7 @@ ID_FIELDS = {
 
 
 def atomic_json(path: str, data: dict) -> None:
-    target = Path(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary = tempfile.mkstemp(
-        dir=target.parent, prefix=target.name, suffix=".tmp"
-    )
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as stream:
-            json.dump(data, stream, ensure_ascii=False, indent=2)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, target)
-    finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
+    write_document(path, data)
 
 
 def revision(settings: dict) -> str:

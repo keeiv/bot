@@ -4,6 +4,9 @@ import json
 import os
 from typing import Any, Optional
 
+from src.utils.document_store import document_exists
+from src.utils.document_store import open_document
+
 _DATA_FILE = "data/storage/osu_links.json"
 
 
@@ -37,10 +40,10 @@ class OsuService:
 
     def _load_links(self) -> dict[Any, Any]:
         os.makedirs(os.path.dirname(_DATA_FILE), exist_ok=True)
-        if not os.path.exists(_DATA_FILE):
+        if not document_exists(_DATA_FILE):
             return {}
         try:
-            with open(_DATA_FILE, "r", encoding="utf-8") as f:
+            with open_document(_DATA_FILE, "r", encoding="utf-8") as f:
                 result_value = json.load(f)
                 if not isinstance(result_value, dict):
                     raise TypeError("Unexpected stored or API value: expected dict")
@@ -49,7 +52,7 @@ class OsuService:
             return {}
 
     def _save_links(self) -> None:
-        with open(_DATA_FILE, "w", encoding="utf-8") as f:
+        with open_document(_DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(self._links, f, ensure_ascii=False, indent=2)
 
     # ─────────────── 綁定 ───────────────

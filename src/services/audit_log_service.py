@@ -1,9 +1,11 @@
 """審計日誌業務邏輯服務"""
 
 import json
-import os
 import time
 from typing import Any, Optional
+
+from src.utils.document_store import document_exists
+from src.utils.document_store import open_document
 
 TZ_OFFSET_HOURS = 8
 _CHANNELS_FILE = "data/storage/log_channels.json"
@@ -22,12 +24,12 @@ class AuditLogService:
         now = time.monotonic()
         if self._cache and (now - self._cache_time) < _CACHE_TTL:
             return self._cache
-        if not os.path.exists(_CHANNELS_FILE):
+        if not document_exists(_CHANNELS_FILE):
             self._cache = {}
             self._cache_time = now
             return self._cache
         try:
-            with open(_CHANNELS_FILE, "r", encoding="utf-8") as f:
+            with open_document(_CHANNELS_FILE, "r", encoding="utf-8") as f:
                 self._cache = json.load(f)
         except (json.JSONDecodeError, OSError):
             self._cache = {}
