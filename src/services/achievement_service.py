@@ -8,6 +8,9 @@ import os
 import time
 from typing import Any, Optional
 
+from src.utils.document_store import document_exists
+from src.utils.document_store import open_document
+
 TZ_OFFSET = timezone(timedelta(hours=8))
 _DATA_FILE = "data/storage/achievements.json"
 
@@ -134,12 +137,12 @@ class AchievementService:
         now = time.monotonic()
         if self._cache is not None and (now - self._cache_time) < self._CACHE_TTL:
             return self._cache
-        if not os.path.exists(_DATA_FILE):
+        if not document_exists(_DATA_FILE):
             self._cache = {}
             self._cache_time = now
             return self._cache
         try:
-            with open(_DATA_FILE, "r", encoding="utf-8") as f:
+            with open_document(_DATA_FILE, "r", encoding="utf-8") as f:
                 self._cache = json.load(f)
         except (json.JSONDecodeError, OSError):
             self._cache = {}
@@ -149,7 +152,7 @@ class AchievementService:
     def _save(self, data: dict[Any, Any]) -> None:
         os.makedirs(os.path.dirname(_DATA_FILE), exist_ok=True)
         try:
-            with open(_DATA_FILE, "w", encoding="utf-8") as f:
+            with open_document(_DATA_FILE, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             self._cache = data
             self._cache_time = time.monotonic()

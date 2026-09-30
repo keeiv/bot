@@ -7,6 +7,8 @@ from typing import Any, Dict, Optional
 
 import aiohttp
 
+from src.utils.document_store import document_exists
+from src.utils.document_store import open_document
 from src.utils.time_utils import TZ_OFFSET
 
 DATA_DIR = os.path.join(
@@ -20,9 +22,9 @@ APPEALS_FILE = os.path.join(DATA_DIR, "appeals.json")
 
 def _load_json(path: str) -> Dict[Any, Any]:
     """讀取 JSON 檔案"""
-    if os.path.exists(path):
+    if document_exists(path):
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open_document(path, "r", encoding="utf-8") as f:
                 result_value = json.load(f)
                 if not isinstance(result_value, dict):
                     raise TypeError("Unexpected stored or API value: expected dict")
@@ -35,7 +37,7 @@ def _load_json(path: str) -> Dict[Any, Any]:
 def _save_json(path: str, data: Dict[Any, Any]) -> None:
     """寫入 JSON 檔案"""
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
+    with open_document(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 

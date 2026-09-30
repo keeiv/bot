@@ -13,6 +13,8 @@ from discord.ext import tasks
 import genshin
 
 from src.services.genshin_service import GenshinService
+from src.utils.document_store import document_exists
+from src.utils.document_store import open_document
 
 TZ_OFFSET = timezone(timedelta(hours=8))
 
@@ -270,10 +272,10 @@ class GenshinCog(commands.Cog):
 
     def _load_last_run_date(self) -> str:
         """載入上次執行簽到的日期"""
-        if not os.path.exists(self.log_file):
+        if not document_exists(self.log_file):
             return ""
         try:
-            with open(self.log_file, "r", encoding="utf-8") as f:
+            with open_document(self.log_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 result_value = data.get("last_run_date", "")
                 if not isinstance(result_value, str):
@@ -286,7 +288,7 @@ class GenshinCog(commands.Cog):
         """儲存上次執行簽到的日期"""
         os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
         try:
-            with open(self.log_file, "w", encoding="utf-8") as f:
+            with open_document(self.log_file, "w", encoding="utf-8") as f:
                 json.dump({"last_run_date": date_str}, f)
         except Exception as e:
             print(f"[Genshin Cog] Failed to save signin log: {e}")

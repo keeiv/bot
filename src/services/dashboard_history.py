@@ -1,3 +1,6 @@
+from src.utils.document_store import using_mysql
+from src.utils.mysql_compat import MySQLConnection
+
 """Bounded, persistent observations; missing samples are never counted as uptime."""
 
 from pathlib import Path
@@ -9,6 +12,8 @@ class StatusHistory:
     def __init__(self, path="data/storage/dashboard_history.sqlite3"):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        if using_mysql():
+            return
         with self.connect() as connection:
             connection.execute(
                 "CREATE TABLE IF NOT EXISTS samples "
@@ -16,6 +21,8 @@ class StatusHistory:
             )
 
     def connect(self):
+        if using_mysql():
+            return MySQLConnection()
         return sqlite3.connect(self.path, timeout=5)
 
     def record(self, online, latency, now=None):

@@ -7,6 +7,11 @@ import threading
 import time
 from typing import Any, Callable, Dict, Optional
 
+from src.utils.document_store import document_exists
+from src.utils.document_store import read_document
+from src.utils.document_store import using_mysql
+from src.utils.document_store import write_document
+
 
 class ConfigFileWatcher:
     def __init__(self, file_path: str, callback: Callable[..., Any]) -> None:
@@ -116,6 +121,10 @@ class OptimizedConfigManager:
         self, file_name: str, default: Dict[Any, Any] | None = None
     ) -> Dict[str, Any]:
         file_path = self.base_path / file_name
+        if using_mysql():
+            if await asyncio.to_thread(document_exists, file_path):
+                return await asyncio.to_thread(read_document, file_path)
+            return default or {}
         cache_key = self._get_cache_key(str(file_path))
 
         cached_data = self._cache.get(cache_key)
@@ -155,6 +164,12 @@ class OptimizedConfigManager:
     async def save_config(self, file_name: str, data: Dict[str, Any]) -> bool:
         if self._closed:
             raise RuntimeError("Config manager is closed")
+        if using_mysql():
+            await asyncio.to_thread(write_document, self.base_path / file_name, data)
+            self._cache.set(
+                self._get_cache_key(str(self.base_path / file_name)), deepcopy(data)
+            )
+            return True
         try:
             snapshot = deepcopy(data)
             await self._write_queue.put(
@@ -171,6 +186,9 @@ class OptimizedConfigManager:
     async def _write_config_immediate(
         self, file_name: str, data: Dict[str, Any]
     ) -> bool:
+        if using_mysql():
+            await asyncio.to_thread(write_document, self.base_path / file_name, data)
+            return True
         file_path = self.base_path / file_name
         lock = self._get_file_lock(str(file_path))
 
@@ -306,6 +324,12 @@ class OptimizedConfigManager:
         self, file_name: str, backup_suffix: str | None = None
     ) -> str:
         file_path = self.base_path / file_name
+        if using_mysql():
+            suffix = backup_suffix or str(int(time.time()))
+            backup_path = file_path.with_name(f"{file_path.name}.{suffix}.backup")
+            data = await asyncio.to_thread(read_document, file_path)
+            await asyncio.to_thread(write_document, backup_path, data)
+            return str(backup_path)
         if not file_path.exists():
             raise FileNotFoundError(f"Config file {file_name} not found")
 
@@ -324,6 +348,11 @@ class OptimizedConfigManager:
 
     async def restore_config(self, file_name: str, backup_suffix: str) -> bool:
         backup_path = self.base_path / f"{file_name}.{backup_suffix}.backup"
+        if using_mysql():
+            data = await asyncio.to_thread(read_document, backup_path)
+            await asyncio.to_thread(write_document, self.base_path / file_name, data)
+            self._cache.clear(self._get_cache_key(str(self.base_path / file_name)))
+            return True
         if not backup_path.exists():
             raise FileNotFoundError(f"Backup file {backup_path} not found")
 

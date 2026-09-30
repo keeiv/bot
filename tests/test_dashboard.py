@@ -135,7 +135,7 @@ def test_failed_disk_commit_does_not_change_live_state(setup_bot, monkeypatch):
     values = copy.deepcopy(before["antispam"])
     values["enabled"] = False
     monkeypatch.setattr(
-        "src.services.dashboard_service.os.replace",
+        "src.utils.document_store.os.replace",
         MagicMock(side_effect=OSError("disk full")),
     )
     with pytest.raises(OSError):

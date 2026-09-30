@@ -12,6 +12,8 @@ from discord import app_commands
 from discord.ext import commands
 from discord.ext import tasks
 
+from src.utils.document_store import document_exists
+from src.utils.document_store import open_document
 from src.utils.github_manager import get_github_manager
 from src.utils.github_manager import GitHubAPIManager
 from src.utils.github_manager import init_github_manager
@@ -48,10 +50,10 @@ class GithubWatch(commands.Cog):
         self._poll_task.cancel()
 
     def _load_config(self) -> dict[Any, Any]:
-        if not os.path.exists(self.data_file):
+        if not document_exists(self.data_file):
             return {}
         try:
-            with open(self.data_file, "r", encoding="utf-8") as f:
+            with open_document(self.data_file, "r", encoding="utf-8") as f:
                 result_value = json.load(f)
                 if not isinstance(result_value, dict):
                     raise TypeError("Unexpected stored or API value: expected dict")
@@ -60,7 +62,7 @@ class GithubWatch(commands.Cog):
             return {}
 
     def _save_config(self) -> None:
-        with open(self.data_file, "w", encoding="utf-8") as f:
+        with open_document(self.data_file, "w", encoding="utf-8") as f:
             json.dump(self._config, f, ensure_ascii=False, indent=2)
 
     def _get_guild_cfg(self, guild_id: int) -> Optional[dict[Any, Any]]:

@@ -10,6 +10,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import discord
 
+from src.utils.document_store import document_exists
+from src.utils.document_store import open_document
+
 # UTC+8 時區
 TZ_OFFSET = timezone(timedelta(hours=8))
 
@@ -140,10 +143,10 @@ class AntiSpamManager:
 
     def _load_all_settings(self) -> Dict[int, dict[Any, Any]]:
         """從檔案載入所有伺服器設定"""
-        if not os.path.exists(self.SETTINGS_FILE):
+        if not document_exists(self.SETTINGS_FILE):
             return {}
         try:
-            with open(self.SETTINGS_FILE, "r", encoding="utf-8") as f:
+            with open_document(self.SETTINGS_FILE, "r", encoding="utf-8") as f:
                 raw = json.load(f)
             return {int(k): v for k, v in raw.items()}
         except (json.JSONDecodeError, OSError) as e:
@@ -154,7 +157,7 @@ class AntiSpamManager:
         """儲存所有伺服器設定到檔案"""
         os.makedirs(os.path.dirname(self.SETTINGS_FILE), exist_ok=True)
         try:
-            with open(self.SETTINGS_FILE, "w", encoding="utf-8") as f:
+            with open_document(self.SETTINGS_FILE, "w", encoding="utf-8") as f:
                 json.dump(
                     {str(k): v for k, v in self.settings.items()},
                     f,

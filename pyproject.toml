@@ -22,6 +22,7 @@ classifiers = [
 ]
 
 dependencies = [
+    "PyMySQL[rsa]>=1.1.1,<2",
     "aiohttp>=3.14.3,<4",
     "cryptography>=50.0.1,<51",
     "deep-translator>=1.11.4,<2",

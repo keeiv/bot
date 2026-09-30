@@ -6,6 +6,9 @@ import re
 import time
 from typing import Any, Optional
 
+from src.utils.document_store import document_exists
+from src.utils.document_store import open_document
+
 _DATA_FILE = "data/storage/age_guard.json"
 _CACHE_TTL = 60.0
 
@@ -27,12 +30,12 @@ class AgeGuardService:
         now = time.monotonic()
         if self._cache and (now - self._cache_time) < _CACHE_TTL:
             return self._cache
-        if not os.path.exists(_DATA_FILE):
+        if not document_exists(_DATA_FILE):
             self._cache = {}
             self._cache_time = now
             return self._cache
         try:
-            with open(_DATA_FILE, "r", encoding="utf-8") as f:
+            with open_document(_DATA_FILE, "r", encoding="utf-8") as f:
                 self._cache = json.load(f)
         except (json.JSONDecodeError, OSError):
             self._cache = {}
@@ -41,7 +44,7 @@ class AgeGuardService:
 
     def _save(self, data: dict[Any, Any]) -> None:
         os.makedirs(os.path.dirname(_DATA_FILE), exist_ok=True)
-        with open(_DATA_FILE, "w", encoding="utf-8") as f:
+        with open_document(_DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         self._cache = data
         self._cache_time = time.monotonic()

@@ -3,9 +3,11 @@ import contextlib
 import json
 from pathlib import Path
 import sqlite3
-import threading
 import time
 from typing import Any, Dict, List, Optional
+
+from src.utils.document_store import using_mysql
+from src.utils.mysql_compat import MySQLConnection
 
 
 class DatabaseConnectionPool:
@@ -15,12 +17,13 @@ class DatabaseConnectionPool:
         self._pool: asyncio.Queue[sqlite3.Connection] = asyncio.Queue(
             maxsize=max_connections
         )
-        self._lock = threading.Lock()
+        self._lock = asyncio.Lock()
         self._created_connections = 0
         self._closed = False
 
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-        self._initialize_database()
+        if not using_mysql():
+            self._initialize_database()
 
     def _initialize_database(self) -> None:
         with sqlite3.connect(self.db_path) as conn:
@@ -75,11 +78,14 @@ class DatabaseConnectionPool:
             conn = self._pool.get_nowait()
             return conn
         except asyncio.QueueEmpty:
-            with self._lock:
+            async with self._lock:
                 if self._created_connections < self.max_connections:
                     self._created_connections += 1
-                    conn = sqlite3.connect(self.db_path, check_same_thread=False)
-                    conn.row_factory = sqlite3.Row
+                    if using_mysql():
+                        conn = await asyncio.to_thread(MySQLConnection, dict_rows=True)
+                    else:
+                        conn = sqlite3.connect(self.db_path, check_same_thread=False)
+                        conn.row_factory = sqlite3.Row
                     return conn
             return await self._pool.get()
 
@@ -91,7 +97,7 @@ class DatabaseConnectionPool:
             self._pool.put_nowait(conn)
         except asyncio.QueueFull:
             conn.close()
-            with self._lock:
+            async with self._lock:
                 self._created_connections -= 1
 
     def close(self) -> None:
@@ -123,6 +129,10 @@ class DatabaseManager:
         conn = await self.pool.get_connection()
         try:
             yield conn
+            await asyncio.to_thread(conn.commit)
+        except Exception:
+            await asyncio.to_thread(conn.rollback)
+            raise
         finally:
             await self.pool.return_connection(conn)
 
@@ -132,7 +142,8 @@ class DatabaseManager:
                 timestamp = time.time()
                 value_json = json.dumps(value, default=str)
 
-                conn.execute(
+                await asyncio.to_thread(
+                    conn.execute,
                     """
                     INSERT OR REPLACE INTO cache_entries (key, value, timestamp, ttl)
                     VALUES (?, ?, ?, ?)
@@ -140,7 +151,7 @@ class DatabaseManager:
                     (key, value_json, timestamp, ttl),
                 )
 
-                conn.commit()
+                await asyncio.to_thread(conn.commit)
                 return True
         except Exception as e:
             print(f"[Database] Cache set error: {e}")
@@ -149,7 +160,8 @@ class DatabaseManager:
     async def cache_get(self, key: str) -> Optional[Any]:
         try:
             async with self.get_connection() as conn:
-                cursor = conn.execute(
+                cursor = await asyncio.to_thread(
+                    conn.execute,
                     """
                     SELECT value, timestamp, ttl FROM cache_entries
                     WHERE key = ?
@@ -163,8 +175,10 @@ class DatabaseManager:
 
                 current_time = time.time()
                 if current_time - row["timestamp"] > row["ttl"]:
-                    conn.execute("DELETE FROM cache_entries WHERE key = ?", (key,))
-                    conn.commit()
+                    await asyncio.to_thread(
+                        conn.execute, "DELETE FROM cache_entries WHERE key = ?", (key,)
+                    )
+                    await asyncio.to_thread(conn.commit)
                     return None
 
                 return json.loads(row["value"])
@@ -175,8 +189,10 @@ class DatabaseManager:
     async def cache_delete(self, key: str) -> bool:
         try:
             async with self.get_connection() as conn:
-                conn.execute("DELETE FROM cache_entries WHERE key = ?", (key,))
-                conn.commit()
+                await asyncio.to_thread(
+                    conn.execute, "DELETE FROM cache_entries WHERE key = ?", (key,)
+                )
+                await asyncio.to_thread(conn.commit)
                 return True
         except Exception as e:
             print(f"[Database] Cache delete error: {e}")
@@ -185,14 +201,15 @@ class DatabaseManager:
     async def cache_clear_pattern(self, pattern: str) -> int:
         try:
             async with self.get_connection() as conn:
-                cursor = conn.execute(
+                cursor = await asyncio.to_thread(
+                    conn.execute,
                     """
                     DELETE FROM cache_entries WHERE key LIKE ?
                 """,
                     (f"%{pattern}%",),
                 )
 
-                conn.commit()
+                await asyncio.to_thread(conn.commit)
                 return int(cursor.rowcount)
         except Exception as e:
             print(f"[Database] Cache clear pattern error: {e}")
@@ -206,7 +223,8 @@ class DatabaseManager:
                 timestamp = time.time()
                 metadata_json = json.dumps(metadata or {})
 
-                conn.execute(
+                await asyncio.to_thread(
+                    conn.execute,
                     """
                     INSERT INTO metrics (metric_name, value, timestamp, metadata)
                     VALUES (?, ?, ?, ?)
@@ -214,7 +232,7 @@ class DatabaseManager:
                     (metric_name, value, timestamp, metadata_json),
                 )
 
-                conn.commit()
+                await asyncio.to_thread(conn.commit)
                 return True
         except Exception as e:
             print(f"[Database] Store metric error: {e}")
@@ -226,7 +244,8 @@ class DatabaseManager:
         try:
             async with self.get_connection() as conn:
                 if metric_name:
-                    cursor = conn.execute(
+                    cursor = await asyncio.to_thread(
+                        conn.execute,
                         """
                         SELECT * FROM metrics
                         WHERE metric_name = ?
@@ -236,7 +255,8 @@ class DatabaseManager:
                         (metric_name, limit),
                     )
                 else:
-                    cursor = conn.execute(
+                    cursor = await asyncio.to_thread(
+                        conn.execute,
                         """
                         SELECT * FROM metrics
                         ORDER BY timestamp DESC
@@ -262,7 +282,8 @@ class DatabaseManager:
                 timestamp = time.time()
                 details_json = json.dumps(details or {})
 
-                conn.execute(
+                await asyncio.to_thread(
+                    conn.execute,
                     """
                     INSERT INTO audit_logs (action, user_id, guild_id, timestamp, details)
                     VALUES (?, ?, ?, ?, ?)
@@ -270,7 +291,7 @@ class DatabaseManager:
                     (action, user_id, guild_id, timestamp, details_json),
                 )
 
-                conn.commit()
+                await asyncio.to_thread(conn.commit)
                 return True
         except Exception as e:
             print(f"[Database] Audit log error: {e}")
@@ -280,7 +301,8 @@ class DatabaseManager:
         try:
             async with self.get_connection() as conn:
                 current_time = time.time()
-                cursor = conn.execute(
+                cursor = await asyncio.to_thread(
+                    conn.execute,
                     """
                     DELETE FROM cache_entries
                     WHERE timestamp + ttl < ?
@@ -288,7 +310,7 @@ class DatabaseManager:
                     (current_time,),
                 )
 
-                conn.commit()
+                await asyncio.to_thread(conn.commit)
                 return int(cursor.rowcount)
         except Exception as e:
             print(f"[Database] Cleanup expired cache error: {e}")
@@ -297,10 +319,13 @@ class DatabaseManager:
     async def get_cache_stats(self) -> Dict[str, int]:
         try:
             async with self.get_connection() as conn:
-                cursor = conn.execute("SELECT COUNT(*) as total FROM cache_entries")
+                cursor = await asyncio.to_thread(
+                    conn.execute, "SELECT COUNT(*) as total FROM cache_entries"
+                )
                 total = cursor.fetchone()["total"]
 
-                cursor = conn.execute(
+                cursor = await asyncio.to_thread(
+                    conn.execute,
                     """
                     SELECT COUNT(*) as expired FROM cache_entries
                     WHERE timestamp + ttl < ?
