@@ -4,6 +4,21 @@
 
 一個功能完整的 Discord 機器人，包含訊息管理、伺服器安全、遊戲、成就、osu! 整合、HoYoLAB/米游社 整合、GitHub 監控與暫時語音頻道。
 
+## 技術棧與運行架構
+
+| 技術 | 實際用途 |
+|------|----------|
+| Python 3.13 | 目前部署的執行環境；專案最低要求為 Python 3.10 |
+| discord.py 2.7 | Discord Gateway、指令、事件與互動元件 |
+| aiohttp 3.14 | 非同步 HTTP 客戶端與儀表板 API 伺服器 |
+| Oracle MySQL 8.4 + PyMySQL | 正式環境業務資料、快取、指標與運作歷史儲存 |
+| ossapi | osu! API v2 玩家資料查詢 |
+| genshin + cryptography | HoYoLAB／米游社整合與帳號 Cookie 加密 |
+| psutil | 系統資源監控 |
+| GitHub Actions | Python 3.10–3.13 自動測試、格式與品質檢查 |
+
+機器人與 MySQL 在 Windows 本機運行。網站使用 Next.js、React 與 Tailwind CSS，部署於 Vercel；網站伺服器透過 Cloudflare Tunnel 存取本機 aiohttp API。網站不直接連線 MySQL，API 密鑰保存在伺服器環境變數。
+
 ## 主要功能
 
 ### 訊息管理
@@ -12,7 +27,7 @@
 
 ### 管理指令
 - `/clear` 清除訊息、`/kick` 踢出、`/ban` 封禁、`/mute` 禁言、`/warn` 警告
-- `/bl_add|bl_remove|bl_list|bl_info` 雙軌黑名單管理 (本地 JSON + CatHome API) + 申訴系統
+- `/bl_add|bl_remove|bl_list|bl_info` 雙軌黑名單管理 (機器人資料庫 + CatHome API) + 申訴系統
 - `/申訴` / `/申訴狀態` 申訴黑名單（Modal 表單 + 開發者審核）
 - `/settings` 伺服器設定儀表板 (日誌/舉報頻道、防刷屏、歡迎訊息一站式管理)
 - `/role assign` / `/role remove` 身份組管理
@@ -71,6 +86,7 @@
 ### GitHub 監控
 - `/repo_watch set` 設定通用倉庫監控、`/repo_watch status` / `disable`
 - `/repo_track add` 專門追蹤 keeiv/bot 倉庫更新 (commits + PRs)
+- 倉庫追蹤使用 `GITHUB_TOKEN` 認證、共用查詢快取與 ETag；受到限流時依重試時間暫停輪詢
 
 ### 錯誤集中處理
 - 全域攔截 Slash / Prefix 指令錯誤，回覆友善中文提示
@@ -82,6 +98,13 @@
 - 支援設定：日誌頻道、舉報頻道、防刷屏開關、歡迎訊息總覽
 - Select Menu + Button 即時修改，無需記指令
 
+### 網站儀表板
+
+- Discord 登入、伺服器選擇與管理權限檢查
+- 管理歡迎訊息、防刷屏、年齡守門員、暫時語音頻道、工單、GitHub 監控與審計日誌設定
+- 設定檢查、面板部署，以及機器人即時狀態與 24 小時／7 天歷史資料
+- 本機 API 預設使用 `127.0.0.1:8080`，以共享密鑰驗證請求
+
 ### 翻譯系統
 - 右鍵訊息 > 應用程式 > `翻譯訊息` — 將任意訊息翻譯為指定語言
 - 支援 14 種語言：英文、中文、日文、韓文、法文、德文、西班牙文、義大利文、葡萄牙文、俄文、泰文、越南文、印尼文、菲律賓文
@@ -89,7 +112,7 @@
 ### 年齡守門員
 - `/age_guard set_adult_role` 設定 18+ 身份組、`/age_guard set_punishment_role` 設定懲罰身份組
 - `/age_guard toggle` 啟用/禁用、`/age_guard status` 查看狀態
-- 自動監測成人內容並對未驗證成員施加懲罰
+- 從訊息中的「數字 + 歲」偵測未成年年齡宣告，依設定移除成人身份組並加入懲罰身份組
 
 ### 暫時語音頻道
 - `/temp_voice setup` 設定觸發頻道、類別與名稱範本（`{username}` 佔位符，預設：`{username}的家`）
@@ -114,7 +137,7 @@ pip install -r requirements.txt
 ```
 
 2. 設定環境變數
-複製 `.env.example` 為 `.env`，填入你的金鑰：
+在專案根目錄建立 `.env`，設定 Discord、外部服務與儲存連線資訊：
 ```env
 DISCORD_TOKEN=
 OSU_CLIENT_ID=
@@ -122,11 +145,34 @@ OSU_CLIENT_SECRET=
 GITHUB_TOKEN=
 BLACKLIST_API_KEY=
 GENSHIN_ENCRYPTION_KEY=
+STORAGE_BACKEND=mysql
+STORAGE_ROOT=
+MYSQL_HOST=127.0.0.1
+MYSQL_PORT=3307
+MYSQL_USER=
+MYSQL_PASSWORD=
+MYSQL_DATABASE=
+BOT_API_ENABLED=false
+BOT_API_HOST=127.0.0.1
+BOT_API_PORT=8080
+BOT_API_SECRET=
 ```
 
-**注意**：`GENSHIN_ENCRYPTION_KEY` 會在首次運行時自動生成，無需手動設置。
+`STORAGE_ROOT` 可設定為專案絕對路徑；未設定時以啟動目錄為準，應從專案根目錄執行。MySQL 資料庫與專用帳號需預先建立，帳號須具備建表及資料讀寫權限。未設定 `STORAGE_BACKEND` 時程式使用 JSON 相容模式；目前正式環境明確設定為 `mysql`。
 
-3. 執行
+全新帳號儲存會產生並保存 `GENSHIN_ENCRYPTION_KEY`；已有加密帳號時必須沿用原金鑰，缺失時服務會中止初始化。啟用儀表板 API 時，設定 `BOT_API_ENABLED=true` 與至少 32 字元的 `BOT_API_SECRET`。
+
+3. 搬移既有資料
+
+停止機器人後，在專案根目錄執行：
+
+```bash
+python -m src.migrate_storage
+```
+
+遷移程式備份並核對 JSON／SQLite 來源、每份文件與各資料表內容，通過後寫入驗證標記。原檔不刪除；目的資料有衝突時中止搬移。Windows 備份位於 `%LOCALAPPDATA%\NewBotMySQL\backups`。MySQL 模式啟動前會核對驗證標記。
+
+4. 執行
 ```bash
 python -m src.main
 ```
@@ -154,9 +200,14 @@ python -m src.main
 
 ## 資料存放
 
-- `data/config/bot.json`：伺服器設定 (日誌頻道、舉報頻道)
-- `data/storage/`：成就、黑名單、申訴、GitHub 監控、osu! 綁定、HoYoLAB/米游社 帳號、抽獎、工單、暫時語音頻道、年齡守門員、防刷屏設定等
-- `data/logs/messages/`：訊息編輯/刪除日誌
+- `documents`：以原檔案相對路徑為主鍵，在 MySQL 中保存完整 JSON 結構與 SHA-256 校驗值，涵蓋設定、成就、黑名單、osu! 綁定、加密帳號及其他功能資料。
+- `samples`、`cache_entries`、`metrics`、`audit_logs`：儲存運作歷史、快取、指標與審計資料。
+- `migration_sources`、`migration_state`：儲存搬移來源副本與驗證完成標記。
+- MySQL 模式不更新原 JSON／SQLite，資料庫連線失敗時不回退至舊檔。保留的原檔是遷移快照，後續新增資料以 MySQL 為準。
+- `data/logs/runtime.log` 與啟動日誌仍使用檔案；日誌經背景佇列寫入，降低阻塞 Discord 心跳的風險。
+- `.env` 保存連線資訊與加密金鑰，不納入 Git。
+
+本機 Oracle MySQL 使用 `127.0.0.1:3307`，資料目錄位於 `%LOCALAPPDATA%\NewBotMySQL\data`。目前透過 Windows 使用者登入啟動；若 `start-mysql.ps1` 已配置，機器人啟動時也會啟動尚未運行的本機 3307 資料庫並等待就緒。此處理不適用於遠端資料庫。
 
 ## 時區
 
@@ -181,6 +232,9 @@ python -m src.main
 - cryptography (加密)
 - psutil (系統監控)
 - aiohttp (非同步 HTTP)
+- discord.py (Discord 框架)
+- PyMySQL (MySQL 連線)
+- ossapi (osu! API v2)
 - deep-translator (免費多引擎翻譯)
 
 ## 授權
