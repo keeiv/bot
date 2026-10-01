@@ -1,6 +1,6 @@
 # Discord 指令與儀表板 API
 
-Discord 功能與現有指令見 [README](../README.md#主要功能)，完整參數以 Cog 的 `app_commands`／文字指令宣告為準。一般文字前綴為 `!`；部分功能使用專用前綴。osu! 綁定指令是 `/osu_bind`、`/osu_unbind`，不是另一套 `/osu bind` 子指令。
+Discord 功能與現有指令見 [README](../README.md#主要功能)，完整參數以 Cog 的 `app_commands`／文字指令宣告為準。一般文字前綴為 `!`；部分功能使用專用前綴。osu! 使用 `/osu bind`、`/osu unbind`、`/osu best`、`/osu recent` 群組子指令；`/user_info_osu` 是獨立查詢指令。
 
 ## 儀表板 HTTP API
 

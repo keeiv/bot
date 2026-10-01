@@ -73,7 +73,7 @@ class BlacklistService:
         target_user_id: int,
         reviewer: discord.User | discord.Member,
         reason_text: str = "",
-    ) -> None:
+    ) -> str:
         """更新申訴狀態為已接受，並從本地黑名單移除（如來源為 local）"""
         manager.update_appeal(
             target_user_id,
@@ -85,6 +85,7 @@ class BlacklistService:
         source = appeal.get("source", "local") if appeal else "local"
         if source == "local":
             manager.local_remove(target_user_id)
+        return source
 
     def build_accept_footer(
         self, reviewer: discord.User | discord.Member, reason_text: str = ""
@@ -96,13 +97,19 @@ class BlacklistService:
         return footer
 
     def build_notify_embed(
-        self, accepted: bool, reason_text: str = ""
+        self, accepted: bool, reason_text: str = "", source: str = "local"
     ) -> discord.Embed:
         """建立通知用戶申訴結果的 Embed"""
         if accepted:
+            description = (
+                "申訴已被 **接受**，本地黑名單紀錄已移除。"
+                if source == "local"
+                else "申訴已被 **接受**。CatHome API 的封鎖尚未解除，"
+                "需由外部黑名單管理者處理。"
+            )
             embed = discord.Embed(
                 title="[通知] 申訴結果",
-                description="您的申訴已被 **接受**，黑名單已解除。",
+                description=description,
                 color=discord.Color.from_rgb(46, 204, 113),
                 timestamp=datetime.now(TZ_OFFSET),
             )

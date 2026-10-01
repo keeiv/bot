@@ -63,7 +63,14 @@ class MessageLogger(commands.Cog):
         self, before: discord.Message, after: discord.Message
     ) -> None:
         """監聽訊息編輯"""
-        if before.guild is None or before.author.bot or before.content == after.content:
+        if before.guild is None or before.author.bot:
+            return
+        before_attachment_urls = [a.url for a in before.attachments]
+        after_attachment_urls = [a.url for a in after.attachments]
+        if (
+            before.content == after.content
+            and before_attachment_urls == after_attachment_urls
+        ):
             return
         try:
             guild_id = before.guild.id
@@ -83,12 +90,8 @@ class MessageLogger(commands.Cog):
                     channel_id,
                     before.attachments or None,
                 )
-                before_content = before.content
-                before_attachment_urls: list[str] = []
                 edit_count = 1
             else:
-                before_content = record.get("original_content", before.content)
-                before_attachment_urls = record.get("attachments", [])
                 edit_count = 1 + len(record.get("edit_history", []))
 
             await run_storage(
@@ -107,7 +110,6 @@ class MessageLogger(commands.Cog):
             if not isinstance(log_channel, discord.TextChannel):
                 return
 
-            after_attachment_urls = [a.url for a in after.attachments]
             embed = self.service.build_edit_embed(
                 guild_id=guild_id,
                 channel_id=channel_id,
@@ -115,7 +117,7 @@ class MessageLogger(commands.Cog):
                 user_id=user_id,
                 user_name=user_name,
                 guild_name=before.guild.name,
-                before_content=before_content,
+                before_content=before.content,
                 after_content=after.content,
                 edit_count=edit_count,
                 before_attachments=before_attachment_urls,
@@ -148,17 +150,12 @@ class MessageLogger(commands.Cog):
             user_name = str(message.author)
 
             record = await run_storage(self.service.get_record, guild_id, message_id)
-            if record:
-                original_content = record.get("original_content", message.content)
-                attachment_urls: list[str] = record.get("attachments", [])
-            else:
-                original_content = message.content
-                attachment_urls = [a.url for a in message.attachments]
+            if not record:
                 await run_storage(
                     self.service.add_record,
                     guild_id,
                     message_id,
-                    original_content,
+                    message.content,
                     user_id,
                     channel_id,
                     message.attachments or None,
@@ -185,8 +182,8 @@ class MessageLogger(commands.Cog):
                 user_id=user_id,
                 user_name=user_name,
                 guild_name=message.guild.name,
-                content=original_content,
-                attachments=attachment_urls,
+                content=message.content,
+                attachments=[a.url for a in message.attachments],
             )
             await log_channel.send(embed=embed)
 

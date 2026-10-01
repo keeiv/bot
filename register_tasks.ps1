@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Register scheduled task to run the project's run_bot.bat at startup and logon.
+  Register scheduled task to run the project's .venv Python with -m src.main at startup and logon.
 
 USAGE (Run as Administrator):
   Right-click -> Run with PowerShell (Run as administrator)

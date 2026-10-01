@@ -1,7 +1,7 @@
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 import discord
 from discord import app_commands
@@ -9,6 +9,9 @@ from discord.ext import commands
 
 from src.services.temp_voice_service import TempVoiceService
 from src.utils.storage_worker import run_storage
+
+if TYPE_CHECKING:
+    from src.bot import Bot
 
 TZ_OFFSET = timezone(timedelta(hours=8))
 ENVC_PREFIX = "envc*"
@@ -19,7 +22,7 @@ _service = TempVoiceService()
 class TempVoice(commands.Cog):
     """暫時語音頻道系統"""
 
-    def __init__(self, bot: commands.Bot) -> None:
+    def __init__(self, bot: "Bot") -> None:
         self.bot = bot
         self.service = _service
 
@@ -304,6 +307,9 @@ class TempVoice(commands.Cog):
         if not message.guild:
             return
         if not message.content.startswith(ENVC_PREFIX):
+            return
+
+        if await self.bot.blacklist_manager.check(message.author.id):
             return
 
         content = message.content[len(ENVC_PREFIX) :].strip()

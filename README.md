@@ -22,23 +22,24 @@
 ## 主要功能
 
 ### 訊息管理
-- 記錄訊息編輯與刪除內容，自動發送到指定日誌頻道
+- 記錄 Discord 快取內非機器人成員的文字或附件編輯與單筆刪除，發送到指定日誌頻道；範圍與限制見 [訊息日誌指南](MESSAGE_LOGGER_README.md)
 - 審計日誌：成員加入/離開、語音頻道異動、角色變更、暱稱變更、頻道建立/刪除/修改
 
 ### 管理指令
 - `/clear` 清除訊息、`/kick` 踢出、`/ban` 封禁、`/mute` 禁言、`/warn` 警告
-- `/bl_add|bl_remove|bl_list|bl_info` 雙軌黑名單管理 (機器人資料庫 + CatHome API) + 申訴系統
-- `/申訴` / `/申訴狀態` 申訴黑名單（Modal 表單 + 開發者審核）
+- `/blacklist add` / `remove` / `list` / `info` 管理本地黑名單並查詢 CatHome API 狀態
+- `/申訴` / `/申訴狀態` 提交及查詢申訴，由開發者審核；提交使用原封鎖原因，沒有使用者原因表單。接受本地申訴會移除本地封鎖；CatHome 封鎖仍須由外部管理者解除，詳見 [黑名單指南](BLACKLIST_GUIDE.md)
 - `/settings` 伺服器設定儀表板 (日誌/舉報頻道、防刷屏、歡迎訊息一站式管理)
 - `/role assign` / `/role remove` 身份組管理
 - `/emoji get` / `/emoji upload` 表情符號管理
-- `/welcome setup` / `/welcome disable` 歡迎訊息與自動角色
+- `/welcome setup` / `/welcome disable` 設定或停用歡迎訊息
+- `/auto_role setup` / `list` / `remove` 管理自動角色規則
 
 ### 防刷屏系統
 - 7 層偵測引擎：洪水/重複/提及/連結/表情/換行/突襲
 - 6 種處理動作：警告/刪除/禁言/踢出/封禁/封鎖頻道
 - 自動升級懲罰 + 白名單管理
-- `/anti_spam` 群組指令完整設定介面 (10 個子指令)
+- `/anti_spam` 群組指令設定介面（11 個子指令，包含 `mute_duration`）
 
 ### 舉報系統
 - 右鍵訊息 > 應用程式 > `舉報訊息` — 舉報可疑訊息到設定頻道
@@ -60,23 +61,24 @@
 - 支援關閉工單 / 有原因關閉工單，使用討論串鎖定保留紀錄
 
 ### 遊戲
-- `/deep_sea_oxygen` 深海氧氣瓶：2 人合作回合制，共享氧氣 + 道具系統
-- `/russian_roulette` 俄羅斯輪盤：2 人對抗，籌碼 + 道具系統
+- `/deep-sea-oxygen` 深海氧氣瓶：2 人合作回合制，共享氧氣 + 道具系統
+- `/russian-roulette` 俄羅斯輪盤：2 人對抗，籌碼 + 道具系統
 
 ### 成就系統
 - 聊天互動、遊戲、社交等多種成就類型
-- `/achievement` 查看個人成就進度與解鎖狀態
+- `/achievements` 查看個人成就進度與解鎖狀態
 
 ### osu! 整合
 - `/user_info_osu` 查詢玩家資料
-- `/osu_bind` 綁定帳號、`/osu_unbind` 解除綁定
-- `/osu_best` 查詢 Best Performance、`/osu_recent` 最近遊玩記錄
+- `/osu bind` 綁定帳號、`/osu unbind` 解除綁定
+- `/osu best` 查詢 Best Performance、`/osu recent` 最近遊玩記錄
 
 ### HoYoLAB/米游社 整合
 - `/mhy bind` 安全綁定 HoYoLAB/米游社 Cookie（支援國際服/國服）
 - `/mhy tutorial` 獲取 Cookie 獲取教學指引
 - `/mhy status` 查看帳號綁定狀態
 - `/mhy toggle_autosignin` 開啟/關閉每日自動簽到
+- `/mhy checkin` 手動簽到
 - `/mhy notes` 查詢遊戲便箋（樹脂/體力等）
 - `/mhy redeem` 兌換遊戲禮包碼
 - `/mhy stats` 查詢遊戲統計數據
@@ -85,7 +87,7 @@
 
 ### GitHub 監控
 - `/repo_watch set` 設定通用倉庫監控、`/repo_watch status` / `disable`
-- `/repo_track add` 專門追蹤 keeiv/bot 倉庫更新 (commits + PRs)
+- `/repo_track add` 專門追蹤 keeiv/bot 的新提交與最新開啟 PR；不追蹤 PR 合併狀態
 - 倉庫追蹤使用 `GITHUB_TOKEN` 認證、共用查詢快取與 ETag；受到限流時依重試時間暫停輪詢
 
 ### 錯誤集中處理
@@ -107,7 +109,7 @@
 
 ### 翻譯系統
 - 右鍵訊息 > 應用程式 > `翻譯訊息` — 將任意訊息翻譯為指定語言
-- 支援 14 種語言：英文、中文、日文、韓文、法文、德文、西班牙文、義大利文、葡萄牙文、俄文、泰文、越南文、印尼文、菲律賓文
+- 支援 14 個語言選項：繁體中文、簡體中文、英文、日文、韓文、法文、德文、西班牙文、俄文、葡萄牙文、泰文、越南文、印尼文、阿拉伯文
 
 ### 年齡守門員
 - `/age_guard set_adult_role` 設定 18+ 身份組、`/age_guard set_punishment_role` 設定懲罰身份組
@@ -187,12 +189,13 @@ python -m src.main
 | 舉報頻道設定 | 管理伺服器 |
 | 工單系統設定 | 管理員 |
 | 翻譯系統 | 無特殊限制 |
-| 年齡守門員設定 | 管理頻道 |
+| 年齡守門員設定 | 管理員（Discord 預設指令權限） |
 | 暫時語音頻道設定 | 管理頻道 |
 | 身份組管理 | 管理角色 |
 | 表情符號上傳 | 管理表情符號 |
-| 歡迎訊息設定 | 管理伺服器 |
-| GitHub 監控設定 | 管理伺服器 |
+| 歡迎訊息設定 | 管理頻道 |
+| 通用 GitHub 監控設定（repo_watch） | 管理伺服器 |
+| 固定倉庫追蹤新增／移除（repo_track） | 管理頻道 |
 | HoYoLAB/米游社 綁定 | 無特殊限制 |
 | 黑名單管理 | 開發者限定 |
 | 設定儀表板 | 管理員 |
@@ -211,7 +214,7 @@ python -m src.main
 
 ## 時區
 
-所有時間使用 UTC+8。
+主要 Discord 日誌與使用者介面的格式化時間使用 UTC+8。GitHub API 等外部資料及部分診斷時間使用 UTC；內部也使用 Unix 時間戳與單調時鐘，不應將所有時間值當成 UTC+8 字串。
 
 ## 開發
 
@@ -220,7 +223,8 @@ python -m src.main
 - `src/cogs/features/`：功能模組 (anti_spam、giveaway、achievements、osu_info、genshin_cog、translate、age_guard、temp_voice 等)
 - `src/cogs/games/`：遊戲模組
 - `src/utils/`：工具函式庫
-- `src/services/`：外部服務整合 (genshin_service、osu_service、github_watch 等)
+- `src/services/`：業務規則、設定與資料保存，以及外部服務整合（management_service、github_watch_service、genshin_service、osu_service 等）
+- `services/`：獨立外部整合，如 GitHub 客戶端與 osu! API 服務
 - `tests/`：自動化測試
 - `docs/`：說明文件
 
