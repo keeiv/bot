@@ -15,6 +15,8 @@ from discord.ext import commands
 from src.services.dashboard_account import DashboardAccount
 from src.services.dashboard_checks import inspect_settings
 from src.services.dashboard_checks import resources
+from src.services.dashboard_health import StorageHealth
+from src.services.dashboard_health import timestamp
 from src.services.dashboard_history import StatusHistory
 from src.services.dashboard_service import DashboardService
 from src.services.dashboard_service import revision
@@ -32,6 +34,7 @@ class DashboardAPI(commands.Cog):
         self.started_at = time.monotonic()
         self.history = None
         self.history_task = None
+        self.storage_health = StorageHealth()
         self.accounts = DashboardAccount(bot)
         self.account_locks = {}
         self.account_attempts = {}
@@ -51,7 +54,7 @@ class DashboardAPI(commands.Cog):
                 os.getenv("BOT_API_HOST", "127.0.0.1"),
                 int(os.getenv("BOT_API_PORT", "8080")),
             ).start()
-            self.history = StatusHistory()
+            self.history = await asyncio.to_thread(StatusHistory)
             self.history_task = asyncio.create_task(self.record_history())
         except Exception:
             await self.runner.cleanup()
@@ -121,8 +124,16 @@ class DashboardAPI(commands.Cog):
             if isinstance(latency, (int, float)) and math.isfinite(latency)
             else None
         )
+        checked_at = timestamp()
+        online = self.bot.is_ready()
         return {
-            "online": self.bot.is_ready(),
+            "online": online,
+            "heartbeatAt": checked_at,
+            "heartbeatTimeoutSeconds": 90,
+            "components": {
+                "discord": {"online": online, "checkedAt": checked_at},
+                "api": {"online": True, "checkedAt": checked_at},
+            },
             "latencyMs": latency_ms,
             "uptimeSeconds": max(0, round(time.monotonic() - self.started_at)),
             "guildCount": len(self.bot.guilds),
@@ -133,14 +144,21 @@ class DashboardAPI(commands.Cog):
         }
 
     async def status(self, request):
-        return web.json_response(self.runtime_status())
+        database = await self.storage_health.read()
+        status = self.runtime_status()
+        status["components"]["database"] = database
+        return web.json_response(status)
 
     async def record_history(self):
         while True:
             try:
+                database = await self.storage_health.read()
                 status = self.runtime_status()
                 await asyncio.to_thread(
-                    self.history.record, status["online"], status["latencyMs"]
+                    self.history.record,
+                    status["online"],
+                    status["latencyMs"],
+                    database_online=database["online"],
                 )
             except (OSError, RuntimeError, sqlite3.Error):
                 log.exception("Unable to record dashboard history")

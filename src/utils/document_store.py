@@ -155,6 +155,7 @@ def initialize_schema() -> None:
         "CREATE TABLE IF NOT EXISTS migration_sources (path VARCHAR(512) COLLATE utf8mb4_bin PRIMARY KEY, source_sha256 CHAR(64) NOT NULL, content LONGBLOB NOT NULL) ENGINE=InnoDB",
         "CREATE TABLE IF NOT EXISTS migration_state (id INT PRIMARY KEY, manifest_sha256 CHAR(64) NOT NULL, verified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB",
         "CREATE TABLE IF NOT EXISTS samples (timestamp BIGINT PRIMARY KEY, online INT NOT NULL, latency DOUBLE) ENGINE=InnoDB",
+        "CREATE TABLE IF NOT EXISTS sample_health (timestamp BIGINT PRIMARY KEY, database_online INT) ENGINE=InnoDB",
         "CREATE TABLE IF NOT EXISTS cache_entries (`key` VARCHAR(512) COLLATE utf8mb4_bin PRIMARY KEY, value LONGTEXT, timestamp DOUBLE, ttl DOUBLE) ENGINE=InnoDB",
         "CREATE TABLE IF NOT EXISTS metrics (id BIGINT PRIMARY KEY AUTO_INCREMENT, metric_name TEXT, value DOUBLE, timestamp DOUBLE, metadata LONGTEXT, INDEX(timestamp)) ENGINE=InnoDB",
         "CREATE TABLE IF NOT EXISTS audit_logs (id BIGINT PRIMARY KEY AUTO_INCREMENT, action TEXT, user_id TEXT, guild_id TEXT, timestamp DOUBLE, details LONGTEXT, INDEX(timestamp)) ENGINE=InnoDB",

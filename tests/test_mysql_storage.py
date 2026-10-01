@@ -39,7 +39,7 @@ async def test_lossless_migration_and_live_storage(tmp_path, monkeypatch):
     await legacy.log_audit("test", "1461349028263497969", "42", {"preserved": True})
     await legacy.close()
     history = StatusHistory(storage / "dashboard_history.sqlite3")
-    history.record(True, 12.5, now=6000)
+    history.record(True, 12.5, now=6000, database_online=True)
     report = migrate(tmp_path, tmp_path / "backup-one")
     assert len(report["documents"]) == 1
     assert report["tables"]["metrics"]["rows"] == 1
@@ -61,11 +61,16 @@ async def test_lossless_migration_and_live_storage(tmp_path, monkeypatch):
     assert read_document(source)["99"] == "new binding"
     history = StatusHistory(storage / "dashboard_history.sqlite3")
     assert len(history.read(now=6000)["samples"]) == 1
+    assert history.read(now=6000)["samples"][0]["databaseOnline"] is True
     before = hashlib.sha256(
         (storage / "dashboard_history.sqlite3").read_bytes()
     ).hexdigest()
-    history.record(False, None, now=6060)
+    history.record(False, None, now=6060, database_online=False)
     assert len(history.read(now=6060)["samples"]) == 2
+    assert history.read(now=6060)["samples"][-1]["databaseOnline"] is False
+    from src.services.dashboard_health import check_storage
+
+    assert check_storage()["online"] is True
     assert (
         hashlib.sha256((storage / "dashboard_history.sqlite3").read_bytes()).hexdigest()
         == before

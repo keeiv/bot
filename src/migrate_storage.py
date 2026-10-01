@@ -22,6 +22,7 @@ from src.utils.document_store import initialize_schema
 
 TABLES = {
     "samples": ("timestamp", "online", "latency"),
+    "sample_health": ("timestamp", "database_online"),
     "cache_entries": ("key", "value", "timestamp", "ttl"),
     "metrics": ("id", "metric_name", "value", "timestamp", "metadata"),
     "audit_logs": ("id", "action", "user_id", "guild_id", "timestamp", "details"),
@@ -30,12 +31,14 @@ TABLES = {
 
 SELECT_SQL = {
     "samples": "SELECT * FROM samples ORDER BY timestamp",
+    "sample_health": "SELECT * FROM sample_health ORDER BY timestamp",
     "cache_entries": "SELECT * FROM cache_entries ORDER BY `key`",
     "metrics": "SELECT * FROM metrics ORDER BY id",
     "audit_logs": "SELECT * FROM audit_logs ORDER BY id",
 }
 INSERT_SQL = {
     "samples": "INSERT INTO samples(timestamp,online,latency) VALUES (%s,%s,%s)",
+    "sample_health": "INSERT INTO sample_health(timestamp,database_online) VALUES (%s,%s)",
     "cache_entries": "INSERT INTO cache_entries(`key`,value,timestamp,ttl) VALUES (%s,%s,%s,%s)",
     "metrics": "INSERT INTO metrics(id,metric_name,value,timestamp,metadata) VALUES (%s,%s,%s,%s,%s)",
     "audit_logs": "INSERT INTO audit_logs(id,action,user_id,guild_id,timestamp,details) VALUES (%s,%s,%s,%s,%s,%s)",
