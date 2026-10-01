@@ -382,9 +382,7 @@ class Settings(commands.Cog):
                 color=discord.Color.from_rgb(231, 76, 60),
             )
 
-        config = management_cog.service.config
-        guild_config = config.get(str(guild_id), {})
-        welcome = guild_config.get("welcome", {})
+        welcome = management_cog.service.get_welcome_config(str(guild_id))
 
         embed = discord.Embed(
             title="[設定] 歡迎訊息",
@@ -436,9 +434,7 @@ class Settings(commands.Cog):
         management_cog = self.bot.get_cog("Management")
         if not management_cog:
             return "[未載入]"
-        config = management_cog.service.config
-        guild_config = config.get(str(guild_id), {})
-        welcome = guild_config.get("welcome", {})
+        welcome = management_cog.service.get_welcome_config(str(guild_id))
         if not welcome:
             return "[未設定]"
         return "[啟用]"
@@ -448,9 +444,7 @@ class Settings(commands.Cog):
         management_cog = self.bot.get_cog("Management")
         if not management_cog:
             return 0
-        config = management_cog.service.config
-        guild_config = config.get(str(guild_id), {})
-        return len(guild_config.get("tracked_repos", {}))
+        return len(management_cog.service.get_tracked_repos(str(guild_id)))
 
     def _get_age_guard_status(self, guild_id: int) -> str:
         """取得年齡守門員狀態文字"""

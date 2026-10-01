@@ -1,5 +1,7 @@
 # 訊息編輯/刪除監聽功能
 
+儲存說明：本文中的 `.json` 路徑與範例表示業務資料的邏輯鍵與結構。正式 MySQL 模式存入 `documents`，不更新保留的 JSON；JSON 相容模式才寫入檔案。設定透過指令或公開 Service 方法修改，詳見 [開發指南](docs/DEVELOPMENT.md)。
+
 ## 功能概述
 
 這個 Cog 提供了完整的訊息編輯和刪除監聽功能，會自動記錄所有成員的訊息變更並發送到指定的日誌頻道。
@@ -10,7 +12,7 @@
 - 監聽所有非 bot 成員的訊息編輯
 - 顯示編輯前和編輯後的內容
 - 記錄編輯次數
-- 自動更新 JSON 記錄
+- 自動更新儲存後端的訊息記錄
 
 ### [刪除監聽]
 - 監聽所有非 bot 成員的訊息刪除
@@ -18,8 +20,8 @@
 - 自動標記為已刪除
 
 ### [數據存儲]
-- 訊息記錄保存在 `data/logs/messages/message_log.json` 中
-- 頻道設置保存在 `data/config/bot.json` 中 (guilds → log_channel)
+- 訊息記錄的文件鍵為 `data/logs/messages/message_log.json`
+- 此 Cog 的頻道設定鍵為 `data/storage/log_channels.json`；`/settings` 的一般日誌頻道另使用 `data/config/bot.json`
 - 支援多伺服器獨立配置
 
 ## Embed 資訊
@@ -61,7 +63,7 @@
 
 1. **Intents 要求**: 需要啟用 `guild_messages` intent
 2. **權限要求**: Bot 需要在日誌頻道有發送訊息權限
-3. **存儲空間**: 長時間運行會產生大量 JSON 數據
+3. **存儲空間**: 長時間運行會產生大量訊息資料
 4. **隱私注意**: 請確保符合 Discord 的服務條款和用戶隱私
 
 ## 故障排除

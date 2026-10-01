@@ -1,18 +1,18 @@
 """伺服器管理業務邏輯服務 (倉庫追蹤 / 歡迎訊息 / GitHub 輪詢)"""
 
 import asyncio
+import copy
 from datetime import datetime
-import json
 import logging
 import os
 import shutil
+import threading
 import time
 from typing import Any, Optional
 
 import aiohttp
 
-from src.utils.document_store import document_exists
-from src.utils.document_store import open_document
+from src.utils.document_store import read_document
 from src.utils.document_store import using_mysql
 from src.utils.document_store import write_document
 from src.utils.storage_worker import run_storage
@@ -28,6 +28,7 @@ class ManagementService:
 
     def __init__(self) -> None:
         os.makedirs("data/storage", exist_ok=True)
+        self._config_lock = threading.RLock()
         self._config: dict[Any, Any] = self._load()
         self._session: Optional[aiohttp.ClientSession] = None
         self._github_lock = asyncio.Lock()
@@ -39,104 +40,147 @@ class ManagementService:
     # ─────────────── 資料存取 ───────────────
 
     def _load(self) -> dict[Any, Any]:
-        if not document_exists(_DATA_FILE):
-            return {}
         try:
-            with open_document(_DATA_FILE, "r", encoding="utf-8") as f:
-                result_value = json.load(f)
-                if not isinstance(result_value, dict):
-                    raise TypeError("Unexpected stored or API value: expected dict")
-                return result_value
-        except (json.JSONDecodeError, OSError):
+            data = read_document(_DATA_FILE)
+        except FileNotFoundError:
             return {}
+        if not isinstance(data, dict):
+            raise TypeError("Configuration must be an object")
+        return data
 
-    def save(self) -> None:
-        """儲存設定 (原子寫入 + 備份機制)"""
-        if using_mysql():
-            write_document(_DATA_FILE, self._config)
-            return
-        _temp = _DATA_FILE + ".tmp"
-        try:
-            with open(_temp, "w", encoding="utf-8") as f:
-                json.dump(self._config, f, ensure_ascii=False, indent=2)
-            if document_exists(_DATA_FILE):
-                shutil.copy2(_DATA_FILE, f"{_DATA_FILE}.backup")
-            os.replace(_temp, _DATA_FILE)
-        except OSError as e:
-            print(f"[錯誤] 儲存管理設定失敗: {e}")
-            try:
-                os.unlink(_temp)
-            except OSError:
-                pass
-            backup = f"{_DATA_FILE}.backup"
-            if os.path.exists(backup):
-                print("[錯誤] 正在從備份還原...")
-                shutil.copy2(backup, _DATA_FILE)
+    def save(self, config=None) -> None:
+        """Persist a snapshot; failures propagate without publishing changes."""
+        proposed = self._config if config is None else config
+        if not using_mysql() and os.path.exists(_DATA_FILE):
+            shutil.copy2(_DATA_FILE, f"{_DATA_FILE}.backup")
+        write_document(_DATA_FILE, proposed)
+
+    def _mutate(self, update):
+        with self._config_lock:
+            proposed = copy.deepcopy(self._config)
+            result = update(proposed)
+            if result is False or result is None:
+                return result
+            self.save(proposed)
+            self._config = proposed
+            return result
 
     @property
     def config(self) -> dict[Any, Any]:
-        """取得完整設定字典"""
-        return self._config
+        """Read-only snapshot retained for compatibility with existing readers."""
+        with self._config_lock:
+            return copy.deepcopy(self._config)
+
+    def get_all_configs(self):
+        return self.config
 
     def get_guild_config(self, guild_id: str) -> dict[Any, Any]:
-        """取得伺服器設定"""
-        result_value = self._config.get(guild_id, {})
-        if not isinstance(result_value, dict):
-            raise TypeError("Unexpected stored or API value: expected dict")
-        return result_value
+        """Return a detached guild snapshot."""
+        with self._config_lock:
+            return copy.deepcopy(self._config.get(str(guild_id), {}))
 
     def update_guild_config(self, guild_id: str, data: dict[Any, Any]) -> None:
-        """更新伺服器設定的指定欄位"""
-        self._config.setdefault(guild_id, {}).update(data)
-        self.save()
+        """Merge guild fields without replacing unrelated configuration."""
 
-    # ─────────────── 倉庫追蹤 ───────────────
+        def update(config):
+            config.setdefault(str(guild_id), {}).update(copy.deepcopy(data))
+            return True
+
+        self._mutate(update)
 
     def add_tracked_repo(
         self, guild_id: str, owner: str, repo: str, channel_id: int
     ) -> None:
-        """新增倉庫追蹤"""
-        repo_key = f"{owner}/{repo}"
-        self._config.setdefault(guild_id, {}).setdefault("tracked_repos", {})[
-            repo_key
-        ] = {
-            "owner": owner,
-            "repo": repo,
-            "channel_id": channel_id,
-            "last_commit": None,
-            "last_pr": None,
-        }
-        self.save()
+        """Add or reset a repository subscription."""
+
+        def update(config):
+            config.setdefault(str(guild_id), {}).setdefault("tracked_repos", {})[
+                f"{owner}/{repo}"
+            ] = {
+                "owner": owner,
+                "repo": repo,
+                "channel_id": channel_id,
+                "last_commit": None,
+                "last_pr": None,
+            }
+            return True
+
+        self._mutate(update)
 
     def remove_tracked_repo(self, guild_id: str, repo_key: str) -> bool:
-        """移除倉庫追蹤，回傳是否存在"""
-        repos = self._config.get(guild_id, {}).get("tracked_repos", {})
-        if repo_key not in repos:
-            return False
-        del repos[repo_key]
-        self.save()
-        return True
+        def update(config):
+            repos = config.get(str(guild_id), {}).get("tracked_repos", {})
+            if repo_key not in repos:
+                return False
+            del repos[repo_key]
+            return True
+
+        return self._mutate(update)
 
     def get_tracked_repos(self, guild_id: str) -> dict[Any, Any]:
-        """取得伺服器所有追蹤倉庫"""
-        result_value = self._config.get(guild_id, {}).get("tracked_repos", {})
-        if not isinstance(result_value, dict):
-            raise TypeError("Unexpected stored or API value: expected dict")
-        return result_value
+        return self.get_guild_config(guild_id).get("tracked_repos", {})
 
-    # ─────────────── 歡迎訊息 ───────────────
+    def _apply_repo_progress(self, guild_id, repo_key, expected, updates):
+        """Reject results for a subscription changed or removed during HTTP I/O."""
+
+        def update(config):
+            current = (
+                config.get(str(guild_id), {}).get("tracked_repos", {}).get(repo_key)
+            )
+            if current != expected:
+                return False
+            current.update(updates)
+            return True
+
+        return self._mutate(update)
 
     def get_welcome_config(self, guild_id: str) -> dict[Any, Any]:
-        """取得歡迎訊息設定"""
-        result_value = self._config.get(guild_id, {}).get("welcome", {})
-        if not isinstance(result_value, dict):
-            raise TypeError("Unexpected stored or API value: expected dict")
-        return result_value
+        return self.get_guild_config(guild_id).get("welcome", {})
 
     def set_welcome_config(self, guild_id: str, config: dict[Any, Any]) -> None:
-        """設定歡迎訊息"""
-        self._config.setdefault(guild_id, {})["welcome"] = config
-        self.save()
+        self.update_guild_config(guild_id, {"welcome": config})
+
+    def update_welcome_config(self, guild_id, updates):
+        def update(config):
+            config.setdefault(str(guild_id), {}).setdefault("welcome", {}).update(
+                copy.deepcopy(updates)
+            )
+            return True
+
+        self._mutate(update)
+
+    def clear_welcome_config(self, guild_id: str) -> bool:
+        def update(config):
+            guild = config.get(str(guild_id), {})
+            if "welcome" not in guild:
+                return False
+            del guild["welcome"]
+            return True
+
+        return self._mutate(update)
+
+    def get_auto_roles(self, guild_id: str) -> list:
+        return self.get_guild_config(guild_id).get("auto_roles", [])
+
+    def add_auto_role(self, guild_id: str, rule: dict) -> None:
+        def update(config):
+            config.setdefault(str(guild_id), {}).setdefault("auto_roles", []).append(
+                copy.deepcopy(rule)
+            )
+            return True
+
+        self._mutate(update)
+
+    def remove_auto_role(self, guild_id: str, rule_index: int):
+        """Remove a one-based rule index, or return None if it is invalid."""
+
+        def update(config):
+            rules = config.get(str(guild_id), {}).get("auto_roles", [])
+            if not 1 <= rule_index <= len(rules):
+                return None
+            return rules.pop(rule_index - 1)
+
+        return self._mutate(update)
 
     # ─────────────── HTTP Session ───────────────
 
@@ -227,7 +271,8 @@ class ManagementService:
         owner = repo_data["owner"]
         repo = repo_data["repo"]
         events: list[dict[Any, Any]] = []
-        has_changes = False
+        updates = {}
+        expected = copy.deepcopy(repo_data)
 
         try:
             # 檢查最新 Commit
@@ -235,8 +280,7 @@ class ManagementService:
             commits = await self._fetch_github_list(commits_url)
             if commits and commits[0]["sha"] != repo_data.get("last_commit"):
                 latest = commits[0]
-                repo_data["last_commit"] = latest["sha"]
-                has_changes = True
+                updates["last_commit"] = latest["sha"]
                 author = latest.get("author") or {}
                 events.append(
                     {
@@ -266,8 +310,7 @@ class ManagementService:
             prs = await self._fetch_github_list(prs_url)
             if prs and prs[0]["number"] != repo_data.get("last_pr"):
                 latest = prs[0]
-                repo_data["last_pr"] = latest["number"]
-                has_changes = True
+                updates["last_pr"] = latest["number"]
                 events.append(
                     {
                         "type": "pr",
@@ -289,7 +332,9 @@ class ManagementService:
         except Exception as e:
             print(f"[錯誤] 意外錯誤 ({repo_key}): {e}")
 
-        if has_changes:
-            await run_storage(self.save)
+        if updates and not await run_storage(
+            self._apply_repo_progress, guild_id, repo_key, expected, updates
+        ):
+            return []
 
         return events

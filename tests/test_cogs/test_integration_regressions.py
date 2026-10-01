@@ -27,7 +27,12 @@ def test_settings_uses_management_service_config():
             "tracked_repos": {"owner/repo": {}},
         }
     }
-    management = SimpleNamespace(service=SimpleNamespace(config=config))
+    from src.services.management_service import ManagementService
+
+    service = ManagementService()
+    for guild_id, values in config.items():
+        service.update_guild_config(guild_id, values)
+    management = SimpleNamespace(service=service)
     cog = Settings(SimpleNamespace(get_cog=lambda _: management))
     assert cog._get_welcome_status(9) == "[啟用]"
     assert cog._get_repo_count(9) == 1

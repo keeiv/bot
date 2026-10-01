@@ -5,8 +5,8 @@ import os
 import threading
 from typing import Any, Optional
 
-from src.utils.document_store import document_exists
 from src.utils.document_store import open_document
+from src.utils.document_store import read_document
 
 _DATA_FILE = "data/storage/osu_links.json"
 
@@ -41,17 +41,13 @@ class OsuService:
     # ─────────────── 資料存取 ───────────────
 
     def _load_links(self) -> dict[Any, Any]:
-        os.makedirs(os.path.dirname(_DATA_FILE), exist_ok=True)
-        if not document_exists(_DATA_FILE):
-            return {}
         try:
-            with open_document(_DATA_FILE, "r", encoding="utf-8") as f:
-                result_value = json.load(f)
-                if not isinstance(result_value, dict):
-                    raise TypeError("Unexpected stored or API value: expected dict")
-                return result_value
-        except (json.JSONDecodeError, OSError):
+            links = read_document(_DATA_FILE)
+        except FileNotFoundError:
             return {}
+        if not isinstance(links, dict):
+            raise TypeError("Account links must be an object")
+        return links
 
     def _save_links(self, links=None) -> None:
         with open_document(_DATA_FILE, "w", encoding="utf-8") as f:

@@ -1,5 +1,6 @@
 """訊息日誌業務邏輯服務"""
 
+import copy
 from datetime import datetime
 from datetime import timedelta
 import json
@@ -11,6 +12,8 @@ import discord
 
 from src.utils.document_store import document_exists
 from src.utils.document_store import open_document
+from src.utils.document_store import read_document
+from src.utils.document_store import write_document
 from src.utils.message_cache import get_message_cache
 from src.utils.time_utils import get_current_time_str
 from src.utils.time_utils import TZ_OFFSET
@@ -34,32 +37,30 @@ class MessageLogService:
 
     # ─────────────── 頻道設定 ───────────────
 
-    def load_log_channels(self) -> dict[Any, Any]:
-        """載入日誌頻道設定 (帶快取)"""
+    def load_log_channels(self, force=False) -> dict[Any, Any]:
+        """Read a detached snapshot; failed reads do not clear valid cache."""
         now = time.monotonic()
-        if self._ch_cache and (now - self._ch_cache_time) < _CHANNELS_TTL:
-            return self._ch_cache
-        if not document_exists(_CHANNELS_FILE):
-            self._ch_cache = {}
-            self._ch_cache_time = now
-            return self._ch_cache
+        if not force and self._ch_cache and (now - self._ch_cache_time) < _CHANNELS_TTL:
+            return copy.deepcopy(self._ch_cache)
         try:
-            with open_document(_CHANNELS_FILE, "r", encoding="utf-8") as f:
-                self._ch_cache = json.load(f)
-        except (json.JSONDecodeError, OSError):
-            self._ch_cache = {}
+            data = read_document(_CHANNELS_FILE)
+        except FileNotFoundError:
+            data = {}
+        if not isinstance(data, dict):
+            raise TypeError("Channel configuration must be an object")
+        self._ch_cache = data
         self._ch_cache_time = now
-        return self._ch_cache
+        return copy.deepcopy(data)
 
     def save_log_channels(self, data: dict[Any, Any]) -> None:
-        """儲存日誌頻道設定"""
-        try:
-            with open_document(_CHANNELS_FILE, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            self._ch_cache = data
-            self._ch_cache_time = time.monotonic()
-        except OSError as e:
-            print(f"[錯誤] 無法儲存日誌頻道設定: {e}")
+        """Publish a detached channel snapshot only after persistence succeeds."""
+        write_document(_CHANNELS_FILE, data)
+        self._ch_cache = copy.deepcopy(data)
+        self._ch_cache_time = time.monotonic()
+
+    def invalidate_log_channels(self):
+        """Reload shared channel configuration on the next lookup."""
+        self._ch_cache_time = 0.0
 
     def get_log_channel_id(self, guild_id: int) -> Optional[int]:
         """取得伺服器的日誌頻道 ID"""
@@ -67,7 +68,7 @@ class MessageLogService:
 
     def set_log_channel_id(self, guild_id: int, channel_id: int) -> None:
         """設定伺服器的日誌頻道 ID"""
-        channels = self.load_log_channels()
+        channels = self.load_log_channels(force=True)
         channels[str(guild_id)] = channel_id
         self.save_log_channels(channels)
 

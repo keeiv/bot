@@ -1,7 +1,6 @@
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
-import json
 import os
 import time
 from typing import Any, Optional
@@ -12,8 +11,7 @@ from discord import app_commands
 from discord.ext import commands
 from discord.ext import tasks
 
-from src.utils.document_store import document_exists
-from src.utils.document_store import open_document
+from src.services.github_watch_service import GithubWatchService
 from src.utils.github_manager import get_github_manager
 from src.utils.github_manager import GitHubAPIManager
 from src.utils.github_manager import init_github_manager
@@ -38,10 +36,7 @@ class GithubWatch(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        self.data_file = "data/storage/github_watch.json"
-        os.makedirs("data/storage", exist_ok=True)
-
-        self._config = self._load_config()
+        self.service = GithubWatchService()
         self._last_poll: dict[str, float] = {}
         self._session: aiohttp.ClientSession | None = None
 
@@ -50,24 +45,12 @@ class GithubWatch(commands.Cog):
     async def cog_unload(self) -> None:
         self._poll_task.cancel()
 
-    def _load_config(self) -> dict[Any, Any]:
-        if not document_exists(self.data_file):
-            return {}
-        try:
-            with open_document(self.data_file, "r", encoding="utf-8") as f:
-                result_value = json.load(f)
-                if not isinstance(result_value, dict):
-                    raise TypeError("Unexpected stored or API value: expected dict")
-                return result_value
-        except Exception:
-            return {}
-
-    def _save_config(self) -> None:
-        with open_document(self.data_file, "w", encoding="utf-8") as f:
-            json.dump(self._config, f, ensure_ascii=False, indent=2)
-
     def _get_guild_cfg(self, guild_id: int) -> Optional[dict[Any, Any]]:
-        return self._config.get(str(guild_id))
+        return self.service.get_config(guild_id) or None
+
+    def reset_poll(self, guild_id):
+        """Schedule a changed subscription for the next polling iteration."""
+        self._last_poll.pop(str(guild_id), None)
 
     async def _ensure_session(self) -> GitHubAPIManager:
         manager = get_github_manager()
@@ -174,7 +157,7 @@ class GithubWatch(commands.Cog):
 
     @tasks.loop(seconds=30)
     async def _poll_task(self) -> None:
-        for guild_key, cfg in list(self._config.items()):
+        for guild_key, cfg in self.service.get_all_configs().items():
             try:
                 enabled = cfg.get("enabled", False)
                 if not enabled:
@@ -208,8 +191,10 @@ class GithubWatch(commands.Cog):
                 if last_sha and sha == last_sha:
                     continue
 
-                cfg["last_sha"] = sha
-                await run_storage(self._save_config)
+                if not await run_storage(
+                    self.service.record_commit, guild_key, cfg, sha
+                ):
+                    continue
 
                 await self._send_update_message(
                     int(guild_key), int(channel_id), owner, repo, commit
@@ -244,7 +229,7 @@ class GithubWatch(commands.Cog):
 
         interval_minutes = max(2, min(60, interval_minutes))
 
-        self._config[str(interaction.guild_id)] = {
+        config = {
             "enabled": True,
             "owner": owner.strip(),
             "repo": repo.strip(),
@@ -252,7 +237,8 @@ class GithubWatch(commands.Cog):
             "last_sha": None,
             "interval_minutes": interval_minutes,
         }
-        await run_storage(self._save_config)
+        await run_storage(self.service.update_config, interaction.guild_id, config)
+        self.reset_poll(interaction.guild_id)
 
         await interaction.followup.send(
             f"已啟用 repo 通知\nRepo: {owner}/{repo}\nChannel: {channel.mention}\nInterval: {interval_minutes} 分鐘",
@@ -311,8 +297,10 @@ class GithubWatch(commands.Cog):
             )
             return
 
-        cfg["enabled"] = False
-        await run_storage(self._save_config)
+        await run_storage(
+            self.service.update_config, interaction.guild_id, {"enabled": False}
+        )
+        self.reset_poll(interaction.guild_id)
         await interaction.followup.send("已停用 repo 通知", ephemeral=True)
 
 

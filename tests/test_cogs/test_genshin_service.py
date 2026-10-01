@@ -16,15 +16,15 @@ def test_encryption_decryption():
 
 def test_map_game_biz():
     service = GenshinService()
-    assert service._map_game_biz_to_str("hk4e_cn") == "genshin"
-    assert service._map_game_biz_to_str("hk4e_global") == "genshin"
-    assert service._map_game_biz_to_str("hkrpg_cn") == "starrail"
-    assert service._map_game_biz_to_str("hkrpg_global") == "starrail"
-    assert service._map_game_biz_to_str("nap_cn") == "zzz"
-    assert service._map_game_biz_to_str("nap_global") == "zzz"
-    assert service._map_game_biz_to_str("bh3_cn") == "honkai"
-    assert service._map_game_biz_to_str("bh3_global") == "honkai"
-    assert service._map_game_biz_to_str("unknown_game") == "unknown"
+    assert service.map_game_biz_to_str("hk4e_cn") == "genshin"
+    assert service.map_game_biz_to_str("hk4e_global") == "genshin"
+    assert service.map_game_biz_to_str("hkrpg_cn") == "starrail"
+    assert service.map_game_biz_to_str("hkrpg_global") == "starrail"
+    assert service.map_game_biz_to_str("nap_cn") == "zzz"
+    assert service.map_game_biz_to_str("nap_global") == "zzz"
+    assert service.map_game_biz_to_str("bh3_cn") == "honkai"
+    assert service.map_game_biz_to_str("bh3_global") == "honkai"
+    assert service.map_game_biz_to_str("unknown_game") == "unknown"
 
 
 def test_to_traditional_chinese():

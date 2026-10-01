@@ -15,6 +15,7 @@ from src.services.audit_log_service import AuditLogService
 from src.services.dashboard_service import DashboardService
 from src.services.dashboard_service import MAPPINGS
 from src.services.dashboard_service import revision
+from src.services.github_watch_service import GithubWatchService
 from src.services.management_service import ManagementService
 from src.services.temp_voice_service import TempVoiceService
 from src.services.ticket_service import TicketService
@@ -50,7 +51,9 @@ def setup_bot():
         "AgeGuard": SimpleNamespace(service=AgeGuardService()),
         "TempVoice": SimpleNamespace(service=TempVoiceService()),
         "Ticket": SimpleNamespace(service=TicketService()),
-        "GithubWatch": SimpleNamespace(_config={}, _last_poll={}),
+        "GithubWatch": SimpleNamespace(
+            service=GithubWatchService(), reset_poll=MagicMock()
+        ),
         "AuditLog": SimpleNamespace(service=AuditLogService()),
     }
     bot = MagicMock()
@@ -64,8 +67,12 @@ def setup_bot():
 def test_all_sections_roundtrip_and_preserve_other_guilds(setup_bot):
     bot, guild, cogs = setup_bot
     service = DashboardService(bot)
-    cogs["Management"].service.config["other"] = {"welcome": {"message": "keep"}}
-    cogs["Management"].service.config[str(GUILD)] = {"tracked_repos": {"keep": {}}}
+    cogs["Management"].service.update_guild_config(
+        "other", {"welcome": {"message": "keep"}}
+    )
+    cogs["Management"].service.update_guild_config(
+        str(GUILD), {"tracked_repos": {"keep": {}}}
+    )
     for section in MAPPINGS:
         values = service.read(GUILD)[section]
         values["enabled"] = False
@@ -277,10 +284,9 @@ async def test_github_interval_is_per_guild(setup_bot, monkeypatch):
 
     cfg = {"enabled": True, "owner": "keeiv", "repo": "bot", "channel_id": CHANNEL}
     cog = object.__new__(GithubWatch)
-    cog._config = {
-        "1": {**cfg, "interval_minutes": 2},
-        "2": {**cfg, "interval_minutes": 10},
-    }
+    cog.service = GithubWatchService()
+    cog.service.update_config(1, {**cfg, "interval_minutes": 2})
+    cog.service.update_config(2, {**cfg, "interval_minutes": 10})
     cog._last_poll = {}
     cog._fetch_latest_commit = AsyncMock(return_value=None)
     monkeypatch.setattr("src.cogs.features.github_watch.time.monotonic", lambda: 1000)
@@ -289,3 +295,63 @@ async def test_github_interval_is_per_guild(setup_bot, monkeypatch):
     monkeypatch.setattr("src.cogs.features.github_watch.time.monotonic", lambda: 1120)
     await GithubWatch._poll_task.coro(cog)
     assert cog._fetch_latest_commit.await_count == 3
+
+
+@pytest.mark.parametrize("section", list(MAPPINGS))
+def test_every_dashboard_section_propagates_failure_without_cache_changes(
+    setup_bot, monkeypatch, section
+):
+    bot, guild, cogs = setup_bot
+    if section == "welcome":
+        cogs["Management"].service.set_welcome_config(
+            str(GUILD), {"channel_id": CHANNEL, "message": "old", "embed_title": "keep"}
+        )
+    elif section == "tempvoice":
+        cogs["TempVoice"].service.update_guild_config(
+            GUILD,
+            {"trigger_channel_id": CHANNEL, "category_id": 1, "name_template": "old"},
+        )
+    elif section == "audit":
+        cogs["AuditLog"].service.set_channel_id(GUILD, CHANNEL)
+    else:
+        service = DashboardService(bot)
+        values = service.read(GUILD)[section]
+        values["enabled"] = False
+        service.write(guild, section, values)
+    service = DashboardService(bot)
+    before = service.read(GUILD)
+    stored = json.loads(open(MAPPINGS[section][1], encoding="utf-8").read())
+    values = copy.deepcopy(before[section])
+    values["enabled"] = False
+    if section == "tempvoice":
+        values["triggerChannel"] = ""
+    monkeypatch.setattr(
+        "src.utils.document_store.os.replace",
+        MagicMock(side_effect=OSError("disk full")),
+    )
+    with pytest.raises(OSError):
+        service.write(guild, section, values)
+    assert service.read(GUILD) == before
+    assert json.loads(open(MAPPINGS[section][1], encoding="utf-8").read()) == stored
+
+
+def test_dashboard_and_discord_service_updates_share_state_without_lost_fields(
+    setup_bot,
+):
+    bot, guild, cogs = setup_bot
+    management = cogs["Management"].service
+    management.set_welcome_config(
+        str(GUILD), {"channel_id": CHANNEL, "message": "old", "embed_title": "keep"}
+    )
+    management.add_tracked_repo(str(GUILD), "owner", "repo", CHANNEL)
+    management.add_auto_role(str(GUILD), {"role_id": ROLE})
+    service = DashboardService(bot)
+    values = service.read(GUILD)["welcome"]
+    values["message"] = "web"
+    service.write(guild, "welcome", values)
+    management.add_auto_role(str(GUILD), {"role_id": ROLE + 1})
+    assert management.get_welcome_config(str(GUILD))["embed_title"] == "keep"
+    assert service.read(GUILD)["welcome"]["message"] == "web"
+    assert len(management.get_auto_roles(str(GUILD))) == 2
+    assert "owner/repo" in management.get_tracked_repos(str(GUILD))
+    assert ManagementService().get_all_configs() == management.get_all_configs()

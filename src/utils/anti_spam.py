@@ -6,12 +6,13 @@ from datetime import timezone
 import json
 import os
 import re
+import threading
 from typing import Any, Dict, List, Optional, Tuple
 
 import discord
 
-from src.utils.document_store import document_exists
 from src.utils.document_store import open_document
+from src.utils.document_store import read_document
 
 # UTC+8 時區
 TZ_OFFSET = timezone(timedelta(hours=8))
@@ -117,7 +118,8 @@ class AntiSpamManager:
 
     def __init__(self) -> None:
         # {guild_id: settings}
-        self.settings: Dict[int, dict[Any, Any]] = self._load_all_settings()
+        self._settings_lock = threading.RLock()
+        self._settings: Dict[int, dict[Any, Any]] = self._load_all_settings()
         # {guild_id: {user_id: [timestamp]}} — 訊息時間戳
         self.message_log: Dict[int, Dict[int, List[float]]] = defaultdict(
             lambda: defaultdict(list)
@@ -142,42 +144,65 @@ class AntiSpamManager:
     # --- 設定管理 ---
 
     def _load_all_settings(self) -> Dict[int, dict[Any, Any]]:
-        """從檔案載入所有伺服器設定"""
-        if not document_exists(self.SETTINGS_FILE):
-            return {}
         try:
-            with open_document(self.SETTINGS_FILE, "r", encoding="utf-8") as f:
-                raw = json.load(f)
-            return {int(k): v for k, v in raw.items()}
-        except (json.JSONDecodeError, OSError) as e:
-            print(f"[防刷屏] 無法載入設定: {e}")
+            raw = read_document(self.SETTINGS_FILE)
+        except FileNotFoundError:
             return {}
+        if not isinstance(raw, dict):
+            raise TypeError("Anti-spam configuration must be an object")
+        return {int(k): v for k, v in raw.items()}
 
-    def _save_all_settings(self) -> None:
-        """儲存所有伺服器設定到檔案"""
+    def _save_all_settings(self, settings=None) -> None:
+        proposed = self._settings if settings is None else settings
         os.makedirs(os.path.dirname(self.SETTINGS_FILE), exist_ok=True)
-        try:
-            with open_document(self.SETTINGS_FILE, "w", encoding="utf-8") as f:
-                json.dump(
-                    {str(k): v for k, v in self.settings.items()},
-                    f,
-                    ensure_ascii=False,
-                    indent=2,
-                )
-        except OSError as e:
-            print(f"[防刷屏] 無法儲存設定: {e}")
+        with open_document(self.SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(
+                {str(k): v for k, v in proposed.items()},
+                f,
+                ensure_ascii=False,
+                indent=2,
+            )
+
+    @property
+    def settings(self):
+        with self._settings_lock:
+            return copy.deepcopy(self._settings)
 
     def get_settings(self, guild_id: int) -> dict[Any, Any]:
-        """取得伺服器設定 (不存在則建立預設)"""
-        if guild_id not in self.settings:
-            self.settings[guild_id] = copy.deepcopy(DEFAULT_SETTINGS)
-        return self.settings[guild_id]
+        """Return a detached snapshot with defaults for unconfigured guilds."""
+        return copy.deepcopy(self._settings.get(guild_id, DEFAULT_SETTINGS))
 
     def update_settings(self, guild_id: int, updates: dict[Any, Any]) -> None:
-        """更新伺服器設定並儲存"""
-        s = self.get_settings(guild_id)
-        s.update(updates)
-        self._save_all_settings()
+        with self._settings_lock:
+            proposed = copy.deepcopy(self._settings)
+            proposed[guild_id] = {
+                **copy.deepcopy(DEFAULT_SETTINGS),
+                **proposed.get(guild_id, {}),
+                **copy.deepcopy(updates),
+            }
+            self._save_all_settings(proposed)
+            self._settings = proposed
+
+    def update_whitelist(self, guild_id, action, role_id=None, channel_id=None):
+        """Return changed kinds only after successfully persisting the lists."""
+        if action not in ("add", "remove"):
+            raise ValueError("Invalid whitelist action")
+        with self._settings_lock:
+            settings = self.get_settings(guild_id)
+            changes = []
+            for kind, item in (("roles", role_id), ("channels", channel_id)):
+                if item is None:
+                    continue
+                items = settings["whitelisted_" + kind]
+                if action == "add" and item not in items:
+                    items.append(item)
+                    changes.append(kind)
+                elif action == "remove" and item in items:
+                    items.remove(item)
+                    changes.append(kind)
+            if changes:
+                self.update_settings(guild_id, settings)
+            return changes
 
     def is_whitelisted(
         self, guild_id: int, member: discord.Member, channel_id: int

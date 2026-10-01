@@ -1,6 +1,7 @@
 """抽獎業務邏輯服務"""
 
 import asyncio
+import copy
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -10,8 +11,8 @@ import random
 import re
 from typing import Any, Optional
 
-from src.utils.document_store import document_exists
 from src.utils.document_store import open_document
+from src.utils.document_store import read_document
 
 TZ_OFFSET = timezone(timedelta(hours=8))
 _DATA_FILE = "data/storage/giveaways.json"
@@ -28,22 +29,21 @@ class GiveawayService:
 
     def _load(self) -> dict[Any, Any]:
         if self._cache is not None:
-            return self._cache
-        if document_exists(_DATA_FILE):
-            try:
-                with open_document(_DATA_FILE, "r", encoding="utf-8") as f:
-                    self._cache = json.load(f)
-                    return self._cache
-            except (json.JSONDecodeError, OSError):
-                pass
-        self._cache = {}
-        return self._cache
+            return copy.deepcopy(self._cache)
+        try:
+            data = read_document(_DATA_FILE)
+        except FileNotFoundError:
+            data = {}
+        if not isinstance(data, dict):
+            raise TypeError("Stored configuration must be an object")
+        self._cache = data
+        return copy.deepcopy(self._cache)
 
     def _save(self, data: dict[Any, Any]) -> None:
         os.makedirs(os.path.dirname(_DATA_FILE), exist_ok=True)
         with open_document(_DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        self._cache = data
+        self._cache = copy.deepcopy(data)
 
     # ─────────────── 查詢 ───────────────
 
