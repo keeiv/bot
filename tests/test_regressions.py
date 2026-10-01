@@ -11,7 +11,7 @@ def test_cleanup_nonempty_logs():
     from src.services.message_log_service import MessageLogService
 
     service = MessageLogService()
-    service.load_message_log = lambda: {
+    service.load_message_log = lambda force=False: {
         "1_2": {"created_at": "2000-01-01T00:00:00+08:00"}
     }
     service.save_message_log = lambda logs: None

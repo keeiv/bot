@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from src.utils.storage_worker import run_storage
 
@@ -13,6 +13,9 @@ from discord import ui
 from discord.ext import commands
 
 from src.services.ticket_service import TicketService
+
+if TYPE_CHECKING:
+    from src.bot import Bot
 
 TZ_OFFSET = timezone(timedelta(hours=8))
 
@@ -275,7 +278,7 @@ class TicketOpenView(ui.View):
 class Ticket(commands.Cog):
     """工單系統 Cog"""
 
-    def __init__(self, bot: commands.Bot) -> None:
+    def __init__(self, bot: "Bot") -> None:
         self.bot = bot
         self.service = _service
 
@@ -295,6 +298,9 @@ class Ticket(commands.Cog):
         ):
             return
         if not message.content.startswith(">>>ticket"):
+            return
+
+        if await self.bot.blacklist_manager.check(message.author.id):
             return
 
         if not message.author.guild_permissions.administrator:

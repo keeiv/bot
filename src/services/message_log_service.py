@@ -3,15 +3,12 @@
 import copy
 from datetime import datetime
 from datetime import timedelta
-import json
-import os
+import threading
 import time
 from typing import Any, Optional
 
 import discord
 
-from src.utils.document_store import document_exists
-from src.utils.document_store import open_document
 from src.utils.document_store import read_document
 from src.utils.document_store import write_document
 from src.utils.message_cache import get_message_cache
@@ -23,6 +20,7 @@ _CHANNELS_FILE = "data/storage/log_channels.json"
 _CACHE_TTL = 120.0
 _CHANNELS_TTL = 60.0
 LOG_RETENTION_DAYS = 30
+_MESSAGE_LOCK = threading.RLock()
 
 
 class MessageLogService:
@@ -74,33 +72,36 @@ class MessageLogService:
 
     # ─────────────── 訊息日誌 ───────────────
 
-    def load_message_log(self) -> dict[Any, Any]:
-        """載入訊息日誌 (帶快取)"""
-        now = time.monotonic()
-        if self._msg_cache is not None and (now - self._msg_cache_time) < _CACHE_TTL:
-            return self._msg_cache
-        if not document_exists(_LOG_FILE):
-            self._msg_cache = {}
+    def load_message_log(self, force: bool = False) -> dict[Any, Any]:
+        """載入獨立副本；讀取失敗不清空有效快取。"""
+        with _MESSAGE_LOCK:
+            now = time.monotonic()
+            if (
+                not force
+                and self._msg_cache is not None
+                and (now - self._msg_cache_time) < _CACHE_TTL
+            ):
+                return copy.deepcopy(self._msg_cache)
+            try:
+                data = read_document(_LOG_FILE)
+            except FileNotFoundError:
+                data = {}
+            if not isinstance(data, dict):
+                raise TypeError("Message log must be an object")
+            self._msg_cache = copy.deepcopy(data)
             self._msg_cache_time = now
-            return self._msg_cache
-        try:
-            with open_document(_LOG_FILE, "r", encoding="utf-8") as f:
-                self._msg_cache = json.load(f)
-        except (json.JSONDecodeError, OSError):
-            self._msg_cache = {}
-        self._msg_cache_time = now
-        return self._msg_cache
+            return copy.deepcopy(data)
 
     def save_message_log(self, data: dict[Any, Any]) -> None:
-        """儲存訊息日誌"""
-        os.makedirs(os.path.dirname(_LOG_FILE), exist_ok=True)
-        try:
-            with open_document(_LOG_FILE, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            self._msg_cache = data
+        """保存成功後才發布快取；失敗由呼叫者處理。"""
+        with _MESSAGE_LOCK:
+            if not isinstance(data, dict):
+                raise TypeError("Message log must be an object")
+            snapshot = copy.deepcopy(data)
+            write_document(_LOG_FILE, snapshot)
+            self._msg_cache = snapshot
             self._msg_cache_time = time.monotonic()
-        except OSError as e:
-            print(f"[錯誤] 無法儲存訊息日誌: {e}")
+            self.message_cache.clear_all()
 
     def add_record(
         self,
@@ -124,70 +125,72 @@ class MessageLogService:
             "attachments": attachment_urls,
             "created_at": datetime.now(TZ_OFFSET).isoformat(),
         }
-        logs = self.load_message_log()
-        logs[f"{guild_id}_{message_id}"] = record
-        self.save_message_log(logs)
-        self.message_cache.set(guild_id, message_id, record)
+        with _MESSAGE_LOCK:
+            logs = self.load_message_log(force=True)
+            key = f"{guild_id}_{message_id}"
+            if key in logs:
+                self.message_cache.set(guild_id, message_id, logs[key])
+                return
+            logs[key] = record
+            self.save_message_log(logs)
+            self.message_cache.set(guild_id, message_id, record)
 
     def record_edit(self, guild_id: int, message_id: int, new_content: str) -> bool:
         """記錄訊息編輯，回傳是否找到原始記錄"""
-        logs = self.load_message_log()
-        key = f"{guild_id}_{message_id}"
-        if key not in logs:
-            return False
-        logs[key]["edit_history"].append(new_content)
-        logs[key]["last_edited_at"] = datetime.now(TZ_OFFSET).isoformat()
-        self.save_message_log(logs)
-        self.message_cache.update(
-            guild_id,
-            message_id,
-            {
-                "edit_history": logs[key]["edit_history"],
-                "last_edited_at": logs[key]["last_edited_at"],
-            },
-        )
-        return True
+        with _MESSAGE_LOCK:
+            logs = self.load_message_log(force=True)
+            key = f"{guild_id}_{message_id}"
+            if key not in logs:
+                return False
+            logs[key]["edit_history"].append(new_content)
+            logs[key]["last_edited_at"] = datetime.now(TZ_OFFSET).isoformat()
+            self.save_message_log(logs)
+            self.message_cache.set(guild_id, message_id, logs[key])
+            return True
 
     def mark_deleted(self, guild_id: int, message_id: int) -> bool:
         """標記訊息為已刪除，回傳是否找到原始記錄"""
-        logs = self.load_message_log()
-        key = f"{guild_id}_{message_id}"
-        if key not in logs:
-            return False
-        logs[key]["deleted"] = True
-        logs[key]["deleted_at"] = datetime.now(TZ_OFFSET).isoformat()
-        self.save_message_log(logs)
-        self.message_cache.update(
-            guild_id,
-            message_id,
-            {"deleted": True, "deleted_at": logs[key]["deleted_at"]},
-        )
-        return True
+        with _MESSAGE_LOCK:
+            logs = self.load_message_log(force=True)
+            key = f"{guild_id}_{message_id}"
+            if key not in logs:
+                return False
+            logs[key]["deleted"] = True
+            logs[key]["deleted_at"] = datetime.now(TZ_OFFSET).isoformat()
+            self.save_message_log(logs)
+            self.message_cache.set(guild_id, message_id, logs[key])
+            return True
 
     def get_record(self, guild_id: int, message_id: int) -> Optional[dict[Any, Any]]:
         """取得訊息記錄 (優先快取)"""
-        cached = self.message_cache.get(guild_id, message_id)
-        if cached is not None:
-            return cached
-        record = self.load_message_log().get(f"{guild_id}_{message_id}")
-        if record:
-            self.message_cache.set(guild_id, message_id, record)
-        return record
+        with _MESSAGE_LOCK:
+            cached = self.message_cache.get(guild_id, message_id)
+            if cached is not None:
+                return copy.deepcopy(cached)
+            record = self.load_message_log(force=True).get(f"{guild_id}_{message_id}")
+            if record:
+                self.message_cache.set(guild_id, message_id, record)
+            return copy.deepcopy(record)
 
     def cleanup_old_logs(self) -> int:
         """清理超過保留天數的舊記錄，回傳刪除筆數"""
-        logs = self.load_message_log()
-        if not logs:
-            return 0
-        cutoff = (
-            datetime.now(TZ_OFFSET) - timedelta(days=LOG_RETENTION_DAYS)
-        ).isoformat()
-        to_remove = [k for k, v in logs.items() if v.get("created_at", "") < cutoff]
-        for k in to_remove:
-            del logs[k]
-        if to_remove:
-            self.save_message_log(logs)
-        return len(to_remove)
+        with _MESSAGE_LOCK:
+            logs = self.load_message_log(force=True)
+            if not logs:
+                return 0
+            cutoff = (
+                datetime.now(TZ_OFFSET) - timedelta(days=LOG_RETENTION_DAYS)
+            ).isoformat()
+            to_remove = [k for k, v in logs.items() if v.get("created_at", "") < cutoff]
+            for key in to_remove:
+                del logs[key]
+            if to_remove:
+                self.save_message_log(logs)
+                for key in to_remove:
+                    guild_id, _, message_id = key.partition("_")
+                    if guild_id.isdigit() and message_id.isdigit():
+                        self.message_cache.delete(int(guild_id), int(message_id))
+            return len(to_remove)
 
     # ─────────────── 工具 ───────────────
 

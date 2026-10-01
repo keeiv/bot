@@ -194,8 +194,8 @@ HELP_CATEGORIES: tuple[HelpCategory, ...] = (
             HelpBlock(
                 title="遊戲",
                 lines=(
-                    "`/deep_sea_oxygen` - 深海氧氣瓶遊戲",
-                    "`/russian_roulette` - 俄羅斯輪盤",
+                    "`/deep-sea-oxygen` - 深海氧氣瓶遊戲",
+                    "`/russian-roulette` - 俄羅斯輪盤",
                 ),
             ),
             HelpBlock(

@@ -40,7 +40,7 @@ class AppealAcceptModal(ui.Modal, title="接受申訴"):
         reason_text = self.reason.value.strip() if self.reason.value else ""
         manager = self.cog.bot.blacklist_manager
 
-        await run_storage(
+        source = await run_storage(
             _service.accept_appeal,
             manager,
             self.target_user_id,
@@ -68,7 +68,7 @@ class AppealAcceptModal(ui.Modal, title="接受申訴"):
             user = await self.cog.bot.fetch_user(self.target_user_id)
             await user.send(
                 embed=_service.build_notify_embed(
-                    accepted=True, reason_text=reason_text
+                    accepted=True, reason_text=reason_text, source=source
                 )
             )
         except (discord.Forbidden, discord.HTTPException):

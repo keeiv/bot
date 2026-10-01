@@ -87,4 +87,4 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt -r requirements-dev.txt
       - name: Test migration and live MySQL storage
-        run: pytest -v tests/test_mysql_storage.py tests/test_storage_reliability.py tests/test_service_boundaries.py
+        run: pytest -v tests/test_mysql_storage.py tests/test_storage_reliability.py tests/test_service_boundaries.py tests/test_achievement_storage.py tests/test_content_alignment.py

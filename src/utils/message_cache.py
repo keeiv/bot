@@ -1,4 +1,5 @@
 from collections import OrderedDict
+import copy
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -56,7 +57,7 @@ class MessageCache:
             # LRU：移到末尾
             self.cache.move_to_end(cache_key)
             self.hits += 1
-            return self.cache[cache_key].copy()
+            return copy.deepcopy(self.cache[cache_key])
 
         # 快取不存在或已過期
         if cache_key in self.cache:
@@ -90,7 +91,7 @@ class MessageCache:
                 del self.cache_timestamp[oldest_key]
 
         # 新增新項目
-        self.cache[cache_key] = data.copy()
+        self.cache[cache_key] = copy.deepcopy(data)
         self.cache_timestamp[cache_key] = datetime.now(TZ_OFFSET).timestamp()
 
     def batch_set(self, messages: Dict[str, Dict[str, Any]]) -> None:
@@ -106,7 +107,7 @@ class MessageCache:
                 if oldest_key in self.cache_timestamp:
                     del self.cache_timestamp[oldest_key]
 
-            self.cache[cache_key] = data.copy()
+            self.cache[cache_key] = copy.deepcopy(data)
             self.cache_timestamp[cache_key] = datetime.now(TZ_OFFSET).timestamp()
 
     def update(self, guild_id: int, message_id: int, data: Dict[str, Any]) -> None:
@@ -122,7 +123,7 @@ class MessageCache:
 
         if cache_key in self.cache:
             # 合併更新
-            self.cache[cache_key].update(data)
+            self.cache[cache_key].update(copy.deepcopy(data))
             self.cache_timestamp[cache_key] = datetime.now(TZ_OFFSET).timestamp()
             # 移到末尾（LRU）
             self.cache.move_to_end(cache_key)

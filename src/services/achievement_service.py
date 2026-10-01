@@ -1,18 +1,19 @@
 """成就業務邏輯服務"""
 
+import copy
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
-import json
-import os
+import threading
 import time
 from typing import Any, Optional
 
-from src.utils.document_store import document_exists
-from src.utils.document_store import open_document
+from src.utils.document_store import read_document
+from src.utils.document_store import write_document
 
 TZ_OFFSET = timezone(timedelta(hours=8))
 _DATA_FILE = "data/storage/achievements.json"
+_DATA_LOCK = threading.RLock()
 
 # 成就定義 (從 cog 搬移至此，cog 透過 service 取得)
 ACHIEVEMENTS: dict[str, dict[Any, Any]] = {
@@ -130,34 +131,54 @@ class AchievementService:
     def __init__(self) -> None:
         self._cache: dict[Any, Any] | None = None
         self._cache_time: float = 0.0
+        self._lock = _DATA_LOCK
 
     # ─────────────── 資料存取 ───────────────
 
-    def _load(self) -> dict[Any, Any]:
-        now = time.monotonic()
-        if self._cache is not None and (now - self._cache_time) < self._CACHE_TTL:
-            return self._cache
-        if not document_exists(_DATA_FILE):
-            self._cache = {}
+    @staticmethod
+    def _validate(data: Any) -> None:
+        """Reject damaged records instead of replacing existing progress."""
+        if not isinstance(data, dict):
+            raise TypeError("Achievement data must be an object")
+        for user_data in data.values():
+            if not isinstance(user_data, dict):
+                raise TypeError("User achievement data must be an object")
+            for guild_data in user_data.values():
+                if not isinstance(guild_data, dict):
+                    raise TypeError("Guild achievement data must be an object")
+                unlocked = guild_data.get("unlocked", [])
+                if not isinstance(unlocked, list) or any(
+                    not isinstance(achievement_id, str) for achievement_id in unlocked
+                ):
+                    raise TypeError("Unlocked achievements must be a list of IDs")
+
+    def _load(self, force: bool = False) -> dict[Any, Any]:
+        """Return a detached snapshot; failed reads preserve the valid cache."""
+        with self._lock:
+            now = time.monotonic()
+            if (
+                not force
+                and self._cache is not None
+                and (now - self._cache_time) < self._CACHE_TTL
+            ):
+                return copy.deepcopy(self._cache)
+            try:
+                data = read_document(_DATA_FILE)
+            except FileNotFoundError:
+                data = {}
+            self._validate(data)
+            self._cache = copy.deepcopy(data)
             self._cache_time = now
-            return self._cache
-        try:
-            with open_document(_DATA_FILE, "r", encoding="utf-8") as f:
-                self._cache = json.load(f)
-        except (json.JSONDecodeError, OSError):
-            self._cache = {}
-        self._cache_time = now
-        return self._cache
+            return copy.deepcopy(data)
 
     def _save(self, data: dict[Any, Any]) -> None:
-        os.makedirs(os.path.dirname(_DATA_FILE), exist_ok=True)
-        try:
-            with open_document(_DATA_FILE, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            self._cache = data
+        """Publish the proposed snapshot only after persistence succeeds."""
+        with self._lock:
+            proposed = copy.deepcopy(data)
+            self._validate(proposed)
+            write_document(_DATA_FILE, proposed)
+            self._cache = proposed
             self._cache_time = time.monotonic()
-        except OSError as e:
-            print(f"[錯誤] 無法儲存成就數據: {e}")
 
     # ─────────────── 查詢 ───────────────
 
@@ -195,7 +216,7 @@ class AchievementService:
 
     def get_achievement_info(self, achievement_id: str) -> Optional[dict[Any, Any]]:
         """取得單一成就定義"""
-        return ACHIEVEMENTS.get(achievement_id)
+        return copy.deepcopy(ACHIEVEMENTS.get(achievement_id))
 
     # ─────────────── 解鎖 ───────────────
 
@@ -203,19 +224,23 @@ class AchievementService:
         """解鎖成就，回傳是否為新解鎖"""
         if achievement_id not in ACHIEVEMENTS:
             return False
-        data = self._load()
-        user_key = str(user_id)
-        guild_key = str(guild_id)
-        data.setdefault(user_key, {}).setdefault(guild_key, {"unlocked": []})
-        guild_data = data[user_key][guild_key]
-        if achievement_id in guild_data["unlocked"]:
-            return False
-        guild_data["unlocked"].append(achievement_id)
-        guild_data[f"unlocked_at_{achievement_id}"] = datetime.now(
-            TZ_OFFSET
-        ).isoformat()
-        self._save(data)
-        return True
+        # Refresh inside the shared lock so another service instance's successful
+        # update cannot be overwritten by this instance's older TTL snapshot.
+        with self._lock:
+            data = self._load(force=True)
+            user_key = str(user_id)
+            guild_key = str(guild_id)
+            data.setdefault(user_key, {}).setdefault(guild_key, {"unlocked": []})
+            guild_data = data[user_key][guild_key]
+            unlocked = guild_data.setdefault("unlocked", [])
+            if achievement_id in unlocked:
+                return False
+            unlocked.append(achievement_id)
+            guild_data[f"unlocked_at_{achievement_id}"] = datetime.now(
+                TZ_OFFSET
+            ).isoformat()
+            self._save(data)
+            return True
 
     # ─────────────── 顯示工具 ───────────────
 
