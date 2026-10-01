@@ -239,4 +239,8 @@ python -m src.main
 
 ## 授權
 
-MIT License
+Copyright (c) 2026 Keeiv。
+
+目前版本採用 **GNU Affero General Public License v3.0 only（AGPL-3.0-only）**，完整條文見 [LICENSE](LICENSE)，專案著作權聲明見 [NOTICE](NOTICE)。允許複製、修改、散布與商業使用；修改版本透過網路提供互動服務時，須向使用者提供免費取得該版本完整對應原始碼的方式。原始碼不包含部署密鑰或使用者資料。
+
+本次授權變更不追溯取代已發布版本的 MIT 授權；舊聲明保留於 [LICENSES/MIT-legacy.txt](LICENSES/MIT-legacy.txt)。第三方元件保留各自的授權與著作權聲明。
