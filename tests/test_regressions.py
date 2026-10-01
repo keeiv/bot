@@ -59,10 +59,10 @@ async def test_giveaway_restart_keeps_both_views():
     cog = object.__new__(Giveaway)
     cog.bot = bot
     cog.service = SimpleNamespace(
-        _load=lambda: {
-            "first": {"ended": False, "message_id": 111},
-            "second": {"ended": False, "message_id": 222},
-        }
+        list_all_active=lambda: [
+            ("first", {"message_id": 111}),
+            ("second", {"message_id": 222}),
+        ]
     )
     try:
         await cog.on_ready()
@@ -156,9 +156,10 @@ async def test_auto_role_verification_member_api():
     member.guild = SimpleNamespace(id=1, member_count=2, get_role=lambda _: role)
     member.add_roles = AsyncMock()
     cog = object.__new__(Management)
-    cog.service = SimpleNamespace(
-        config={"1": {"auto_roles": [{"require_verification": True, "role_id": 3}]}}
-    )
+    from src.services.management_service import ManagementService
+
+    cog.service = ManagementService()
+    cog.service.add_auto_role("1", {"require_verification": True, "role_id": 3})
     await cog.on_member_join(member)
     member.add_roles.assert_not_awaited()
     member.pending = False

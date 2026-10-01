@@ -1,6 +1,7 @@
 """工單業務邏輯服務"""
 
 import asyncio
+import copy
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -8,8 +9,8 @@ import json
 import os
 from typing import Any, Optional
 
-from src.utils.document_store import document_exists
 from src.utils.document_store import open_document
+from src.utils.document_store import read_document
 
 TZ_OFFSET = timezone(timedelta(hours=8))
 _DATA_FILE = "data/storage/tickets.json"
@@ -26,22 +27,21 @@ class TicketService:
 
     def _load(self) -> dict[Any, Any]:
         if self._cache is not None:
-            return self._cache
-        if document_exists(_DATA_FILE):
-            try:
-                with open_document(_DATA_FILE, "r", encoding="utf-8") as f:
-                    self._cache = json.load(f)
-                    return self._cache
-            except (json.JSONDecodeError, OSError):
-                pass
-        self._cache = {"guilds": {}, "tickets": {}}
-        return self._cache
+            return copy.deepcopy(self._cache)
+        try:
+            data = read_document(_DATA_FILE)
+        except FileNotFoundError:
+            data = {"guilds": {}, "tickets": {}}
+        if not isinstance(data, dict):
+            raise TypeError("Stored configuration must be an object")
+        self._cache = data
+        return copy.deepcopy(self._cache)
 
     def _save(self, data: dict[Any, Any]) -> None:
         os.makedirs(os.path.dirname(_DATA_FILE), exist_ok=True)
         with open_document(_DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        self._cache = data
+        self._cache = copy.deepcopy(data)
 
     # ─────────────── 伺服器設定 ───────────────
 
@@ -53,6 +53,26 @@ class TicketService:
         if not isinstance(result_value, dict):
             raise TypeError("Unexpected stored or API value: expected dict")
         return result_value
+
+    def update_guild_config(self, guild_id: int, updates: dict) -> None:
+        """Merge configuration while preserving runtime records and counters."""
+        data = self._load()
+        data.setdefault("guilds", {}).setdefault(str(guild_id), {}).update(
+            copy.deepcopy(updates)
+        )
+        self._save(data)
+
+    def set_panel_message(self, guild_id, message_id, expected):
+        """Do not attach a panel to settings changed while Discord was awaited."""
+        data = self._load()
+        config = data.get("guilds", {}).get(str(guild_id), {})
+        if not config or any(
+            config.get(k) != expected.get(k)
+            for k in ("channel_id", "role_id", "enabled")
+        ):
+            raise ValueError("工單設定已變更，請重新部署面板")
+        config["panel_message_id"] = message_id
+        self._save(data)
 
     def save_guild_config(
         self,

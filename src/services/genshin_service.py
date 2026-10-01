@@ -12,12 +12,14 @@ from dotenv import dotenv_values
 from dotenv import set_key
 import genshin
 
-from src.utils.document_store import document_exists
 from src.utils.document_store import open_document
+from src.utils.document_store import read_document
+from src.utils.document_store import write_document
 from src.utils.storage_worker import run_storage
 from src.utils.text_converter import to_traditional_chinese
 
 _DATA_FILE = "data/storage/genshin_accounts.json"
+_SIGNIN_LOG_FILE = "data/storage/genshin_signin_log.json"
 
 
 class GenshinService:
@@ -87,18 +89,13 @@ class GenshinService:
             ) from exc
 
     def _load_accounts(self) -> dict[Any, Any]:
-        """載入本地帳號檔案"""
-        os.makedirs(os.path.dirname(_DATA_FILE), exist_ok=True)
-        if not document_exists(_DATA_FILE):
-            return {}
         try:
-            with open_document(_DATA_FILE, "r", encoding="utf-8") as f:
-                result_value = json.load(f)
-                if not isinstance(result_value, dict):
-                    raise TypeError("Unexpected stored or API value: expected dict")
-                return result_value
-        except (json.JSONDecodeError, OSError):
+            accounts = read_document(_DATA_FILE)
+        except FileNotFoundError:
             return {}
+        if not isinstance(accounts, dict):
+            raise TypeError("Account storage must be an object")
+        return accounts
 
     def _save_accounts(self, accounts=None) -> None:
         """Persist the proposed snapshot before publishing it to readers."""
@@ -125,6 +122,28 @@ class GenshinService:
             return True
 
         return self._update_account(user_key, update)
+
+    def get_last_signin_date(self) -> str:
+        try:
+            data = read_document(_SIGNIN_LOG_FILE)
+        except FileNotFoundError:
+            return ""
+        if not isinstance(data, dict):
+            raise TypeError("Signin storage must be an object")
+        result = data.get("last_run_date", "")
+        if not isinstance(result, str):
+            raise TypeError("Signin date must be a string")
+        return result
+
+    def save_last_signin_date(self, date_str: str) -> None:
+        try:
+            data = read_document(_SIGNIN_LOG_FILE)
+        except FileNotFoundError:
+            data = {}
+        if not isinstance(data, dict):
+            raise TypeError("Signin storage must be an object")
+        data["last_run_date"] = date_str
+        write_document(_SIGNIN_LOG_FILE, data)
 
     def encrypt_cookie(self, cookie: str) -> str:
         """加密 Cookie"""
@@ -232,7 +251,7 @@ class GenshinService:
         uids = [
             acc["uid"]
             for acc in user_data.get("game_accounts", [])
-            if self._map_game_biz_to_str(acc["game_biz"]) == game_str
+            if self.map_game_biz_to_str(acc["game_biz"]) == game_str
         ]
 
         uid = int(uids[0]) if uids else None
@@ -351,7 +370,7 @@ class GenshinService:
         game_accs = [
             acc
             for acc in user_data.get("game_accounts", [])
-            if self._map_game_biz_to_str(acc["game_biz"]) == game_str
+            if self.map_game_biz_to_str(acc["game_biz"]) == game_str
         ]
 
         if not game_accs:
@@ -419,7 +438,7 @@ class GenshinService:
         uids = [
             acc["uid"]
             for acc in user_data.get("game_accounts", [])
-            if self._map_game_biz_to_str(acc["game_biz"]) == game_str
+            if self.map_game_biz_to_str(acc["game_biz"]) == game_str
         ]
         uid = int(uids[0]) if uids else None
         if not uid:
@@ -493,7 +512,7 @@ class GenshinService:
         uids = [
             acc["uid"]
             for acc in user_data.get("game_accounts", [])
-            if self._map_game_biz_to_str(acc["game_biz"]) == game_str
+            if self.map_game_biz_to_str(acc["game_biz"]) == game_str
         ]
         uid = int(uids[0]) if uids else None
         if not uid:
@@ -672,7 +691,7 @@ class GenshinService:
         completed_games = set()
 
         for acc in user_data.get("game_accounts", []):
-            game_str = self._map_game_biz_to_str(acc["game_biz"])
+            game_str = self.map_game_biz_to_str(acc["game_biz"])
             if game_str == "unknown" or game_str in completed_games:
                 continue
 
@@ -736,7 +755,7 @@ class GenshinService:
 
     # ─────────────── 輔助工具 ───────────────
 
-    def _map_game_biz_to_str(self, game_biz: str) -> str:
+    def map_game_biz_to_str(self, game_biz: str) -> str:
         """將 game_biz 對應到內部遊戲名稱"""
         game_biz = game_biz.lower()
         if "hk4e" in game_biz:

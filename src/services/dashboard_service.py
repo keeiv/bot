@@ -1,16 +1,12 @@
 """Dashboard adapter: write the running cogs' real stores, one section at a time."""
 
-import copy
 import hashlib
 import json
 import re
 from string import Formatter
-import time
 from typing import Any
 
 import discord
-
-from src.utils.document_store import write_document
 
 MAPPINGS = {
     "welcome": (
@@ -88,10 +84,6 @@ ID_FIELDS = {
 }
 
 
-def atomic_json(path: str, data: dict) -> None:
-    write_document(path, data)
-
-
 def revision(settings: dict) -> str:
     return hashlib.sha256(json.dumps(settings, sort_keys=True).encode()).hexdigest()
 
@@ -100,41 +92,30 @@ class DashboardService:
     def __init__(self, bot: Any) -> None:
         self.bot = bot
 
-    def store(self, section: str) -> tuple[Any, dict]:
+    def _cog(self, section):
         cog = self.bot.get_cog(MAPPINGS[section][0])
         if cog is None:
             raise RuntimeError(f"{section} 模組未載入")
+        return cog
+
+    def get_section_config(self, section, guild_id):
+        """Read public service snapshots instead of accessing cog caches."""
+        cog = self._cog(section)
         if section == "welcome":
-            data = cog.service.config
-        elif section == "antispam":
-            data = cog.manager.settings
-        elif section == "github":
-            data = cog._config
-        elif section == "audit":
-            # /編刪紀錄設定 writes the same file through MessageLogger's own cache.
-            cog.service._cache_time = 0
-            data = cog.service.load()
-        else:
-            data = cog.service._load()
-        return cog, data
+            return cog.service.get_welcome_config(str(guild_id))
+        if section == "antispam":
+            return cog.manager.get_settings(guild_id)
+        if section == "audit":
+            channel_id = cog.service.get_channel_id(guild_id)
+            return {"channel_id": channel_id} if channel_id else {}
+        if section in ("tempvoice", "ticket"):
+            return cog.service.get_guild_config(guild_id) or {}
+        return cog.service.get_config(guild_id)
 
     def read(self, guild_id: int) -> dict:
         result = {}
         for section, (_, _, fields) in MAPPINGS.items():
-            cog, data = self.store(section)
-            key = str(guild_id)
-            if section == "welcome":
-                raw = data.get(key, {}).get("welcome", {})
-            elif section in ("tempvoice", "ticket"):
-                raw = data.get("guilds", {}).get(key, {})
-            elif section == "antispam":
-                from src.utils.anti_spam import DEFAULT_SETTINGS
-
-                raw = {**DEFAULT_SETTINGS, **data.get(guild_id, {})}
-            elif section == "audit":
-                raw = {"channel_id": data[key]} if data.get(key) else {}
-            else:
-                raw = data.get(key, {})
+            raw = self.get_section_config(section, guild_id)
             values = {
                 k: raw.get(native, default) for k, (native, default) in fields.items()
             }
@@ -143,6 +124,9 @@ class DashboardService:
             values.setdefault("enabled", bool(raw) and raw.get("enabled", True))
             result[section] = values
         return result
+
+    def set_ticket_panel(self, guild_id, message_id, expected):
+        self._cog("ticket").service.set_panel_message(guild_id, message_id, expected)
 
     def validate(self, guild: Any, section: str, values: Any) -> dict:
         if (
@@ -246,9 +230,7 @@ class DashboardService:
 
     def write(self, guild: Any, section: str, values: dict) -> None:
         values = self.validate(guild, section, values)
-        cog, existing = self.store(section)
-        data = copy.deepcopy(existing)
-        key = str(guild.id)
+        cog = self._cog(section)
         fields = MAPPINGS[section][2]
         mapped = {
             native: (
@@ -257,49 +239,34 @@ class DashboardService:
             for k, (native, _) in fields.items()
         }
         if section == "welcome":
-            cfg = data.setdefault(key, {})
             if values["enabled"]:
-                cfg["welcome"] = {**cfg.get("welcome", {}), **mapped}
+                cog.service.update_welcome_config(str(guild.id), mapped)
             else:
-                cfg.pop("welcome", None)
-        elif section in ("tempvoice", "ticket"):
-            cfg = data.setdefault("guilds", {})
-            if section == "tempvoice" and not values["enabled"]:
-                cfg.pop(key, None)
-            else:
-                cfg[key] = {**cfg.get(key, {}), **mapped, "enabled": values["enabled"]}
-                if section == "tempvoice":
-                    cfg[key].setdefault(
-                        "category_id",
-                        guild.get_channel(int(values["triggerChannel"])).category_id,
-                    )
+                cog.service.clear_welcome_config(str(guild.id))
         elif section == "antispam":
-            from src.utils.anti_spam import DEFAULT_SETTINGS
-
-            data[guild.id] = {**DEFAULT_SETTINGS, **data.get(guild.id, {}), **mapped}
+            cog.manager.update_settings(guild.id, mapped)
         elif section == "audit":
-            if values["enabled"]:
-                data[key] = mapped["channel_id"]
-            else:
-                data.pop(key, None)
-        else:
-            cfg = data.setdefault(key, {})
-            if section == "github" and (cfg.get("owner"), cfg.get("repo")) != (
-                mapped["owner"],
-                mapped["repo"],
-            ):
-                cfg["last_sha"] = None
-            cfg.update(mapped)
-        atomic_json(MAPPINGS[section][1], data)
-        # No await between disk commit and cache publication: Discord readers see the same state.
-        existing.clear()
-        existing.update(data)
-        if section in ("ageguard", "audit"):
-            cog.service._cache_time = time.monotonic()
-        if section == "audit":
+            cog.service.set_channel_id(
+                guild.id, mapped["channel_id"] if values["enabled"] else None
+            )
             logger = self.bot.get_cog("MessageLogger")
             if logger:
-                logger.service._ch_cache = copy.deepcopy(data)
-                logger.service._ch_cache_time = time.monotonic()
-        if section == "github":
-            cog._last_poll.pop(key, None)
+                logger.service.invalidate_log_channels()
+        elif section == "tempvoice":
+            if not values["enabled"]:
+                cog.service.remove_guild_config(guild.id)
+            else:
+                existing = cog.service.get_guild_config(guild.id) or {}
+                if "category_id" not in existing:
+                    mapped["category_id"] = guild.get_channel(
+                        int(values["triggerChannel"])
+                    ).category_id
+                cog.service.update_guild_config(guild.id, {**mapped, "enabled": True})
+        elif section == "ticket":
+            cog.service.update_guild_config(
+                guild.id, {**mapped, "enabled": values["enabled"]}
+            )
+        else:
+            cog.service.update_config(guild.id, mapped)
+            if section == "github":
+                cog.reset_poll(guild.id)

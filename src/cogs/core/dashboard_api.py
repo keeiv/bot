@@ -16,9 +16,7 @@ from src.services.dashboard_account import DashboardAccount
 from src.services.dashboard_checks import inspect_settings
 from src.services.dashboard_checks import resources
 from src.services.dashboard_history import StatusHistory
-from src.services.dashboard_service import atomic_json
 from src.services.dashboard_service import DashboardService
-from src.services.dashboard_service import MAPPINGS
 from src.services.dashboard_service import revision
 from src.utils.storage_worker import run_storage
 
@@ -251,8 +249,7 @@ class DashboardAPI(commands.Cog):
 
         guild = await self.authorized_guild(request)
         async with self.lock:
-            cog, data = await run_storage(self.service.store, "ticket")
-            cfg = data.get("guilds", {}).get(str(guild.id), {})
+            cfg = await run_storage(self.service.get_section_config, "ticket", guild.id)
             if not cfg or not cfg.get("enabled", True):
                 raise ValueError("請先儲存並啟用工單設定")
             self.service.validate(
@@ -274,17 +271,13 @@ class DashboardAPI(commands.Cog):
                 ),
                 view=TicketOpenView(),
             )
-            import copy
-
-            updated = copy.deepcopy(data)
-            updated["guilds"][str(guild.id)]["panel_message_id"] = message.id
             try:
-                await run_storage(atomic_json, MAPPINGS["ticket"][1], updated)
-            except OSError:
+                await run_storage(
+                    self.service.set_ticket_panel, guild.id, message.id, cfg
+                )
+            except Exception:
                 await message.delete()
                 raise
-            data.clear()
-            data.update(updated)
         return web.json_response({"ok": True})
 
 

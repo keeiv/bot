@@ -1,4 +1,5 @@
 import asyncio
+import copy
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -44,7 +45,7 @@ def load_config() -> Any:
 
     now = time.monotonic()
     if _config_cache is not None and (now - _config_cache_time) < _CONFIG_CACHE_TTL:
-        return _config_cache
+        return copy.deepcopy(_config_cache)
 
     if not document_exists(CONFIG_FILE):
         save_config({"guilds": {}})
@@ -52,14 +53,14 @@ def load_config() -> Any:
     with open_document(CONFIG_FILE, "r", encoding="utf-8") as f:
         _config_cache = json.load(f)
     _config_cache_time = now
-    return _config_cache
+    return copy.deepcopy(_config_cache)
 
 
 def save_config(config: Any) -> None:
     """儲存配置檔案並更新快取 (原子寫入)"""
     global _config_cache, _config_cache_time
     write_document(CONFIG_FILE, config)
-    _config_cache = config
+    _config_cache = copy.deepcopy(config)
     _config_cache_time = time.monotonic()
 
 

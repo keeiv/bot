@@ -2,8 +2,6 @@ import asyncio
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
-import json
-import os
 from typing import Any
 
 import discord
@@ -13,8 +11,6 @@ from discord.ext import tasks
 import genshin
 
 from src.services.genshin_service import GenshinService
-from src.utils.document_store import document_exists
-from src.utils.document_store import open_document
 from src.utils.storage_worker import run_storage
 
 TZ_OFFSET = timezone(timedelta(hours=8))
@@ -122,7 +118,7 @@ class CookieBindModal(discord.ui.Modal):
 
             for acc in accounts:
                 game_name = self.cog._get_game_display_name(
-                    self.service._map_game_biz_to_str(acc["game_biz"])
+                    self.service.map_game_biz_to_str(acc["game_biz"])
                 )
                 embed.add_field(
                     name=f" {game_name}",
@@ -247,7 +243,6 @@ class GenshinCog(commands.Cog):
         """初始化 GenshinCog"""
         self.bot = bot
         self.service = GenshinService()
-        self.log_file = "data/storage/genshin_signin_log.json"
 
         # 啟動自動簽到背景任務
         self._auto_signin_loop.start()
@@ -270,29 +265,6 @@ class GenshinCog(commands.Cog):
             print("[Genshin Cog] 角色資料庫快取更新完成！")
         except Exception as e:
             print(f"[Genshin Cog] 角色資料庫快取更新失敗: {e}")
-
-    def _load_last_run_date(self) -> str:
-        """載入上次執行簽到的日期"""
-        if not document_exists(self.log_file):
-            return ""
-        try:
-            with open_document(self.log_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                result_value = data.get("last_run_date", "")
-                if not isinstance(result_value, str):
-                    raise TypeError("Unexpected stored or API value: expected str")
-                return result_value
-        except Exception:
-            return ""
-
-    def _save_last_run_date(self, date_str: str) -> None:
-        """儲存上次執行簽到的日期"""
-        os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
-        try:
-            with open_document(self.log_file, "w", encoding="utf-8") as f:
-                json.dump({"last_run_date": date_str}, f)
-        except Exception as e:
-            print(f"[Genshin Cog] Failed to save signin log: {e}")
 
     def _get_game_display_name(self, game_str: str) -> str:
         """取得遊戲顯示名稱"""
@@ -324,9 +296,9 @@ class GenshinCog(commands.Cog):
         # 如果今日尚未執行，且目前時間已過 8:00 AM，則開始執行
         if now.hour >= 8:
             today_str = now.strftime("%Y-%m-%d")
-            last_run = await run_storage(self._load_last_run_date)
+            last_run = await run_storage(self.service.get_last_signin_date)
             if last_run != today_str:
-                await run_storage(self._save_last_run_date, today_str)
+                await run_storage(self.service.save_last_signin_date, today_str)
                 print(f"[Genshin Cog] 啟動 {today_str} 自動每日簽到...")
                 results = await self.service.run_global_auto_sign_in()
 
@@ -451,7 +423,7 @@ class GenshinCog(commands.Cog):
             accounts_lines = []
             for acc in accounts:
                 game_name = self._get_game_display_name(
-                    self.service._map_game_biz_to_str(acc["game_biz"])
+                    self.service.map_game_biz_to_str(acc["game_biz"])
                 )
                 accounts_lines.append(
                     f"• **{game_name}** - {acc['nickname']} (UID: `{acc['uid']}`) [Lv.{acc['level']} - {acc['server_name']}]"

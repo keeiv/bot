@@ -1,62 +1,26 @@
-# API Documentation
+# Discord 指令與儀表板 API
 
-## Bot API Endpoints
+Discord 功能與現有指令見 [README](../README.md#主要功能)，完整參數以 Cog 的 `app_commands`／文字指令宣告為準。一般文字前綴為 `!`；部分功能使用專用前綴。osu! 綁定指令是 `/osu_bind`、`/osu_unbind`，不是另一套 `/osu bind` 子指令。
 
-### osu! API Integration
-需要設定 `OSU_CLIENT_ID` 和 `OSU_CLIENT_SECRET` 環境變數。
+## 儀表板 HTTP API
 
-#### Commands
-- `/user_info_osu <username>` - 查詢 osu! 用戶統計資料
-- `/osu bind <username>` - 綁定 Discord 帳號到 osu! 帳號
-- `/osu unbind` - 解除綁定
-- `/osu best [username] [limit]` - 查詢最佳成績 (BP)
-- `/osu recent [username]` - 查詢最近遊玩成績
-- `/osu score <beatmap_id> [username]` - 查詢特定譜面成績
+實作見 [`DashboardAPI.create_app()`](../src/cogs/core/dashboard_api.py)。API 預設不啟用；本機預設位址為 `127.0.0.1:8080`。啟用設定見 [Configuration.md](Configuration.md)。
 
-### GitHub Integration
-需要設定 `GITHUB_TOKEN` 環境變數 (選填)。
+所有路由都需要共享密鑰，使用 `Authorization: Bearer ...`，或相容的 `X-Bot-Secret`。若提供 Authorization，會優先驗證該值。密鑰只放網站伺服器環境，不放瀏覽器程式。沒有驗證時回傳 401；Bot 尚未就緒時，除狀態路由外回傳 503。
 
-#### 通用倉庫監控
-- `/repo_watch set owner:<owner> repo:<repo> channel:<channel>` - 設定倉庫監控
-- `/repo_watch status` - 查看監控狀態
-- `/repo_watch disable` - 停用監控
+| 方法 | 路由 | 用途 |
+| --- | --- | --- |
+| GET | `/guilds` | 伺服器清單 |
+| GET | `/status` | 公開安全欄位的即時運作狀態 |
+| GET | `/status/history` | 運作歷史 |
+| GET／POST | `/account` | 個人綁定查詢及修改 |
+| GET | `/guilds/{guild_id}/resources` | 頻道與角色 |
+| POST | `/guilds/{guild_id}/checks` | 設定檢查 |
+| GET／PATCH | `/guilds/{guild_id}/settings` | 讀取或保存一個設定區段 |
+| POST | `/guilds/{guild_id}/panel` | 部署工單面板 |
 
-#### keeiv/bot 專屬追蹤
-- `/repo_track add channel:<channel>` - 追蹤 keeiv/bot 倉庫更新
-- `/repo_track remove` - 移除追蹤
-- `/repo_track status` - 查看追蹤狀態
+個人資料與單一伺服器操作還需要 `X-Discord-User`。網站伺服器須從已驗證登入取得使用者 ID；管理路由會再次向 Discord 查詢成員並檢查 `manage_guild`。
 
-#### GitHub 診斷
-- `/github-diagnose` - 完整 API 連接診斷
-- `/github-status` - 速率限制檢查
+PATCH 設定請求包含 `section`、`values` 與先前讀取的 `revision`；版本衝突回傳 409，參數錯誤回傳 400。設定資料寫入與保存交由公開 Service 方法完成，設定文件只接受該區段宣告的欄位。
 
-### Context Menu (右鍵選單)
-- `舉報訊息` - 右鍵訊息 > 應用程式 > 舉報訊息
-
-## Configuration Files
-
-### Bot Configuration (`data/config/bot.json`)
-```json
-{
-  "guilds": {
-    "guild_id": {
-      "log_channel": "channel_id",
-      "report_channel": "channel_id"
-    }
-  }
-}
-```
-
-### Storage Files (`data/storage/`)
-- `achievements.json` - 成就數據
-- `blacklist.json` - 黑名單
-- `appeals.json` - 申訴記錄
-- `github_watch.json` - GitHub 通用監控設定
-- `giveaways.json` - 抽獎數據
-- `log_channels.json` - 審計日誌頻道設定
-- `management.json` - 倉庫追蹤/歡迎訊息設定
-- `osu_links.json` - osu! 帳號綁定
-
-### Message Logs (`data/logs/messages/`)
-- `message_log.json` - 訊息編輯/刪除日誌
-- General logs: `data/logs/messages/message_log.json`
+程式介面與儲存模式見 [API-Reference.md](API-Reference.md)。

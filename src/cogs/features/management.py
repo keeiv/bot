@@ -53,20 +53,9 @@ class Management(commands.Cog):
         owner = "keeiv"
         repo = "bot"
 
-        if guild_id not in self.service.config:
-            self.service.config[guild_id] = {}
-        if "tracked_repos" not in self.service.config[guild_id]:
-            self.service.config[guild_id]["tracked_repos"] = {}
-
-        self.service.config[guild_id]["tracked_repos"][repo_key] = {
-            "owner": owner,
-            "repo": repo,
-            "channel_id": channel.id,
-            "last_commit": None,
-            "last_pr": None,
-        }
-
-        await run_storage(self.service.save)
+        await run_storage(
+            self.service.add_tracked_repo, guild_id, owner, repo, channel.id
+        )
         await interaction.followup.send(
             f"[成功] 已開始在 {channel.mention} 追蹤 {repo_key} 的更新"
         )
@@ -93,14 +82,7 @@ class Management(commands.Cog):
         guild_id = str(interaction.guild.id)
         repo_key = "keeiv/bot"
 
-        if (
-            guild_id in self.service.config
-            and "tracked_repos" in self.service.config[guild_id]
-            and repo_key in self.service.config[guild_id]["tracked_repos"]
-        ):
-
-            del self.service.config[guild_id]["tracked_repos"][repo_key]
-            await run_storage(self.service.save)
+        if await run_storage(self.service.remove_tracked_repo, guild_id, repo_key):
             await interaction.followup.send(f"[成功] 已停止追蹤 {repo_key}")
         else:
             await interaction.followup.send(
@@ -120,12 +102,8 @@ class Management(commands.Cog):
             return
         guild_id = str(interaction.guild.id)
 
-        if (
-            guild_id not in self.service.config
-            or "tracked_repos" not in self.service.config[guild_id]
-            or not self.service.config[guild_id]["tracked_repos"]
-        ):
-
+        repos = self.service.get_tracked_repos(guild_id)
+        if not repos:
             await interaction.response.send_message(
                 "[提示] 目前沒有追蹤任何倉庫", ephemeral=True
             )
@@ -136,13 +114,8 @@ class Management(commands.Cog):
         )
 
         repo_key = "keeiv/bot"
-        if (
-            guild_id in self.service.config
-            and "tracked_repos" in self.service.config[guild_id]
-            and repo_key in self.service.config[guild_id]["tracked_repos"]
-        ):
-
-            data = self.service.config[guild_id]["tracked_repos"][repo_key]
+        if repo_key in repos:
+            data = repos[repo_key]
             channel = self.bot.get_channel(data["channel_id"])
             channel_name = (
                 channel.mention if channel else f"未知頻道 ({data['channel_id']})"
@@ -161,10 +134,8 @@ class Management(commands.Cog):
     @tasks.loop(minutes=5)
     async def _repo_poll_task(self) -> None:
         """每 5 分鐘檢查倉庫更新"""
-        if not self.service.config:
-            return
-
-        for guild_id, guild_config in list(self.service.config.items()):
+        configs = self.service.get_all_configs()
+        for guild_id, guild_config in configs.items():
             if "tracked_repos" not in guild_config or not guild_config["tracked_repos"]:
                 continue
 
@@ -468,9 +439,6 @@ class Management(commands.Cog):
 
         guild_id = str(interaction.guild.id)
 
-        if guild_id not in self.service.config:
-            self.service.config[guild_id] = {}
-
         welcome_config = {
             "channel_id": channel.id,
             "message": message,
@@ -499,8 +467,7 @@ class Management(commands.Cog):
                 return
             welcome_config["auto_role_id"] = auto_role.id
 
-        self.service.config[guild_id]["welcome"] = welcome_config
-        await run_storage(self.service.save)
+        await run_storage(self.service.set_welcome_config, guild_id, welcome_config)
 
         response_msg = f"[成功] 歡迎訊息將發送至 {channel.mention}"
         if auto_role:
@@ -567,16 +534,12 @@ class Management(commands.Cog):
             return
         guild_id = str(interaction.guild.id)
 
-        if (
-            guild_id not in self.service.config
-            or "welcome" not in self.service.config[guild_id]
-        ):
+        welcome_config = self.service.get_welcome_config(guild_id)
+        if not welcome_config:
             await interaction.response.send_message(
                 "[失敗] 尚未設定歡迎訊息", ephemeral=True
             )
             return
-
-        welcome_config = self.service.config[guild_id]["welcome"]
 
         user_mention = test_user or interaction.user.mention
         server_name = test_server or interaction.guild.name
@@ -626,12 +589,7 @@ class Management(commands.Cog):
 
         guild_id = str(interaction.guild.id)
 
-        if (
-            guild_id in self.service.config
-            and "welcome" in self.service.config[guild_id]
-        ):
-            del self.service.config[guild_id]["welcome"]
-            await run_storage(self.service.save)
+        if await run_storage(self.service.clear_welcome_config, guild_id):
             await interaction.followup.send("[成功] 已停用歡迎訊息")
         else:
             await interaction.followup.send("[失敗] 歡迎訊息尚未啟用", ephemeral=True)
@@ -694,11 +652,6 @@ class Management(commands.Cog):
 
         guild_id = str(interaction.guild.id)
 
-        if guild_id not in self.service.config:
-            self.service.config[guild_id] = {}
-        if "auto_roles" not in self.service.config[guild_id]:
-            self.service.config[guild_id]["auto_roles"] = []
-
         role_config = {
             "role_id": role.id,
             "delay": delay,
@@ -706,8 +659,7 @@ class Management(commands.Cog):
             "require_verification": require_verification,
         }
 
-        self.service.config[guild_id]["auto_roles"].append(role_config)
-        await run_storage(self.service.save)
+        await run_storage(self.service.add_auto_role, guild_id, role_config)
 
         embed = discord.Embed(
             title="[成功] 自動角色已設定",
@@ -737,16 +689,12 @@ class Management(commands.Cog):
             return
         guild_id = str(interaction.guild.id)
 
-        if (
-            guild_id not in self.service.config
-            or "auto_roles" not in self.service.config[guild_id]
-        ):
+        auto_roles = self.service.get_auto_roles(guild_id)
+        if not auto_roles:
             await interaction.response.send_message(
                 "[失敗] 尚未設定自動角色規則", ephemeral=True
             )
             return
-
-        auto_roles = self.service.config[guild_id]["auto_roles"]
 
         embed = discord.Embed(
             title="[自動角色] 規則列表", color=discord.Color.from_rgb(52, 152, 219)
@@ -797,17 +745,12 @@ class Management(commands.Cog):
 
         guild_id = str(interaction.guild.id)
 
-        if (
-            guild_id not in self.service.config
-            or "auto_roles" not in self.service.config[guild_id]
-            or rule_index < 1
-            or rule_index > len(self.service.config[guild_id]["auto_roles"])
-        ):
+        removed_role = await run_storage(
+            self.service.remove_auto_role, guild_id, rule_index
+        )
+        if removed_role is None:
             await interaction.followup.send("[失敗] 無效的規則編號", ephemeral=True)
             return
-
-        removed_role = self.service.config[guild_id]["auto_roles"].pop(rule_index - 1)
-        await run_storage(self.service.save)
 
         role = interaction.guild.get_role(removed_role["role_id"])
         role_name = role.name if role else f"已刪除的角色 ({removed_role['role_id']})"
@@ -821,11 +764,8 @@ class Management(commands.Cog):
         guild_id = str(member.guild.id)
 
         # Handle welcome messages
-        if (
-            guild_id in self.service.config
-            and "welcome" in self.service.config[guild_id]
-        ):
-            welcome_config = self.service.config[guild_id]["welcome"]
+        welcome_config = self.service.get_welcome_config(guild_id)
+        if welcome_config:
             channel = member.guild.get_channel(welcome_config["channel_id"])
 
             if isinstance(
@@ -903,12 +843,8 @@ class Management(commands.Cog):
         self, member: discord.Member, *, verified_only: bool = False
     ) -> None:
         guild_id = str(member.guild.id)
-        if (
-            guild_id in self.service.config
-            and "auto_roles" in self.service.config[guild_id]
-        ):
-            auto_roles = self.service.config[guild_id]["auto_roles"]
-
+        auto_roles = self.service.get_auto_roles(guild_id)
+        if auto_roles:
             for role_config in auto_roles:
                 try:
                     requires_verification = role_config.get(

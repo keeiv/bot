@@ -104,10 +104,9 @@ class Giveaway(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self) -> None:
         """重新載入進行中抽獎的視圖"""
-        data = await run_storage(self.service._load)
-        for gid, ga in data.items():
-            if not ga.get("ended"):
-                self.bot.add_view(GiveawayView(gid), message_id=ga["message_id"])
+        active = await run_storage(self.service.list_all_active)
+        for gid, ga in active:
+            self.bot.add_view(GiveawayView(gid), message_id=ga["message_id"])
 
     # ───────────── 定時檢查 ─────────────
 

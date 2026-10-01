@@ -38,8 +38,10 @@ python -m pip install -r requirements.txt -r requirements-dev.txt
 
 - 函式、類別與變數使用清楚的英文命名；註解、文件字串與介面文字可使用繁體中文。
 - 日誌描述事件、狀態與原因，避免針對特定操作人員撰寫提示。
+- Cog 負責 Discord 參數、權限、確認及呈現；業務修改透過公開 Service 方法執行，不可直接修改 Service 的設定字典或私有快取。查詢結果為獨立副本。保存失敗應拋出錯誤，成功後才發布記憶體狀態。
+- 新功能的載入與分層範例見 [開發指南](docs/DEVELOPMENT.md)。`src/cogs` 自動掃描非套件模組，純工具放入 `src/utils` 或 `src/services`，不維護手動載入清單。
 - 業務文件資料使用 `src/utils/document_store.py`，不得在 MySQL 模式直接讀寫舊 JSON，或在資料庫故障時回退至遷移前快照。
-- 資料庫與外部服務的同步呼叫不得長時間阻塞 Discord 事件迴圈；依需要使用非同步客戶端或 `asyncio.to_thread`。
+- 資料庫與外部服務的同步呼叫不得長時間阻塞 Discord 事件迴圈；完整的同步資料讀取、修改及保存使用 `run_storage()`；外部網路操作使用非同步客戶端或適當的背景執行與逾時。
 - 互動指令在耗時處理前應及時回應或 defer，並處理互動過期與 API 超時。
 - 保留既有加密金鑰與 Cookie 密文；缺少原金鑰時不得產生替代金鑰覆蓋既有帳號。
 
@@ -55,12 +57,12 @@ python -m pip install -r requirements.txt -r requirements-dev.txt
 python -m pytest -q
 ```
 
-MySQL 整合測試是額外的選用測試，須配置獨立的 MySQL 帳號與測試資料庫；資料庫名稱必須以 `_test` 結尾。以下範例使用預先建立的測試資料庫，連線資訊透過測試程序環境變數提供：
+MySQL 整合測試在 CI 的獨立 MySQL 8.4 工作固定執行；本機執行時，須配置獨立的 MySQL 帳號與測試資料庫；資料庫名稱必須以 `_test` 結尾。以下範例使用預先建立的測試資料庫，連線資訊透過測試程序環境變數提供：
 
 ```powershell
 $env:MYSQL_INTEGRATION_TEST = "1"
 $env:MYSQL_TEST_DATABASE = "new_bot_test"
-python -m pytest tests/test_mysql_storage.py -q
+python -m pytest tests/test_mysql_storage.py tests/test_storage_reliability.py tests/test_service_boundaries.py -q
 ```
 
 測試帳號不得具備正式資料庫權限，不得將整合測試指向正式資料庫。一般測試中跳過此測試屬預期行為。

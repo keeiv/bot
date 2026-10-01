@@ -1,4 +1,5 @@
 import asyncio
+import copy
 from datetime import datetime
 import json
 import os
@@ -76,14 +77,14 @@ class BlacklistManager:
             self._local_cache is not None
             and (now - self._local_cache_time) < self._LOCAL_CACHE_TTL
         ):
-            return self._local_cache
+            return copy.deepcopy(self._local_cache)
         self._local_cache = _load_json(LOCAL_BLACKLIST_FILE)
         self._local_cache_time = now
-        return self._local_cache
+        return copy.deepcopy(self._local_cache)
 
     def _update_local_cache(self, data: dict[Any, Any]) -> None:
         """儲存後同步更新快取"""
-        self._local_cache = data
+        self._local_cache = copy.deepcopy(data)
         self._local_cache_time = time.monotonic()
 
     def local_check(self, user_id: int) -> Optional[Dict[Any, Any]]:

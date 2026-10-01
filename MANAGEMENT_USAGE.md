@@ -1,5 +1,7 @@
 # Management Cog 使用指南
 
+儲存說明：本文中的 `.json` 路徑與範例表示業務資料的邏輯鍵與結構。正式 MySQL 模式存入 `documents`，不更新保留的 JSON；JSON 相容模式才寫入檔案。設定透過指令或公開 Service 方法修改，詳見 [開發指南](docs/DEVELOPMENT.md)。
+
 ## Repository Tracking
 追蹤 GitHub 倉庫更新，包含 commits 和 pull requests。
 
@@ -70,7 +72,7 @@
 - Read Message History
 
 ## 資料儲存
-所有設定儲存於 `data/storage/management.json`
+此功能設定的文件鍵為 `data/storage/management.json`
 
 ## 備註
 - 倉庫追蹤每 5 分鐘檢查一次更新

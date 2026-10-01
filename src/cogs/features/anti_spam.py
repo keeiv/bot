@@ -671,31 +671,23 @@ class AntiSpam(commands.Cog):
             return
 
         await interaction.response.defer()
-        s = self.manager.get_settings(interaction.guild_id)
+        changed = await run_storage(
+            self.manager.update_whitelist,
+            interaction.guild_id,
+            action,
+            role.id if role else None,
+            channel.id if channel else None,
+        )
+        verb = "新增" if action == "add" else "移除"
         changes = []
-
-        if role:
-            if action == "add" and role.id not in s["whitelisted_roles"]:
-                s["whitelisted_roles"].append(role.id)
-                changes.append(f"新增角色白名單: {role.mention}")
-            elif action == "remove" and role.id in s["whitelisted_roles"]:
-                s["whitelisted_roles"].remove(role.id)
-                changes.append(f"移除角色白名單: {role.mention}")
-
-        if channel:
-            if action == "add" and channel.id not in s["whitelisted_channels"]:
-                s["whitelisted_channels"].append(channel.id)
-                changes.append(f"新增頻道白名單: {channel.mention}")
-            elif action == "remove" and channel.id in s["whitelisted_channels"]:
-                s["whitelisted_channels"].remove(channel.id)
-                changes.append(f"移除頻道白名單: {channel.mention}")
+        if "roles" in changed:
+            changes.append(f"{verb}角色白名單: {role.mention}")
+        if "channels" in changed:
+            changes.append(f"{verb}頻道白名單: {channel.mention}")
 
         if not changes:
             await interaction.followup.send("[提示] 無變更", ephemeral=True)
             return
-
-        # 白名單直接操作 dict 內的 list，需要手動觸發落盤
-        await run_storage(self.manager._save_all_settings)
 
         embed = discord.Embed(
             title="[設定] 白名單已更新",
