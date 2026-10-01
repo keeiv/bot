@@ -9,6 +9,7 @@ import aiohttp
 
 from src.utils.document_store import document_exists
 from src.utils.document_store import open_document
+from src.utils.storage_worker import run_storage
 from src.utils.time_utils import TZ_OFFSET
 
 DATA_DIR = os.path.join(
@@ -213,7 +214,13 @@ class BlacklistManager:
 
         回傳 dict 含 "source" 鍵標記來源 ("local" / "api")
         """
-        local_entry = self.local_check(user_id)
+        # Keep the worker serialized while allowing the command's short lookup
+        # deadline to expire without waiting for a slow database socket to close.
+        lookup = asyncio.create_task(run_storage(self.local_check, user_id))
+        lookup.add_done_callback(
+            lambda task: None if task.cancelled() else task.exception()
+        )
+        local_entry = await asyncio.shield(lookup)
         if local_entry:
             local_entry["source"] = "local"
             return local_entry

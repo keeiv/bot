@@ -129,6 +129,7 @@ async def test_moderation_defers_before_network(
         return result
 
     service = Mock()
+    service.authorize = AsyncMock(return_value=(Mock(), ""))
     setattr(service, operation, AsyncMock(side_effect=execute))
     monkeypatch.setattr(report, "_service", service)
     modal = getattr(report, modal_name)(Mock(), Mock())

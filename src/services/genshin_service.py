@@ -1,8 +1,10 @@
 """米游社與 HoYoLAB 服務"""
 
 import asyncio
+import copy
 import json
 import os
+import threading
 from typing import Any, Optional
 
 from cryptography.fernet import Fernet
@@ -12,6 +14,7 @@ import genshin
 
 from src.utils.document_store import document_exists
 from src.utils.document_store import open_document
+from src.utils.storage_worker import run_storage
 from src.utils.text_converter import to_traditional_chinese
 
 _DATA_FILE = "data/storage/genshin_accounts.json"
@@ -21,6 +24,7 @@ class GenshinService:
     """米游社與 HoYoLAB 帳號管理、數據獲取與每日自動簽到服務"""
 
     def __init__(self) -> None:
+        self._accounts_lock = threading.RLock()
         self._key = self._get_encryption_key()
         self._fernet = Fernet(self._key)
         self._accounts: dict[Any, Any] = self._load_accounts()
@@ -96,14 +100,31 @@ class GenshinService:
         except (json.JSONDecodeError, OSError):
             return {}
 
-    def _save_accounts(self) -> None:
-        """儲存本地帳號檔案"""
-        os.makedirs(os.path.dirname(_DATA_FILE), exist_ok=True)
-        try:
-            with open_document(_DATA_FILE, "w", encoding="utf-8") as f:
-                json.dump(self._accounts, f, ensure_ascii=False, indent=2)
-        except OSError as e:
-            print(f"[錯誤] 無法儲存米游社帳號檔案: {e}")
+    def _save_accounts(self, accounts=None) -> None:
+        """Persist the proposed snapshot before publishing it to readers."""
+        with open_document(_DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(
+                self._accounts if accounts is None else accounts,
+                f,
+                ensure_ascii=False,
+                indent=2,
+            )
+
+    def _update_account(self, user_key, update):
+        with self._accounts_lock:
+            accounts = copy.deepcopy(self._accounts)
+            if not update(accounts, user_key):
+                return False
+            self._save_accounts(accounts)
+            self._accounts = accounts
+            return True
+
+    def _bind_verified_account(self, user_key, account):
+        def update(accounts, key):
+            accounts[key] = account
+            return True
+
+        return self._update_account(user_key, update)
 
     def encrypt_cookie(self, cookie: str) -> str:
         """加密 Cookie"""
@@ -132,11 +153,11 @@ class GenshinService:
 
     def get_bound_user(self, discord_user_id: int) -> Optional[dict[Any, Any]]:
         """獲取已綁定的使用者設定"""
-        return self._accounts.get(str(discord_user_id))
+        return copy.deepcopy(self._accounts.get(str(discord_user_id)))
 
     def get_all_bound_users(self) -> dict[Any, Any]:
         """獲取所有已綁定的使用者"""
-        return self._accounts
+        return copy.deepcopy(self._accounts)
 
     async def bind_account(
         self, discord_user_id: int, cookie: str, region_str: str
@@ -169,32 +190,36 @@ class GenshinService:
             )
 
         encrypted_cookie = self.encrypt_cookie(cookie)
-        self._accounts[str(discord_user_id)] = {
+        account = {
             "encrypted_cookie": encrypted_cookie,
             "region": region_str,
             "auto_sign_in": True,
             "game_accounts": game_accounts,
         }
-        self._save_accounts()
+        await run_storage(self._bind_verified_account, str(discord_user_id), account)
         return game_accounts
 
     def unbind_account(self, discord_user_id: int) -> bool:
         """解除綁定帳號"""
-        user_key = str(discord_user_id)
-        if user_key not in self._accounts:
-            return False
-        del self._accounts[user_key]
-        self._save_accounts()
-        return True
+
+        def update(accounts, key):
+            if key not in accounts:
+                return False
+            del accounts[key]
+            return True
+
+        return self._update_account(str(discord_user_id), update)
 
     def toggle_auto_sign_in(self, discord_user_id: int, enable: bool) -> bool:
         """開啟或關閉每日自動簽到"""
-        user_key = str(discord_user_id)
-        if user_key not in self._accounts:
-            return False
-        self._accounts[user_key]["auto_sign_in"] = enable
-        self._save_accounts()
-        return True
+
+        def update(accounts, key):
+            if key not in accounts:
+                return False
+            accounts[key]["auto_sign_in"] = enable
+            return True
+
+        return self._update_account(str(discord_user_id), update)
 
     # ─────────────── 業務 API ───────────────
 

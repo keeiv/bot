@@ -8,6 +8,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from src.services.temp_voice_service import TempVoiceService
+from src.utils.storage_worker import run_storage
 
 TZ_OFFSET = timezone(timedelta(hours=8))
 ENVC_PREFIX = "envc*"
@@ -43,30 +44,32 @@ class TempVoice(commands.Cog):
         name_template: str = "{username}的家",
     ) -> None:
         """設定暫時語音頻道觸發房間"""
+        await interaction.response.defer(thinking=True, ephemeral=False)
         if (
             interaction.guild is None
             or interaction.guild_id is None
             or not isinstance(interaction.user, discord.Member)
         ):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "此功能只能在伺服器內使用。", ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.manage_channels:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "[失敗] 你需要「管理頻道」權限才能使用此指令", ephemeral=True
             )
             return
 
         if len(name_template) > 100:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "[失敗] 名稱範本不能超過 100 字元", ephemeral=True
             )
             return
 
         resolved_category_id = category.id if category else trigger.category_id
 
-        self.service.save_guild_config(
+        await run_storage(
+            self.service.save_guild_config,
             guild_id=interaction.guild.id,
             trigger_channel_id=trigger.id,
             category_id=resolved_category_id,
@@ -99,29 +102,30 @@ class TempVoice(commands.Cog):
         embed.set_footer(
             text=f"由 {interaction.user} 設定 | 伺服器：{interaction.guild.name}"
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     @temp_voice.command(name="status", description="查看此伺服器的暫時語音頻道系統狀態")
     async def status(self, interaction: discord.Interaction) -> None:
         """顯示暫時語音頻道系統設定狀態"""
+        await interaction.response.defer(thinking=True, ephemeral=True)
         if (
             interaction.guild is None
             or interaction.guild_id is None
             or not isinstance(interaction.user, discord.Member)
         ):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "此功能只能在伺服器內使用。", ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.manage_channels:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "[失敗] 你需要「管理頻道」權限才能使用此指令", ephemeral=True
             )
             return
 
-        config = self.service.get_guild_config(interaction.guild.id)
+        config = await run_storage(self.service.get_guild_config, interaction.guild.id)
         if not config:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "[提示] 此伺服器尚未設定暫時語音頻道系統，請使用 `/temp_voice setup` 設定",
                 ephemeral=True,
             )
@@ -130,7 +134,9 @@ class TempVoice(commands.Cog):
         trigger_ch = interaction.guild.get_channel(config["trigger_channel_id"])
         category_id = config.get("category_id")
         category = interaction.guild.get_channel(category_id) if category_id else None
-        active_channels = self.service.get_guild_channels(interaction.guild.id)
+        active_channels = await run_storage(
+            self.service.get_guild_channels, interaction.guild.id
+        )
 
         embed = discord.Embed(
             title="[資訊] 暫時語音頻道系統狀態",
@@ -162,35 +168,36 @@ class TempVoice(commands.Cog):
             inline=True,
         )
         embed.set_footer(text=f"伺服器：{interaction.guild.name}")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     @temp_voice.command(name="disable", description="停用此伺服器的暫時語音頻道系統")
     async def disable(self, interaction: discord.Interaction) -> None:
         """停用暫時語音頻道系統"""
+        await interaction.response.defer(thinking=True, ephemeral=False)
         if (
             interaction.guild is None
             or interaction.guild_id is None
             or not isinstance(interaction.user, discord.Member)
         ):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "此功能只能在伺服器內使用。", ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.manage_channels:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "[失敗] 你需要「管理頻道」權限才能使用此指令", ephemeral=True
             )
             return
 
-        config = self.service.get_guild_config(interaction.guild.id)
+        config = await run_storage(self.service.get_guild_config, interaction.guild.id)
         if not config:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "[提示] 此伺服器尚未啟用暫時語音頻道系統", ephemeral=True
             )
             return
 
-        self.service.remove_guild_config(interaction.guild.id)
-        await interaction.response.send_message(
+        await run_storage(self.service.remove_guild_config, interaction.guild.id)
+        await interaction.followup.send(
             "[成功] 已停用此伺服器的暫時語音頻道系統\n（現有暫時頻道不受影響，將在清空後自動刪除）"
         )
 
@@ -199,7 +206,7 @@ class TempVoice(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self) -> None:
         """啟動時清理殘留的暫時頻道記錄"""
-        all_ids = self.service.get_all_channel_ids()
+        all_ids = await run_storage(self.service.get_all_channel_ids)
         if not all_ids:
             return
 
@@ -209,7 +216,7 @@ class TempVoice(commands.Cog):
             if ch is not None:
                 valid_ids.add(channel_id)
 
-        removed = self.service.remove_stale_channels(valid_ids)
+        removed = await run_storage(self.service.remove_stale_channels, valid_ids)
         if removed:
             print(f"[TempVoice] 啟動清理：已移除 {removed} 筆殘留頻道記錄")
 
@@ -222,7 +229,7 @@ class TempVoice(commands.Cog):
     ) -> None:
         """監聽語音狀態：觸發建立、偵測空頻道刪除"""
         guild = member.guild
-        config = self.service.get_guild_config(guild.id)
+        config = await run_storage(self.service.get_guild_config, guild.id)
 
         # ── 使用者加入觸發頻道 → 建立暫時頻道 ──
         if (
@@ -236,9 +243,9 @@ class TempVoice(commands.Cog):
         if before.channel and before.channel.id != (
             config["trigger_channel_id"] if config else None
         ):
-            ch_data = self.service.get_channel(before.channel.id)
+            ch_data = await run_storage(self.service.get_channel, before.channel.id)
             if ch_data and len(before.channel.members) == 0:
-                self.service.remove_channel(before.channel.id)
+                await run_storage(self.service.remove_channel, before.channel.id)
                 try:
                     await before.channel.delete(reason="暫時語音頻道已清空，自動刪除")
                 except discord.HTTPException:
@@ -273,7 +280,8 @@ class TempVoice(commands.Cog):
                 connect=True,
                 view_channel=True,
             )
-            self.service.save_channel(
+            await run_storage(
+                self.service.save_channel,
                 channel_id=new_channel.id,
                 guild_id=guild.id,
                 owner_id=member.id,
@@ -417,7 +425,7 @@ class TempVoice(commands.Cog):
     async def _cmd_name(self, message: discord.Message, args: str) -> None:
         if message.guild is None or not isinstance(message.author, discord.Member):
             return
-        result = self._get_user_owned_channel(message.author)
+        result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
                 "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
@@ -455,7 +463,7 @@ class TempVoice(commands.Cog):
     async def _cmd_limit(self, message: discord.Message, args: str) -> None:
         if message.guild is None or not isinstance(message.author, discord.Member):
             return
-        result = self._get_user_owned_channel(message.author)
+        result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
                 "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
@@ -495,7 +503,7 @@ class TempVoice(commands.Cog):
     async def _cmd_bitrate(self, message: discord.Message, args: str) -> None:
         if message.guild is None or not isinstance(message.author, discord.Member):
             return
-        result = self._get_user_owned_channel(message.author)
+        result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
                 "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
@@ -538,7 +546,7 @@ class TempVoice(commands.Cog):
     async def _cmd_hide(self, message: discord.Message, args: str) -> None:
         if message.guild is None or not isinstance(message.author, discord.Member):
             return
-        result = self._get_user_owned_channel(message.author)
+        result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
                 "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
@@ -562,7 +570,7 @@ class TempVoice(commands.Cog):
     async def _cmd_unhide(self, message: discord.Message, args: str) -> None:
         if message.guild is None or not isinstance(message.author, discord.Member):
             return
-        result = self._get_user_owned_channel(message.author)
+        result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
                 "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
@@ -582,7 +590,7 @@ class TempVoice(commands.Cog):
     async def _cmd_lock(self, message: discord.Message, args: str) -> None:
         if message.guild is None or not isinstance(message.author, discord.Member):
             return
-        result = self._get_user_owned_channel(message.author)
+        result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
                 "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
@@ -605,7 +613,7 @@ class TempVoice(commands.Cog):
     async def _cmd_unlock(self, message: discord.Message, args: str) -> None:
         if message.guild is None or not isinstance(message.author, discord.Member):
             return
-        result = self._get_user_owned_channel(message.author)
+        result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
                 "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
@@ -627,7 +635,7 @@ class TempVoice(commands.Cog):
     async def _cmd_kick(self, message: discord.Message, args: str) -> None:
         if message.guild is None or not isinstance(message.author, discord.Member):
             return
-        result = self._get_user_owned_channel(message.author)
+        result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
                 "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
@@ -676,7 +684,7 @@ class TempVoice(commands.Cog):
     async def _cmd_ban(self, message: discord.Message, args: str) -> None:
         if message.guild is None or not isinstance(message.author, discord.Member):
             return
-        result = self._get_user_owned_channel(message.author)
+        result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
                 "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
@@ -700,7 +708,7 @@ class TempVoice(commands.Cog):
             await message.reply("[失敗] 你無法封鎖自己", mention_author=False)
             return
 
-        self.service.add_ban(channel.id, target.id)
+        await run_storage(self.service.add_ban, channel.id, target.id)
         try:
             await channel.set_permissions(target, connect=False, view_channel=False)
             # 若目標在頻道內，一併踢出
@@ -724,7 +732,7 @@ class TempVoice(commands.Cog):
     async def _cmd_unban(self, message: discord.Message, args: str) -> None:
         if message.guild is None or not isinstance(message.author, discord.Member):
             return
-        result = self._get_user_owned_channel(message.author)
+        result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
                 "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
@@ -744,7 +752,7 @@ class TempVoice(commands.Cog):
         if not isinstance(target, discord.Member):
             await message.reply("請指定此伺服器的成員。", mention_author=False)
             return
-        self.service.remove_ban(channel.id, target.id)
+        await run_storage(self.service.remove_ban, channel.id, target.id)
         try:
             await channel.set_permissions(target, overwrite=None)
             await message.reply(
@@ -759,7 +767,7 @@ class TempVoice(commands.Cog):
     async def _cmd_transfer(self, message: discord.Message, args: str) -> None:
         if message.guild is None or not isinstance(message.author, discord.Member):
             return
-        result = self._get_user_owned_channel(message.author)
+        result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
                 "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
@@ -794,7 +802,7 @@ class TempVoice(commands.Cog):
             )
             return
 
-        self.service.set_owner(channel.id, target.id)
+        await run_storage(self.service.set_owner, channel.id, target.id)
         try:
             # 移除舊擁有者的額外權限
             await channel.set_permissions(message.author, overwrite=None)
@@ -817,7 +825,7 @@ class TempVoice(commands.Cog):
     async def _cmd_claim(self, message: discord.Message, args: str) -> None:
         if message.guild is None or not isinstance(message.author, discord.Member):
             return
-        result = self._get_user_in_temp_channel(message.author)
+        result = await run_storage(self._get_user_in_temp_channel, message.author)
         if not result:
             await message.reply(
                 "[失敗] 你需要在暫時語音頻道中才能使用此指令", mention_author=False
@@ -838,7 +846,7 @@ class TempVoice(commands.Cog):
             )
             return
 
-        self.service.set_owner(channel.id, message.author.id)
+        await run_storage(self.service.set_owner, channel.id, message.author.id)
         try:
             await channel.set_permissions(
                 message.author,

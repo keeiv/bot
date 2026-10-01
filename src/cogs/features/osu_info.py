@@ -6,6 +6,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from src.services.osu_service import OsuService
+from src.utils.storage_worker import run_storage
 
 
 class OsuInfo(commands.Cog):
@@ -115,7 +116,7 @@ class OsuInfo(commands.Cog):
             osu_user = await asyncio.wait_for(
                 asyncio.to_thread(self.service.api.user, username), timeout=10
             )
-            self.service.bind(interaction.user.id, osu_user.username)
+            await run_storage(self.service.bind, interaction.user.id, osu_user.username)
 
             await interaction.followup.send(
                 f"已綁定 osu! 帳號: {osu_user.username}", ephemeral=True
@@ -128,7 +129,7 @@ class OsuInfo(commands.Cog):
         await interaction.response.defer(ephemeral=True)
 
         unbound_username = self.service.get_bound_username(interaction.user.id)
-        if not self.service.unbind(interaction.user.id):
+        if not (await run_storage(self.service.unbind, interaction.user.id)):
             await interaction.followup.send("你尚未綁定 osu! 帳號", ephemeral=True)
             return
 

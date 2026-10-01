@@ -25,6 +25,10 @@ class MySQLConnection:
     def __init__(self, dict_rows=False):
         self.connection = connect_mysql(dict_rows=dict_rows)
 
+    def ping(self):
+        # A transaction must never silently reconnect and lose pending writes.
+        self.connection.ping(reconnect=False)
+
     def execute(self, sql, params=()):
         sql = sql.replace("INSERT OR REPLACE", "REPLACE").replace("?", "%s")
         sql = re.sub(r"\bkey\b", "`key`", sql)

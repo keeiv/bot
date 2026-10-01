@@ -2,6 +2,7 @@
 
 import json
 import os
+import threading
 from typing import Any, Optional
 
 from src.utils.document_store import document_exists
@@ -14,6 +15,7 @@ class OsuService:
     """osu! 帳號綁定資料存取與 API 初始化"""
 
     def __init__(self) -> None:
+        self._links_lock = threading.RLock()
         self._api = None
         self._api_error: Optional[str] = None
         self._links: dict[Any, Any] = self._load_links()
@@ -51,24 +53,32 @@ class OsuService:
         except (json.JSONDecodeError, OSError):
             return {}
 
-    def _save_links(self) -> None:
+    def _save_links(self, links=None) -> None:
         with open_document(_DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(self._links, f, ensure_ascii=False, indent=2)
+            json.dump(
+                self._links if links is None else links, f, ensure_ascii=False, indent=2
+            )
 
     # ─────────────── 綁定 ───────────────
 
     def bind(self, user_id: int, username: str) -> None:
         """綁定 Discord 用戶與 osu! 帳號"""
-        self._links[str(user_id)] = username
-        self._save_links()
+        with self._links_lock:
+            links = dict(self._links)
+            links[str(user_id)] = username
+            self._save_links(links)
+            self._links = links
 
     def unbind(self, user_id: int) -> bool:
         """解除綁定，回傳是否有綁定存在"""
-        if str(user_id) not in self._links:
-            return False
-        del self._links[str(user_id)]
-        self._save_links()
-        return True
+        with self._links_lock:
+            links = dict(self._links)
+            if str(user_id) not in links:
+                return False
+            del links[str(user_id)]
+            self._save_links(links)
+            self._links = links
+            return True
 
     def get_bound_username(self, user_id: int) -> Optional[str]:
         """取得綁定的 osu! 使用者名稱"""

@@ -10,6 +10,7 @@ from discord.ext import commands
 
 from src.services.achievement_service import ACHIEVEMENTS
 from src.services.achievement_service import AchievementService
+from src.utils.storage_worker import run_storage
 
 TZ_OFFSET = timezone(timedelta(hours=8))
 
@@ -79,8 +80,12 @@ class Achievements(commands.Cog):
         if user is None:
             user = interaction.user
 
-        unlocked = self.service.get_user_achievements(user.id, interaction.guild_id)
-        progress = self.service.get_progress(user.id, interaction.guild_id)
+        unlocked = await run_storage(
+            self.service.get_user_achievements, user.id, interaction.guild_id
+        )
+        progress = await run_storage(
+            self.service.get_progress, user.id, interaction.guild_id
+        )
 
         embed = discord.Embed(
             title="成就收集",
@@ -134,8 +139,11 @@ class Achievements(commands.Cog):
             )
             return
         await interaction.response.defer()
-        self.service.unlock(
-            interaction.user.id, interaction.guild.id, "achievement_explorer"
+        await run_storage(
+            self.service.unlock,
+            interaction.user.id,
+            interaction.guild.id,
+            "achievement_explorer",
         )
 
         rarity_order = ["legendary", "epic", "rare", "uncommon", "common"]

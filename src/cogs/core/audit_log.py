@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
 
 from src.services.audit_log_service import AuditLogService
+from src.utils.storage_worker import run_storage
 from src.utils.time_utils import get_current_time_str
 from src.utils.time_utils import TZ_OFFSET
 
@@ -17,7 +18,7 @@ class AuditLog(commands.Cog):
 
     async def send_log_embed(self, guild_id: int, embed: discord.Embed) -> None:
         """發送日誌 Embed 到設定的日誌頻道"""
-        log_channel_id = self.service.get_channel_id(guild_id)
+        log_channel_id = await run_storage(self.service.get_channel_id, guild_id)
         if not log_channel_id:
             return
         try:
