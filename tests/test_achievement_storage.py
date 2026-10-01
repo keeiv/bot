@@ -180,7 +180,7 @@ def test_read_failures_propagate_without_clearing_cache_or_rewriting_data(
     service = AchievementService()
     service.get_user_achievements(1461349028263497969)
     before_cache = copy.deepcopy(service._cache)
-    service._cache_time = 0
+    service._cache_time = time.monotonic() - service._CACHE_TTL - 1
     monkeypatch.setattr(achievement_service, "read_document", Mock(side_effect=failure))
     with pytest.raises(type(failure)):
         service.get_user_achievements(1461349028263497969)
@@ -209,7 +209,7 @@ def test_invalid_records_never_replace_valid_cache_or_get_overwritten(
     service.get_user_achievements(1461349028263497969)
     before_cache = copy.deepcopy(service._cache)
     write_document(path, invalid)
-    service._cache_time = 0
+    service._cache_time = time.monotonic() - service._CACHE_TTL - 1
     with pytest.raises(TypeError):
         service.get_user_achievements(1, 9)
     with pytest.raises(TypeError):
@@ -242,7 +242,7 @@ def test_corrupt_document_stays_intact_and_blocks_unlock(backend, initial):
                 before = cursor.fetchone()
             connection.commit()
         failure = StorageError
-    service._cache_time = 0
+    service._cache_time = time.monotonic() - service._CACHE_TTL - 1
     with pytest.raises(failure):
         service.get_user_achievements(1461349028263497969)
     with pytest.raises(failure):
