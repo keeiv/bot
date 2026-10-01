@@ -17,6 +17,7 @@ from src.utils.document_store import open_document
 from src.utils.github_manager import get_github_manager
 from src.utils.github_manager import GitHubAPIManager
 from src.utils.github_manager import init_github_manager
+from src.utils.storage_worker import run_storage
 
 # UTC+8 時區
 TZ_OFFSET = timezone(timedelta(hours=8))
@@ -208,7 +209,7 @@ class GithubWatch(commands.Cog):
                     continue
 
                 cfg["last_sha"] = sha
-                self._save_config()
+                await run_storage(self._save_config)
 
                 await self._send_update_message(
                     int(guild_key), int(channel_id), owner, repo, commit
@@ -251,7 +252,7 @@ class GithubWatch(commands.Cog):
             "last_sha": None,
             "interval_minutes": interval_minutes,
         }
-        self._save_config()
+        await run_storage(self._save_config)
 
         await interaction.followup.send(
             f"已啟用 repo 通知\nRepo: {owner}/{repo}\nChannel: {channel.mention}\nInterval: {interval_minutes} 分鐘",
@@ -311,7 +312,7 @@ class GithubWatch(commands.Cog):
             return
 
         cfg["enabled"] = False
-        self._save_config()
+        await run_storage(self._save_config)
         await interaction.followup.send("已停用 repo 通知", ephemeral=True)
 
 

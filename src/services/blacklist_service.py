@@ -5,6 +5,7 @@ from typing import Any
 
 import discord
 
+from src.utils.storage_worker import run_storage
 from src.utils.time_utils import TZ_OFFSET
 
 
@@ -30,13 +31,13 @@ class BlacklistService:
         if not entry:
             return "not_blacklisted"
 
-        existing = manager.get_appeal(user.id)
+        existing = await run_storage(manager.get_appeal, user.id)
         if existing and existing.get("status") == "待處理":
             return "already_pending"
 
         source = entry.get("source", "local")
         reason = entry.get("reason", "未提供原因")
-        manager.add_appeal(user.id, reason, source=source)
+        await run_storage(manager.add_appeal, user.id, reason, source=source)
         return "ok"
 
     def build_review_embed(

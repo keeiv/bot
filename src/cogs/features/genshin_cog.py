@@ -15,6 +15,7 @@ import genshin
 from src.services.genshin_service import GenshinService
 from src.utils.document_store import document_exists
 from src.utils.document_store import open_document
+from src.utils.storage_worker import run_storage
 
 TZ_OFFSET = timezone(timedelta(hours=8))
 
@@ -323,9 +324,9 @@ class GenshinCog(commands.Cog):
         # 如果今日尚未執行，且目前時間已過 8:00 AM，則開始執行
         if now.hour >= 8:
             today_str = now.strftime("%Y-%m-%d")
-            last_run = self._load_last_run_date()
+            last_run = await run_storage(self._load_last_run_date)
             if last_run != today_str:
-                self._save_last_run_date(today_str)
+                await run_storage(self._save_last_run_date, today_str)
                 print(f"[Genshin Cog] 啟動 {today_str} 自動每日簽到...")
                 results = await self.service.run_global_auto_sign_in()
 
@@ -407,7 +408,7 @@ class GenshinCog(commands.Cog):
     async def mhy_unbind(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
 
-        success = self.service.unbind_account(interaction.user.id)
+        success = await run_storage(self.service.unbind_account, interaction.user.id)
         if success:
             await interaction.followup.send(
                 " 已解除您的帳號連結，並已從本機器人伺服器中徹底清除您的加密 Cookie。",
@@ -474,7 +475,9 @@ class GenshinCog(commands.Cog):
     ) -> None:
         await interaction.response.defer(ephemeral=True)
 
-        success = self.service.toggle_auto_sign_in(interaction.user.id, enable)
+        success = await run_storage(
+            self.service.toggle_auto_sign_in, interaction.user.id, enable
+        )
         if success:
             status = "開啟" if enable else "關閉"
             await interaction.followup.send(

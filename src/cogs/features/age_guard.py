@@ -10,6 +10,7 @@ from discord.ext import commands
 
 from src.services.age_guard_service import AgeGuardService
 from src.utils.config_manager import get_guild_log_channel
+from src.utils.storage_worker import run_storage
 
 TZ_OFFSET = timezone(timedelta(hours=8))
 
@@ -36,23 +37,24 @@ class AgeGuard(commands.Cog):
     async def set_adult_role(
         self, interaction: discord.Interaction, role: discord.Role
     ) -> None:
+        await interaction.response.defer(thinking=True, ephemeral=True)
         if (
             interaction.guild is None
             or interaction.guild_id is None
             or not isinstance(interaction.user, discord.Member)
         ):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "此功能只能在伺服器內使用。", ephemeral=True
             )
             return
-        self.service.set_adult_role(interaction.guild_id, role.id)
+        await run_storage(self.service.set_adult_role, interaction.guild_id, role.id)
         embed = discord.Embed(
             title="[成功] 成人身份組已設定",
             description=f"成人身份組已設為 {role.mention}\n偵測到未成年宣告時將自動移除此身份組。",
             color=discord.Color.from_rgb(46, 204, 113),
             timestamp=datetime.now(TZ_OFFSET),
         )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     @age_guard.command(
         name="set_punishment_role",
@@ -62,36 +64,40 @@ class AgeGuard(commands.Cog):
     async def set_punishment_role(
         self, interaction: discord.Interaction, role: discord.Role
     ) -> None:
+        await interaction.response.defer(thinking=True, ephemeral=True)
         if (
             interaction.guild is None
             or interaction.guild_id is None
             or not isinstance(interaction.user, discord.Member)
         ):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "此功能只能在伺服器內使用。", ephemeral=True
             )
             return
-        self.service.set_punishment_role(interaction.guild_id, role.id)
+        await run_storage(
+            self.service.set_punishment_role, interaction.guild_id, role.id
+        )
         embed = discord.Embed(
             title="[成功] 懲罰身份組已設定",
             description=f"懲罰身份組已設為 {role.mention}\n偵測到未成年宣告時將自動附加此身份組。",
             color=discord.Color.from_rgb(46, 204, 113),
             timestamp=datetime.now(TZ_OFFSET),
         )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     @age_guard.command(name="toggle", description="開啟或關閉年齡守門員")
     async def toggle(self, interaction: discord.Interaction) -> None:
+        await interaction.response.defer(thinking=True, ephemeral=True)
         if (
             interaction.guild is None
             or interaction.guild_id is None
             or not isinstance(interaction.user, discord.Member)
         ):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "此功能只能在伺服器內使用。", ephemeral=True
             )
             return
-        new_state = self.service.toggle_enabled(interaction.guild_id)
+        new_state = await run_storage(self.service.toggle_enabled, interaction.guild_id)
         state_str = "開啟" if new_state else "關閉"
         color = (
             discord.Color.from_rgb(46, 204, 113)
@@ -103,20 +109,21 @@ class AgeGuard(commands.Cog):
             color=color,
             timestamp=datetime.now(TZ_OFFSET),
         )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     @age_guard.command(name="status", description="查看年齡守門員目前設定")
     async def status(self, interaction: discord.Interaction) -> None:
+        await interaction.response.defer(thinking=True, ephemeral=True)
         if (
             interaction.guild is None
             or interaction.guild_id is None
             or not isinstance(interaction.user, discord.Member)
         ):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "此功能只能在伺服器內使用。", ephemeral=True
             )
             return
-        cfg = self.service.get_config(interaction.guild_id)
+        cfg = await run_storage(self.service.get_config, interaction.guild_id)
         enabled = cfg.get("enabled", False)
         adult_role_id = cfg.get("adult_role_id")
         punishment_role_id = cfg.get("punishment_role_id")
@@ -149,7 +156,7 @@ class AgeGuard(commands.Cog):
             inline=True,
         )
         embed.set_footer(text=f"伺服器: {interaction.guild.name}")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
@@ -159,7 +166,7 @@ class AgeGuard(commands.Cog):
         if not isinstance(message.author, discord.Member):
             return
 
-        cfg = self.service.get_config(message.guild.id)
+        cfg = await run_storage(self.service.get_config, message.guild.id)
         if not cfg.get("enabled", False):
             return
 
@@ -202,7 +209,7 @@ class AgeGuard(commands.Cog):
         if not actions_taken:
             return
 
-        log_channel_id = get_guild_log_channel(guild.id)
+        log_channel_id = await run_storage(get_guild_log_channel, guild.id)
         if not log_channel_id:
             return
         log_channel = guild.get_channel(log_channel_id)

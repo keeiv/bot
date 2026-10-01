@@ -7,6 +7,7 @@ import discord
 from discord.ext import commands
 
 from src.services.petition_service import PetitionService
+from src.utils.storage_worker import run_storage
 
 _TARGET_USER_ID = 865537073607606293
 _IMAGE_FILE = "data/storage/petition.png"
@@ -22,7 +23,7 @@ class Petition(commands.Cog):
     @commands.command(name="請求zas女裝")
     async def sign_petition(self, context: commands.Context[Any]) -> None:
         """副署請願書並顯示連續副署天數。"""
-        streak = self.service.sign(context.author.id)
+        streak = await run_storage(self.service.sign, context.author.id)
         embed = discord.Embed(
             description=(
                 f"# {context.author.name} 副署了 <@{_TARGET_USER_ID}> 女裝請願書"

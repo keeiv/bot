@@ -12,6 +12,7 @@ from discord.ext import commands
 from discord.ext import tasks
 
 from src.services.giveaway_service import GiveawayService
+from src.utils.storage_worker import run_storage
 
 TZ_OFFSET = timezone(timedelta(hours=8))
 GIVEAWAY_EMOJI = "\U0001f389"
@@ -37,23 +38,20 @@ class GiveawayView(ui.View):
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
         """參加抽獎 (使用鎖防止競態條件)"""
+        await interaction.response.defer(thinking=True, ephemeral=True)
         async with _service.lock:
-            action, count = _service.toggle_participant(
-                self.giveaway_id, str(interaction.user.id)
+            action, count = await run_storage(
+                _service.toggle_participant, self.giveaway_id, str(interaction.user.id)
             )
 
         if action is None:
-            await interaction.response.send_message(
-                "[提示] 此抽獎已結束", ephemeral=True
-            )
+            await interaction.followup.send("[提示] 此抽獎已結束", ephemeral=True)
             return
 
         if action == "left":
-            await interaction.response.send_message(
-                "[提示] 你已退出抽獎", ephemeral=True
-            )
+            await interaction.followup.send("[提示] 你已退出抽獎", ephemeral=True)
         else:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"[成功] 你已參加抽獎！目前共 {count} 位參與者", ephemeral=True
             )
 
@@ -106,7 +104,7 @@ class Giveaway(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self) -> None:
         """重新載入進行中抽獎的視圖"""
-        data = self.service._load()
+        data = await run_storage(self.service._load)
         for gid, ga in data.items():
             if not ga.get("ended"):
                 self.bot.add_view(GiveawayView(gid), message_id=ga["message_id"])
@@ -117,7 +115,7 @@ class Giveaway(commands.Cog):
     async def check_giveaways(self) -> None:
         """檢查並結算到期的抽獎"""
         await self.bot.wait_until_ready()
-        expired = self.service.check_expired()
+        expired = await run_storage(self.service.check_expired)
         for gid, ga in expired:
             await self._end_giveaway(gid, ga)
 
@@ -200,7 +198,8 @@ class Giveaway(commands.Cog):
         await interaction.response.defer()
         msg = await target_channel.send(embed=embed, view=view)
 
-        self.service.create(
+        await run_storage(
+            self.service.create,
             giveaway_id,
             {
                 "guild_id": interaction.guild_id,
@@ -229,7 +228,7 @@ class Giveaway(commands.Cog):
     @app_commands.describe(giveaway_id="抽獎 ID (可從 Embed footer 查看)")
     async def end_cmd(self, interaction: discord.Interaction, giveaway_id: str) -> None:
         """提前結束抽獎"""
-        ga = self.service.get(giveaway_id)
+        ga = await run_storage(self.service.get, giveaway_id)
         if not ga:
             await interaction.response.send_message(
                 "[失敗] 找不到此抽獎", ephemeral=True
@@ -259,7 +258,7 @@ class Giveaway(commands.Cog):
         winners: int | None = None,
     ) -> None:
         """重新抽取得獎者"""
-        ga = self.service.get(giveaway_id)
+        ga = await run_storage(self.service.get, giveaway_id)
         if not ga or not ga.get("ended"):
             await interaction.response.send_message(
                 "[失敗] 找不到已結束的抽獎", ephemeral=True
@@ -267,7 +266,7 @@ class Giveaway(commands.Cog):
             return
 
         num_winners = winners or ga["winners"]
-        winner_ids = self.service.reroll(giveaway_id, num_winners)
+        winner_ids = await run_storage(self.service.reroll, giveaway_id, num_winners)
 
         if not winner_ids:
             await interaction.response.send_message("[失敗] 沒有參與者", ephemeral=True)
@@ -304,7 +303,7 @@ class Giveaway(commands.Cog):
             )
             return
         await interaction.response.defer()
-        active = self.service.list_active(interaction.guild_id)
+        active = await run_storage(self.service.list_active, interaction.guild_id)
 
         if not active:
             await interaction.followup.send(
@@ -335,8 +334,8 @@ class Giveaway(commands.Cog):
 
     async def _end_giveaway(self, giveaway_id: str, ga: dict[Any, Any]) -> None:
         """結算抽獎並發送結果"""
-        winner_ids = self.service.pick_winners(giveaway_id)
-        self.service.mark_ended(giveaway_id, winner_ids)
+        winner_ids = await run_storage(self.service.pick_winners, giveaway_id)
+        await run_storage(self.service.mark_ended, giveaway_id, winner_ids)
 
         participants_count = len(ga.get("participants", []))
         if winner_ids:

@@ -9,6 +9,7 @@ from discord.ext import commands
 from src.services.report_service import ReportService
 from src.utils.config_manager import get_guild_report_channel
 from src.utils.config_manager import set_guild_report_channel
+from src.utils.storage_worker import run_storage
 from src.utils.time_utils import TZ_OFFSET
 
 _service = ReportService()
@@ -199,8 +200,14 @@ class WarnModal(ui.Modal, title="警告處理"):
 
         reason_text = self.reason.value
         await interaction.response.defer(thinking=True)
+        target, error = await _service.authorize(
+            self.target, interaction.user, "moderate_members"
+        )
+        if error:
+            await interaction.followup.send(error, ephemeral=True)
+            return
         dm_sent = await _service.execute_warn(
-            self.target, interaction.guild.name, count, reason_text
+            target, interaction.guild.name, count, reason_text
         )
         embed = _service.build_warn_result_embed(
             self.target, interaction.user, count, reason_text, dm_sent
@@ -219,7 +226,9 @@ class ReportActionView(ui.View):
         self.target = target
         self.reported_message = reported_message
 
-    async def _check_permissions(self, interaction: discord.Interaction) -> bool:
+    async def _check_permissions(
+        self, interaction: discord.Interaction, permission="moderate_members"
+    ) -> bool:
         """檢查操作者權限"""
         if (
             interaction.guild is None
@@ -230,10 +239,11 @@ class ReportActionView(ui.View):
                 "此功能只能在伺服器內使用。", ephemeral=True
             )
             return False
-        if not interaction.user.guild_permissions.moderate_members:
-            await interaction.response.send_message(
-                "[失敗] 你需要有管理成員權限才能處理舉報", ephemeral=True
-            )
+        error = ReportService.permission_error(
+            self.target, interaction.user, permission
+        )
+        if error:
+            await interaction.response.send_message(error, ephemeral=True)
             return False
         return True
 
@@ -252,7 +262,7 @@ class ReportActionView(ui.View):
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
         """開啟封禁表單"""
-        if not await self._check_permissions(interaction):
+        if not await self._check_permissions(interaction, "ban_members"):
             return
         modal = BanModal(self.target, self.reported_message)
         await interaction.response.send_modal(modal)
@@ -321,7 +331,9 @@ class Report(commands.Cog):
             return
 
         # 取得舉報頻道
-        report_channel_id = get_guild_report_channel(interaction.guild.id)
+        report_channel_id = await run_storage(
+            get_guild_report_channel, interaction.guild.id
+        )
         if not report_channel_id:
             await interaction.response.send_message(
                 "[失敗] 此伺服器尚未設定舉報頻道，請管理員使用 `/report_channel set` 設定",
@@ -432,38 +444,40 @@ class Report(commands.Cog):
         self, interaction: discord.Interaction, channel: discord.TextChannel
     ) -> None:
         """設定舉報頻道"""
+        await interaction.response.defer(thinking=True, ephemeral=True)
         if (
             interaction.guild is None
             or interaction.guild_id is None
             or not isinstance(interaction.user, discord.Member)
         ):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "此功能只能在伺服器內使用。", ephemeral=True
             )
             return
-        set_guild_report_channel(interaction.guild.id, channel.id)
+        await run_storage(set_guild_report_channel, interaction.guild.id, channel.id)
 
         embed = discord.Embed(
             title="[成功] 舉報頻道已設定",
             description=f"舉報訊息將發送至 {channel.mention}",
             color=discord.Color.from_rgb(46, 204, 113),
         )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     @report_group.command(name="status", description="查看舉報頻道設定")
     @app_commands.checks.has_permissions(manage_guild=True)
     async def report_channel_status(self, interaction: discord.Interaction) -> None:
         """查看舉報頻道設定"""
+        await interaction.response.defer(thinking=True, ephemeral=True)
         if (
             interaction.guild is None
             or interaction.guild_id is None
             or not isinstance(interaction.user, discord.Member)
         ):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "此功能只能在伺服器內使用。", ephemeral=True
             )
             return
-        channel_id = get_guild_report_channel(interaction.guild.id)
+        channel_id = await run_storage(get_guild_report_channel, interaction.guild.id)
         if channel_id:
             channel = interaction.guild.get_channel(channel_id)
             if isinstance(
@@ -486,7 +500,7 @@ class Report(commands.Cog):
             description=desc,
             color=discord.Color.from_rgb(52, 152, 219),
         )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 async def setup(bot: commands.Bot) -> None:

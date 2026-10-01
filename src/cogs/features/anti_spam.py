@@ -18,6 +18,7 @@ from src.utils.anti_spam import create_raid_alert_embed
 from src.utils.anti_spam import DETECT_NAMES
 from src.utils.anti_spam import VALID_ACTIONS
 from src.utils.config_manager import get_guild_log_channel
+from src.utils.storage_worker import run_storage
 
 
 class AntiSpam(commands.Cog):
@@ -33,7 +34,7 @@ class AntiSpam(commands.Cog):
 
     async def _send_log(self, guild_id: int, embed: discord.Embed) -> None:
         """發送日誌到設定的頻道"""
-        log_channel_id = get_guild_log_channel(guild_id)
+        log_channel_id = await run_storage(get_guild_log_channel, guild_id)
         if not log_channel_id:
             return
         try:
@@ -311,7 +312,9 @@ class AntiSpam(commands.Cog):
             )
             return
         await interaction.response.defer()
-        self.manager.update_settings(interaction.guild_id, {"enabled": enabled})
+        await run_storage(
+            self.manager.update_settings, interaction.guild_id, {"enabled": enabled}
+        )
         status = "已啟用" if enabled else "已禁用"
         embed = discord.Embed(
             title=f"[設定] 防炸群 {status}",
@@ -352,7 +355,8 @@ class AntiSpam(commands.Cog):
             )
             return
         await interaction.response.defer()
-        self.manager.update_settings(
+        await run_storage(
+            self.manager.update_settings,
             interaction.guild_id,
             {
                 "flood_messages": max(1, messages),
@@ -402,7 +406,8 @@ class AntiSpam(commands.Cog):
             )
             return
         await interaction.response.defer()
-        self.manager.update_settings(
+        await run_storage(
+            self.manager.update_settings,
             interaction.guild_id,
             {
                 "duplicate_enabled": enabled,
@@ -452,7 +457,8 @@ class AntiSpam(commands.Cog):
             )
             return
         await interaction.response.defer()
-        self.manager.update_settings(
+        await run_storage(
+            self.manager.update_settings,
             interaction.guild_id,
             {
                 "mention_enabled": enabled,
@@ -504,7 +510,8 @@ class AntiSpam(commands.Cog):
             )
             return
         await interaction.response.defer()
-        self.manager.update_settings(
+        await run_storage(
+            self.manager.update_settings,
             interaction.guild_id,
             {
                 "link_enabled": enabled,
@@ -560,7 +567,8 @@ class AntiSpam(commands.Cog):
             )
             return
         await interaction.response.defer()
-        self.manager.update_settings(
+        await run_storage(
+            self.manager.update_settings,
             interaction.guild_id,
             {
                 "raid_enabled": enabled,
@@ -605,7 +613,8 @@ class AntiSpam(commands.Cog):
             )
             return
         await interaction.response.defer()
-        self.manager.update_settings(
+        await run_storage(
+            self.manager.update_settings,
             interaction.guild_id,
             {
                 "auto_escalate": enabled,
@@ -686,7 +695,7 @@ class AntiSpam(commands.Cog):
             return
 
         # 白名單直接操作 dict 內的 list，需要手動觸發落盤
-        self.manager._save_all_settings()
+        await run_storage(self.manager._save_all_settings)
 
         embed = discord.Embed(
             title="[設定] 白名單已更新",
@@ -854,7 +863,11 @@ class AntiSpam(commands.Cog):
             return
         await interaction.response.defer()
         sec = max(60, min(seconds, 2419200))  # 60s ~ 28d
-        self.manager.update_settings(interaction.guild_id, {"mute_duration": sec})
+        await run_storage(
+            self.manager.update_settings,
+            interaction.guild_id,
+            {"mute_duration": sec},
+        )
         embed = discord.Embed(
             title="[設定] 禁言時長已更新",
             description=f"禁言時長: **{sec}** 秒 ({sec // 3600}h {(sec % 3600) // 60}m)",
@@ -883,7 +896,8 @@ class AntiSpam(commands.Cog):
             )
             return
 
-        self.manager.update_settings(
+        await run_storage(
+            self.manager.update_settings,
             ctx.guild.id,
             {
                 "enabled": enabled,

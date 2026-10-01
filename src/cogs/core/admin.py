@@ -14,6 +14,8 @@ from discord.ui import Separator
 from discord.ui import TextDisplay
 from discord.ui import Thumbnail
 
+from src.utils.storage_worker import run_storage
+
 
 @dataclass(frozen=True)
 class HelpBlock:
@@ -374,8 +376,8 @@ class Admin(commands.Cog):
 
         async def predicate(ctx: commands.Context[Any]) -> Any:
             blacklist_manager = getattr(self.bot, "blacklist_manager", None)
-            if blacklist_manager is not None and blacklist_manager.local_check(
-                ctx.author.id
+            if blacklist_manager is not None and (
+                await run_storage(blacklist_manager.local_check, ctx.author.id)
             ):
                 embed = discord.Embed(
                     title="[拒絕] 存取被拒",

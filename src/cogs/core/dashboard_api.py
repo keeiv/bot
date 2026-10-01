@@ -20,6 +20,7 @@ from src.services.dashboard_service import atomic_json
 from src.services.dashboard_service import DashboardService
 from src.services.dashboard_service import MAPPINGS
 from src.services.dashboard_service import revision
+from src.utils.storage_worker import run_storage
 
 log = logging.getLogger(__name__)
 
@@ -219,7 +220,7 @@ class DashboardAPI(commands.Cog):
 
     async def get_settings(self, request):
         guild = await self.authorized_guild(request)
-        settings = self.service.read(guild.id)
+        settings = await run_storage(self.service.read, guild.id)
         return web.json_response({"settings": settings, "revision": revision(settings)})
 
     async def save_settings(self, request):
@@ -228,13 +229,15 @@ class DashboardAPI(commands.Cog):
         if not isinstance(body, dict) or set(body) != {"section", "values", "revision"}:
             raise ValueError("請提供 section、values、revision")
         async with self.lock:
-            current = self.service.read(guild.id)
+            current = await run_storage(self.service.read, guild.id)
             if body["revision"] != revision(current):
                 return web.json_response(
                     {"error": "設定已被其他人修改，請重新載入後再儲存"}, status=409
                 )
-            self.service.write(guild, body["section"], body["values"])
-            settings = self.service.read(guild.id)
+            await run_storage(
+                self.service.write, guild, body["section"], body["values"]
+            )
+            settings = await run_storage(self.service.read, guild.id)
         log.info(
             "Dashboard settings saved guild=%s actor=%s section=%s",
             guild.id,
@@ -248,12 +251,14 @@ class DashboardAPI(commands.Cog):
 
         guild = await self.authorized_guild(request)
         async with self.lock:
-            cog, data = self.service.store("ticket")
+            cog, data = await run_storage(self.service.store, "ticket")
             cfg = data.get("guilds", {}).get(str(guild.id), {})
             if not cfg or not cfg.get("enabled", True):
                 raise ValueError("請先儲存並啟用工單設定")
             self.service.validate(
-                guild, "ticket", self.service.read(guild.id)["ticket"]
+                guild,
+                "ticket",
+                (await run_storage(self.service.read, guild.id))["ticket"],
             )
             channel = guild.get_channel(cfg["channel_id"])
             if cfg.get("panel_message_id"):
@@ -274,7 +279,7 @@ class DashboardAPI(commands.Cog):
             updated = copy.deepcopy(data)
             updated["guilds"][str(guild.id)]["panel_message_id"] = message.id
             try:
-                atomic_json(MAPPINGS["ticket"][1], updated)
+                await run_storage(atomic_json, MAPPINGS["ticket"][1], updated)
             except OSError:
                 await message.delete()
                 raise

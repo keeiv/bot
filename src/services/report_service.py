@@ -1,5 +1,6 @@
 """舉報處理業務邏輯服務 (禁言 / 封禁 / 警告)"""
 
+import asyncio
 from datetime import datetime
 from datetime import timedelta
 
@@ -10,6 +11,51 @@ from src.utils.time_utils import TZ_OFFSET
 
 class ReportService:
     """舉報操作執行邏輯與 Embed 建立"""
+
+    @staticmethod
+    def permission_error(target, moderator, permission):
+        if (
+            not isinstance(moderator, discord.Member)
+            or moderator.guild.id != target.guild.id
+        ):
+            return "[失敗] 操作者必須是同一伺服器的成員"
+        if not getattr(moderator.guild_permissions, permission, False):
+            return "[失敗] 操作者缺少此動作所需權限"
+        if target.id == target.guild.owner_id or target.id == moderator.id:
+            return "[失敗] 無法對伺服器擁有者或自己執行此操作"
+        if (
+            moderator.id != target.guild.owner_id
+            and target.top_role >= moderator.top_role
+        ):
+            return "[失敗] 目標身份組不低於操作者"
+        return ""
+
+    async def authorize(self, target, moderator, permission):
+        """Refresh member permissions when a modal is submitted."""
+        if (
+            not isinstance(moderator, discord.Member)
+            or moderator.guild.id != target.guild.id
+        ):
+            return None, "[失敗] 操作者必須是同一伺服器的成員"
+        try:
+            guild = target.guild
+            actor, current_target = await asyncio.wait_for(
+                asyncio.gather(
+                    guild.fetch_member(moderator.id), guild.fetch_member(target.id)
+                ),
+                timeout=10,
+            )
+        except (discord.HTTPException, asyncio.TimeoutError):
+            return None, "[失敗] 無法確認目前成員權限"
+        error = self.permission_error(current_target, actor, permission)
+        bot_member = guild.me
+        if not error and (
+            bot_member is None
+            or not getattr(bot_member.guild_permissions, permission, False)
+            or current_target.top_role >= bot_member.top_role
+        ):
+            error = "[失敗] 機器人權限或身份組層級不足"
+        return (None, error) if error else (current_target, "")
 
     # ========== 禁言 ==========
 
@@ -27,7 +73,10 @@ class ReportService:
         Returns:
             (success, error_message)  — 成功時 error_message 為空字串
         """
-        if days == 0 and hours == 0 and minutes == 0:
+        target, error = await self.authorize(target, moderator, "moderate_members")
+        if error:
+            return False, error
+        if min(days, hours, minutes) < 0 or days == hours == minutes == 0:
             return False, "[失敗] 禁言時間不能為零"
 
         duration = timedelta(days=days, hours=hours, minutes=minutes)
@@ -87,6 +136,9 @@ class ReportService:
         Returns:
             (success, error_message)
         """
+        target, error = await self.authorize(target, moderator, "ban_members")
+        if error:
+            return False, error
         try:
             await target.ban(
                 reason=reason,

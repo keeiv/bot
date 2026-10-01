@@ -15,6 +15,7 @@ from src.utils.document_store import document_exists
 from src.utils.document_store import open_document
 from src.utils.document_store import using_mysql
 from src.utils.document_store import write_document
+from src.utils.storage_worker import run_storage
 from src.utils.time_utils import format_datetime as _format_time
 
 log = logging.getLogger(__name__)
@@ -289,6 +290,6 @@ class ManagementService:
             print(f"[錯誤] 意外錯誤 ({repo_key}): {e}")
 
         if has_changes:
-            self.save()
+            await run_storage(self.save)
 
         return events

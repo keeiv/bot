@@ -18,6 +18,7 @@ from discord.ui import Thumbnail
 
 from src.services.achievement_service import AchievementService
 from src.services.osu_service import OsuService
+from src.utils.storage_worker import run_storage
 
 log = logging.getLogger(__name__)
 
@@ -322,8 +323,10 @@ class UserServerInfo(commands.Cog):
                         self.bot.get_cog("Achievements"),
                     )
                     if achievements_cog:
-                        progress = achievements_cog.service.get_progress(
-                            target_user.id, interaction.guild_id
+                        progress = await run_storage(
+                            achievements_cog.service.get_progress,
+                            target_user.id,
+                            interaction.guild_id,
                         )
                         progress_bar = achievements_cog.service.get_progress_bar(
                             progress["percentage"], 15
@@ -333,8 +336,11 @@ class UserServerInfo(commands.Cog):
                             f"{progress['unlocked']}/{progress['total']} "
                             f"({progress['percentage']}%)"
                         )
-                        achievements_cog.unlock_achievement(
-                            target_user.id, interaction.guild_id, "info_explorer"
+                        await run_storage(
+                            achievements_cog.unlock_achievement,
+                            target_user.id,
+                            interaction.guild_id,
+                            "info_explorer",
                         )
                 except Exception as e:
                     log.warning("[成就] 顯示進度失敗: %s", type(e).__name__)
@@ -428,10 +434,11 @@ class UserServerInfo(commands.Cog):
     @app_commands.command(name="server_info", description="顯示伺服器資訊")
     async def server_info(self, interaction: discord.Interaction) -> None:
         """顯示伺服器資訊"""
+        await interaction.response.defer(thinking=True, ephemeral=False)
         try:
             guild = interaction.guild
             if not guild:
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     "[失敗] 此命令只能在伺服器中使用", ephemeral=True
                 )
                 return
@@ -500,7 +507,7 @@ class UserServerInfo(commands.Cog):
                 description_text,
                 queried_at,
             )
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 view=view,
                 allowed_mentions=discord.AllowedMentions.none(),
             )
@@ -511,15 +518,18 @@ class UserServerInfo(commands.Cog):
                     self.bot.get_cog("Achievements"),
                 )
                 if achievements_cog:
-                    achievements_cog.unlock_achievement(
-                        interaction.user.id, guild.id, "server_analyst"
+                    await run_storage(
+                        achievements_cog.unlock_achievement,
+                        interaction.user.id,
+                        guild.id,
+                        "server_analyst",
                     )
             except Exception as e:
                 print(f"[成就] 伺服器分析成就觸發失敗: {e}")
 
         except Exception as e:
             print(f"[server_info] 錯誤: {e}")
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"[錯誤] 無法獲取伺服器資訊: {str(e)}", ephemeral=True
             )
 

@@ -1,5 +1,7 @@
 from typing import Any
 
+from src.utils.storage_worker import run_storage
+
 """工單系統 Cog"""
 
 from datetime import datetime
@@ -31,9 +33,12 @@ class CloseReasonModal(ui.Modal, title="關閉工單"):
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         """提交關閉原因並鎖定討論串"""
+        await interaction.response.defer(thinking=True)
+        if not await TicketCloseView()._check_close_permission(interaction):
+            return
         thread = interaction.channel
         if not isinstance(thread, discord.Thread):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "[失敗] 此指令只能在工單討論串中使用", ephemeral=True
             )
             return
@@ -49,9 +54,14 @@ class CloseReasonModal(ui.Modal, title="關閉工單"):
         embed.add_field(name="關閉原因", value=reason_text, inline=False)
         embed.set_footer(text=f"工單ID: {thread.id}")
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
-        _service.close_ticket(thread.id, interaction.user.id, reason=reason_text)
+        await run_storage(
+            _service.close_ticket,
+            thread.id,
+            interaction.user.id,
+            reason=reason_text,
+        )
 
         try:
             await thread.edit(locked=True, archived=True)
@@ -65,6 +75,15 @@ class TicketCloseView(ui.View):
     def __init__(self) -> None:
         super().__init__(timeout=None)
 
+    @staticmethod
+    async def _respond(interaction, *args, **kwargs):
+        sender = (
+            interaction.followup.send
+            if interaction.response.is_done()
+            else interaction.response.send_message
+        )
+        await sender(*args, **kwargs)
+
     async def _check_close_permission(self, interaction: discord.Interaction) -> bool:
         """檢查關閉工單權限 (管理員或工單建立者)"""
         if (
@@ -72,21 +91,25 @@ class TicketCloseView(ui.View):
             or interaction.guild_id is None
             or not isinstance(interaction.user, discord.Member)
         ):
-            await interaction.response.send_message(
-                "此功能只能在伺服器內使用。", ephemeral=True
+            await self._respond(
+                interaction, "此功能只能在伺服器內使用。", ephemeral=True
             )
             return False
         thread = interaction.channel
         if not isinstance(thread, discord.Thread):
-            await interaction.response.send_message(
-                "[失敗] 此指令只能在工單討論串中使用", ephemeral=True
+            await self._respond(
+                interaction, "[失敗] 此指令只能在工單討論串中使用", ephemeral=True
             )
             return False
 
         is_staff = interaction.user.guild_permissions.manage_threads
-        if not _service.can_close(thread.id, interaction.user.id, is_staff):
-            await interaction.response.send_message(
-                "[失敗] 只有管理員或工單建立者可以關閉工單", ephemeral=True
+        if not (
+            await run_storage(
+                _service.can_close, thread.id, interaction.user.id, is_staff
+            )
+        ):
+            await self._respond(
+                interaction, "[失敗] 只有管理員或工單建立者可以關閉工單", ephemeral=True
             )
             return False
 
@@ -101,6 +124,7 @@ class TicketCloseView(ui.View):
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
         """直接關閉工單"""
+        await interaction.response.defer(thinking=True)
         if not await self._check_close_permission(interaction):
             return
 
@@ -117,9 +141,9 @@ class TicketCloseView(ui.View):
         )
         embed.set_footer(text=f"工單ID: {thread.id}")
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
-        _service.close_ticket(thread.id, interaction.user.id)
+        await run_storage(_service.close_ticket, thread.id, interaction.user.id)
 
         try:
             await thread.edit(locked=True, archived=True)
@@ -135,9 +159,6 @@ class TicketCloseView(ui.View):
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
         """帶原因的關閉工單"""
-        if not await self._check_close_permission(interaction):
-            return
-
         await interaction.response.send_modal(CloseReasonModal())
 
 
@@ -156,45 +177,45 @@ class TicketOpenView(ui.View):
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
         """開啟新工單"""
+        await interaction.response.defer(ephemeral=True, thinking=True)
         guild = interaction.guild
         if not guild:
             return
 
-        guild_config = _service.get_guild_config(guild.id)
+        guild_config = await run_storage(_service.get_guild_config, guild.id)
         if (
             not guild_config
             or not guild_config.get("enabled", True)
             or interaction.channel_id != guild_config.get("channel_id")
         ):
-            await interaction.response.send_message(
-                "[失敗] 工單系統尚未設定", ephemeral=True
-            )
+            await interaction.followup.send("[失敗] 工單系統尚未設定", ephemeral=True)
             return
 
         role_id = guild_config.get("role_id")
 
         # 檢查是否已有開啟中的工單
-        existing_tid = _service.find_open_ticket(guild.id, interaction.user.id)
+        existing_tid = await run_storage(
+            _service.find_open_ticket, guild.id, interaction.user.id
+        )
         if existing_tid:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"[失敗] 你已有一個開啟中的工單: <#{existing_tid}>",
                 ephemeral=True,
             )
             return
 
         # 遞增工單編號
-        ticket_count = _service.increment_ticket_count(guild.id)
+        ticket_count = await run_storage(_service.increment_ticket_count, guild.id)
 
         thread_name = f"工單-{ticket_count:04d}-{interaction.user.display_name}"
 
         # 建立私人討論串
         channel = interaction.channel
         if not isinstance(channel, discord.TextChannel):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "工單面板必須位於文字頻道。", ephemeral=True
             )
             return
-        await interaction.response.defer(ephemeral=True)
         try:
             thread = await channel.create_thread(
                 name=thread_name,
@@ -211,7 +232,8 @@ class TicketOpenView(ui.View):
             return
 
         # 儲存工單資料
-        _service.create_ticket(
+        await run_storage(
+            _service.create_ticket,
             guild_id=guild.id,
             thread_id=thread.id,
             channel_id=channel.id,
@@ -337,8 +359,9 @@ class Ticket(commands.Cog):
 
         panel_message = await channel.send(embed=panel_embed, view=TicketOpenView())
 
-        existing = self.service.get_guild_config(guild.id) or {}
-        self.service.save_guild_config(
+        existing = (await run_storage(self.service.get_guild_config, guild.id)) or {}
+        await run_storage(
+            self.service.save_guild_config,
             guild_id=guild.id,
             channel_id=channel.id,
             role_id=role.id,

@@ -12,6 +12,7 @@ from src.utils.config_manager import get_guild_log_channel
 from src.utils.config_manager import get_guild_report_channel
 from src.utils.config_manager import set_guild_log_channel
 from src.utils.config_manager import set_guild_report_channel
+from src.utils.storage_worker import run_storage
 
 TZ_OFFSET = timezone(timedelta(hours=8))
 
@@ -60,25 +61,28 @@ class ChannelSelectView(ui.View):
         self, interaction: discord.Interaction, select: ui.ChannelSelect[Any]
     ) -> None:
         """頻道選擇回調"""
+        await interaction.response.defer(thinking=True, ephemeral=True)
         if (
             interaction.guild is None
             or interaction.guild_id is None
             or not isinstance(interaction.user, discord.Member)
         ):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "此功能只能在伺服器內使用。", ephemeral=True
             )
             return
         channel = select.values[0]
 
         if self.setting_key == "log_channel":
-            set_guild_log_channel(interaction.guild_id, channel.id)
+            await run_storage(set_guild_log_channel, interaction.guild_id, channel.id)
             label = "日誌頻道"
         elif self.setting_key == "report_channel":
-            set_guild_report_channel(interaction.guild_id, channel.id)
+            await run_storage(
+                set_guild_report_channel, interaction.guild_id, channel.id
+            )
             label = "舉報頻道"
         else:
-            await interaction.response.send_message("[失敗] 未知設定", ephemeral=True)
+            await interaction.followup.send("[失敗] 未知設定", ephemeral=True)
             return
 
         embed = discord.Embed(
@@ -87,7 +91,7 @@ class ChannelSelectView(ui.View):
             color=discord.Color.from_rgb(46, 204, 113),
             timestamp=datetime.now(TZ_OFFSET),
         )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
         self.stop()
 
     @ui.button(label="取消", style=discord.ButtonStyle.secondary)
@@ -122,15 +126,18 @@ class AntiSpamToggleView(ui.View):
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
         """切換防刷屏開關"""
+        await interaction.response.defer(thinking=True, ephemeral=True)
         anti_spam_cog = self.cog.bot.get_cog("AntiSpam")
         if not anti_spam_cog or not hasattr(anti_spam_cog, "manager"):
-            await interaction.response.send_message(
-                "[失敗] 防刷屏模組未載入", ephemeral=True
-            )
+            await interaction.followup.send("[失敗] 防刷屏模組未載入", ephemeral=True)
             return
 
         new_state = not self.current_enabled
-        anti_spam_cog.manager.update_settings(self.guild_id, {"enabled": new_state})
+        await run_storage(
+            anti_spam_cog.manager.update_settings,
+            self.guild_id,
+            {"enabled": new_state},
+        )
 
         status = "開啟" if new_state else "關閉"
         embed = discord.Embed(
@@ -142,7 +149,7 @@ class AntiSpamToggleView(ui.View):
             ),
             timestamp=datetime.now(TZ_OFFSET),
         )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
         self.stop()
 
     @ui.button(label="返回", style=discord.ButtonStyle.secondary)
@@ -171,12 +178,13 @@ class SettingsMenuView(ui.View):
         self, interaction: discord.Interaction, select: ui.Select[Any]
     ) -> None:
         """設定類別選擇"""
+        await interaction.response.defer(thinking=True, ephemeral=True)
         if (
             interaction.guild is None
             or interaction.guild_id is None
             or not isinstance(interaction.user, discord.Member)
         ):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "此功能只能在伺服器內使用。", ephemeral=True
             )
             return
@@ -185,10 +193,10 @@ class SettingsMenuView(ui.View):
 
         if value == "overview":
             embed = await self.cog.build_overview_embed(interaction.guild)
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
         elif value == "log_channel":
-            current = get_guild_log_channel(guild_id)
+            current = await run_storage(get_guild_log_channel, guild_id)
             embed = discord.Embed(
                 title="[設定] 日誌頻道",
                 description=f"目前設定: {f'<#{current}>' if current else '未設定'}",
@@ -200,12 +208,10 @@ class SettingsMenuView(ui.View):
                 inline=False,
             )
             view = ChannelSelectView("log_channel", self.cog)
-            await interaction.response.send_message(
-                embed=embed, view=view, ephemeral=True
-            )
+            await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
         elif value == "report_channel":
-            current = get_guild_report_channel(guild_id)
+            current = await run_storage(get_guild_report_channel, guild_id)
             embed = discord.Embed(
                 title="[設定] 舉報頻道",
                 description=f"目前設定: {f'<#{current}>' if current else '未設定'}",
@@ -217,23 +223,19 @@ class SettingsMenuView(ui.View):
                 inline=False,
             )
             view = ChannelSelectView("report_channel", self.cog)
-            await interaction.response.send_message(
-                embed=embed, view=view, ephemeral=True
-            )
+            await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
         elif value == "anti_spam":
             embed, view = self.cog.build_anti_spam_panel(guild_id)
-            await interaction.response.send_message(
-                embed=embed, view=view, ephemeral=True
-            )
+            await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
         elif value == "welcome":
             embed = self.cog.build_welcome_embed(guild_id)
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
         elif value == "age_guard":
-            embed = self.cog.build_age_guard_embed(guild_id)
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            embed = await run_storage(self.cog.build_age_guard_embed, guild_id)
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 # ==================== Cog 主體 ====================
@@ -272,12 +274,12 @@ class Settings(commands.Cog):
         )
 
         # 日誌頻道
-        log_ch = get_guild_log_channel(guild_id)
+        log_ch = await run_storage(get_guild_log_channel, guild_id)
         log_text = f"<#{log_ch}>" if log_ch else "[未設定]"
         embed.add_field(name="日誌頻道", value=log_text, inline=True)
 
         # 舉報頻道
-        report_ch = get_guild_report_channel(guild_id)
+        report_ch = await run_storage(get_guild_report_channel, guild_id)
         report_text = f"<#{report_ch}>" if report_ch else "[未設定]"
         embed.add_field(name="舉報頻道", value=report_text, inline=True)
 
@@ -294,7 +296,7 @@ class Settings(commands.Cog):
         embed.add_field(name="倉庫追蹤", value=f"{repo_count} 個倉庫", inline=True)
 
         # 年齡守門員
-        age_guard_status = self._get_age_guard_status(guild_id)
+        age_guard_status = await run_storage(self._get_age_guard_status, guild_id)
         embed.add_field(name="年齡守門員", value=age_guard_status, inline=True)
 
         embed.set_footer(text="使用下方選單修改設定")

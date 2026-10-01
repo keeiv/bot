@@ -2,6 +2,8 @@
 
 import asyncio
 
+from src.utils.storage_worker import run_storage
+
 
 class DashboardAccount:
     def __init__(self, bot):
@@ -55,9 +57,9 @@ class DashboardAccount:
         service = cog.service
         if action == "unbind":
             if game == "osu":
-                service.unbind(user_id)
+                await run_storage(service.unbind, user_id)
             else:
-                service.unbind_account(user_id)
+                await run_storage(service.unbind_account, user_id)
         elif game == "osu":
             username = body["username"]
             if not isinstance(username, str) or not 1 <= len(username.strip()) <= 32:
@@ -72,7 +74,7 @@ class DashboardAccount:
                 raise ValueError("Unable to verify osu account") from None
             if not user or not isinstance(user.username, str):
                 raise ValueError("Unable to verify osu account")
-            service.bind(user_id, user.username)
+            await run_storage(service.bind, user_id, user.username)
         else:
             cookie, region = body["cookie"], body["region"]
             if (

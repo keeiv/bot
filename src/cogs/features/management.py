@@ -6,6 +6,7 @@ from discord.ext import commands
 from discord.ext import tasks
 
 from src.services.management_service import ManagementService
+from src.utils.storage_worker import run_storage
 
 
 class Management(commands.Cog):
@@ -30,17 +31,18 @@ class Management(commands.Cog):
     async def repo_track_add(
         self, interaction: discord.Interaction, channel: discord.TextChannel
     ) -> None:
+        await interaction.response.defer(thinking=True, ephemeral=False)
         if (
             interaction.guild is None
             or interaction.guild_id is None
             or not isinstance(interaction.user, discord.Member)
         ):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "此功能只能在伺服器內使用。", ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.manage_channels:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "[失敗] 你需要「管理頻道」權限",
                 ephemeral=True,
             )
@@ -64,24 +66,25 @@ class Management(commands.Cog):
             "last_pr": None,
         }
 
-        self.service.save()
-        await interaction.response.send_message(
+        await run_storage(self.service.save)
+        await interaction.followup.send(
             f"[成功] 已開始在 {channel.mention} 追蹤 {repo_key} 的更新"
         )
 
     @repo_track.command(name="remove", description="移除 keeiv/bot 倉庫追蹤")
     async def repo_track_remove(self, interaction: discord.Interaction) -> None:
+        await interaction.response.defer(thinking=True, ephemeral=False)
         if (
             interaction.guild is None
             or interaction.guild_id is None
             or not isinstance(interaction.user, discord.Member)
         ):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "此功能只能在伺服器內使用。", ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.manage_channels:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "[失敗] 你需要「管理頻道」權限",
                 ephemeral=True,
             )
@@ -97,10 +100,10 @@ class Management(commands.Cog):
         ):
 
             del self.service.config[guild_id]["tracked_repos"][repo_key]
-            self.service.save()
-            await interaction.response.send_message(f"[成功] 已停止追蹤 {repo_key}")
+            await run_storage(self.service.save)
+            await interaction.followup.send(f"[成功] 已停止追蹤 {repo_key}")
         else:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"[提示] {repo_key} 目前未被追蹤", ephemeral=True
             )
 
@@ -497,7 +500,7 @@ class Management(commands.Cog):
             welcome_config["auto_role_id"] = auto_role.id
 
         self.service.config[guild_id]["welcome"] = welcome_config
-        self.service.save()
+        await run_storage(self.service.save)
 
         response_msg = f"[成功] 歡迎訊息將發送至 {channel.mention}"
         if auto_role:
@@ -604,17 +607,18 @@ class Management(commands.Cog):
 
     @welcome.command(name="disable", description="停用歡迎訊息")
     async def welcome_disable(self, interaction: discord.Interaction) -> None:
+        await interaction.response.defer(thinking=True, ephemeral=False)
         if (
             interaction.guild is None
             or interaction.guild_id is None
             or not isinstance(interaction.user, discord.Member)
         ):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "此功能只能在伺服器內使用。", ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.manage_channels:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "[失敗] 你需要「管理頻道」權限",
                 ephemeral=True,
             )
@@ -627,12 +631,10 @@ class Management(commands.Cog):
             and "welcome" in self.service.config[guild_id]
         ):
             del self.service.config[guild_id]["welcome"]
-            self.service.save()
-            await interaction.response.send_message("[成功] 已停用歡迎訊息")
+            await run_storage(self.service.save)
+            await interaction.followup.send("[成功] 已停用歡迎訊息")
         else:
-            await interaction.response.send_message(
-                "[失敗] 歡迎訊息尚未啟用", ephemeral=True
-            )
+            await interaction.followup.send("[失敗] 歡迎訊息尚未啟用", ephemeral=True)
 
     # Auto role commands
     auto_role = app_commands.Group(name="auto_role", description="自動角色分配管理")
@@ -652,38 +654,39 @@ class Management(commands.Cog):
         min_members: int = 0,
         require_verification: bool = False,
     ) -> None:
+        await interaction.response.defer(thinking=True, ephemeral=True)
         if (
             interaction.guild is None
             or interaction.guild_id is None
             or not isinstance(interaction.user, discord.Member)
         ):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "此功能只能在伺服器內使用。", ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.manage_roles:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "[失敗] 你需要「管理身份組」權限",
                 ephemeral=True,
             )
             return
 
         if role.is_default():
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "[失敗] 無法將 @everyone 設為自動角色",
                 ephemeral=True,
             )
             return
 
         if role.managed:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "[失敗] 無法設定由機器人/整合管理的身份組為自動角色",
                 ephemeral=True,
             )
             return
 
         if role.position >= interaction.user.top_role.position:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "[失敗] 你無法設定高於或等於你最高身份組的角色",
                 ephemeral=True,
             )
@@ -704,7 +707,7 @@ class Management(commands.Cog):
         }
 
         self.service.config[guild_id]["auto_roles"].append(role_config)
-        self.service.save()
+        await run_storage(self.service.save)
 
         embed = discord.Embed(
             title="[成功] 自動角色已設定",
@@ -719,7 +722,7 @@ class Management(commands.Cog):
             inline=True,
         )
 
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     @auto_role.command(name="list", description="列出自動角色分配規則")
     async def auto_role_list(self, interaction: discord.Interaction) -> None:
@@ -775,17 +778,18 @@ class Management(commands.Cog):
     async def auto_role_remove(
         self, interaction: discord.Interaction, rule_index: int
     ) -> None:
+        await interaction.response.defer(thinking=True, ephemeral=True)
         if (
             interaction.guild is None
             or interaction.guild_id is None
             or not isinstance(interaction.user, discord.Member)
         ):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "此功能只能在伺服器內使用。", ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.manage_roles:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "[失敗] 你需要「管理身份組」權限",
                 ephemeral=True,
             )
@@ -799,18 +803,16 @@ class Management(commands.Cog):
             or rule_index < 1
             or rule_index > len(self.service.config[guild_id]["auto_roles"])
         ):
-            await interaction.response.send_message(
-                "[失敗] 無效的規則編號", ephemeral=True
-            )
+            await interaction.followup.send("[失敗] 無效的規則編號", ephemeral=True)
             return
 
         removed_role = self.service.config[guild_id]["auto_roles"].pop(rule_index - 1)
-        self.service.save()
+        await run_storage(self.service.save)
 
         role = interaction.guild.get_role(removed_role["role_id"])
         role_name = role.name if role else f"已刪除的角色 ({removed_role['role_id']})"
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"[成功] 已移除自動角色規則: {role_name}", ephemeral=True
         )
 
