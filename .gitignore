@@ -1,6 +1,9 @@
 .env
 .env.*
 !.env.example
+.file-tools-worker.json*
+worker.json
+worker-key.pem
 
 __pycache__/
 *.pyc
@@ -23,3 +26,10 @@ osu_api/.env.*
 memories/
 memory-tool/
 copilot-chat/
+
+# Local assistant settings and private character documents
+.claude/
+AGENTS.md
+CLAUDE.md
+README_SETUP.md
+docs/CHARACTER_BIBLE.md

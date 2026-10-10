@@ -1,0 +1,206 @@
+{
+  "engine": "NovaGrid/3",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.13.7",
+  "pillow": "12.1.1",
+  "runs": 7,
+  "size": [
+    1920,
+    1080
+  ],
+  "method": "Fresh processes, sequential runs, medians; timing includes decode but excludes interpreter startup. Synthetic fixtures only; memory is full-process peak RSS/working set. Legacy and Nova may select different codecs; same quality number does not imply equal fidelity.",
+  "results": [
+    {
+      "case": "alpha-png",
+      "inputBytes": 33749,
+      "legacy": {
+        "wall": 0.3193500000052154,
+        "cpu": 0.328125,
+        "peakBytes": 104878080,
+        "bytes": 19220,
+        "suffix": ".webp",
+        "changed": true
+      },
+      "nova": {
+        "wall": 0.5128732000011951,
+        "cpu": 0.515625,
+        "peakBytes": 83697664,
+        "bytes": 6260,
+        "suffix": ".webp",
+        "changed": true
+      }
+    },
+    {
+      "case": "gradient-png",
+      "inputBytes": 8792,
+      "legacy": {
+        "wall": 0.3714825001079589,
+        "cpu": 0.34375,
+        "peakBytes": 57921536,
+        "bytes": 5588,
+        "suffix": ".webp",
+        "changed": true
+      },
+      "nova": {
+        "wall": 0.09906259994022548,
+        "cpu": 0.109375,
+        "peakBytes": 63475712,
+        "bytes": 1152,
+        "suffix": ".webp",
+        "changed": true
+      }
+    },
+    {
+      "case": "noise-png",
+      "inputBytes": 6230605,
+      "legacy": {
+        "wall": 0.7965144999325275,
+        "cpu": 0.796875,
+        "peakBytes": 88633344,
+        "bytes": 1363350,
+        "suffix": ".webp",
+        "changed": true
+      },
+      "nova": {
+        "wall": 0.4133772999048233,
+        "cpu": 0.421875,
+        "peakBytes": 52301824,
+        "bytes": 1371100,
+        "suffix": ".webp",
+        "changed": true
+      }
+    },
+    {
+      "case": "screenshot-png",
+      "inputBytes": 70287,
+      "legacy": {
+        "wall": 0.3198075999971479,
+        "cpu": 0.3125,
+        "peakBytes": 59228160,
+        "bytes": 70287,
+        "suffix": ".png",
+        "changed": false
+      },
+      "nova": {
+        "wall": 0.6901716000866145,
+        "cpu": 0.671875,
+        "peakBytes": 84512768,
+        "bytes": 24596,
+        "suffix": ".webp",
+        "changed": true
+      }
+    },
+    {
+      "case": "texture-jpeg",
+      "inputBytes": 680781,
+      "legacy": {
+        "wall": 0.058064599987119436,
+        "cpu": 0.0625,
+        "peakBytes": 62849024,
+        "bytes": 352735,
+        "suffix": ".jpg",
+        "changed": true
+      },
+      "nova": {
+        "wall": 0.03992170002311468,
+        "cpu": 0.046875,
+        "peakBytes": 42971136,
+        "bytes": 331417,
+        "suffix": ".jpg",
+        "changed": true
+      }
+    },
+    {
+      "case": "texture-png",
+      "inputBytes": 3249021,
+      "legacy": {
+        "wall": 0.548927899915725,
+        "cpu": 0.546875,
+        "peakBytes": 62111744,
+        "bytes": 244576,
+        "suffix": ".webp",
+        "changed": true
+      },
+      "nova": {
+        "wall": 0.32032190007157624,
+        "cpu": 0.3125,
+        "peakBytes": 50085888,
+        "bytes": 253774,
+        "suffix": ".webp",
+        "changed": true
+      }
+    },
+    {
+      "case": "ui-bmp",
+      "inputBytes": 6220854,
+      "legacy": {
+        "wall": 0.33360749995335937,
+        "cpu": 0.328125,
+        "peakBytes": 58048512,
+        "bytes": 18048,
+        "suffix": ".webp",
+        "changed": true
+      },
+      "nova": {
+        "wall": 0.14986190013587475,
+        "cpu": 0.15625,
+        "peakBytes": 83312640,
+        "bytes": 3208,
+        "suffix": ".webp",
+        "changed": true
+      }
+    },
+    {
+      "case": "ui-png",
+      "inputBytes": 30635,
+      "legacy": {
+        "wall": 0.3305657999590039,
+        "cpu": 0.328125,
+        "peakBytes": 58101760,
+        "bytes": 18048,
+        "suffix": ".webp",
+        "changed": true
+      },
+      "nova": {
+        "wall": 0.13282599998638034,
+        "cpu": 0.125,
+        "peakBytes": 83439616,
+        "bytes": 3208,
+        "suffix": ".webp",
+        "changed": true
+      }
+    },
+    {
+      "case": "lossless-ui-png",
+      "inputBytes": 30635,
+      "png-pillow": {
+        "wall": 0.036227399948984385,
+        "cpu": 0.03125,
+        "peakBytes": 36134912,
+        "bytes": 30635
+      },
+      "nova-lossless": {
+        "wall": 0.11042339983396232,
+        "cpu": 0.109375,
+        "peakBytes": 83410944,
+        "bytes": 3208
+      }
+    },
+    {
+      "case": "lossless-screenshot-png",
+      "inputBytes": 70287,
+      "png-pillow": {
+        "wall": 0.04970620013773441,
+        "cpu": 0.046875,
+        "peakBytes": 36155392,
+        "bytes": 70287
+      },
+      "nova-lossless": {
+        "wall": 0.5764175001531839,
+        "cpu": 0.578125,
+        "peakBytes": 84529152,
+        "bytes": 24596
+      }
+    }
+  ]
+}
