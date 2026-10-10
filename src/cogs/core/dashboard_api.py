@@ -20,6 +20,8 @@ from src.services.dashboard_health import timestamp
 from src.services.dashboard_history import StatusHistory
 from src.services.dashboard_service import DashboardService
 from src.services.dashboard_service import revision
+from src.services.tool_routes import install_routes
+from src.services.tool_routes import public_transfer
 from src.utils.storage_worker import run_storage
 
 log = logging.getLogger(__name__)
@@ -74,6 +76,8 @@ class DashboardAPI(commands.Cog):
     def create_app(self, secret: str) -> web.Application:
         @web.middleware
         async def guard(request, handler):
+            if request.path in ("/tools/upload", "/tools/download"):
+                return await public_transfer(self.bot, request)
             supplied = request.headers.get("X-Bot-Secret", "")
             if "Authorization" in request.headers:
                 scheme, separator, token = request.headers["Authorization"].partition(
@@ -112,6 +116,7 @@ class DashboardAPI(commands.Cog):
         app.router.add_get("/guilds/{guild_id}/settings", self.get_settings)
         app.router.add_patch("/guilds/{guild_id}/settings", self.save_settings)
         app.router.add_post("/guilds/{guild_id}/panel", self.deploy_panel)
+        install_routes(app, self.bot)
         return app
 
     async def guilds(self, request):
