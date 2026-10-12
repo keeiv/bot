@@ -63,7 +63,7 @@ tests/                 隔離測試
 
 ## 設定、測試與安全資料
 
-設定見 [Configuration.md](../docs/Configuration.md) 與 [README](../README.md#安裝)，流程見 [DEVELOPMENT.md](../docs/DEVELOPMENT.md) 與 [CONTRIBUTING.md](../CONTRIBUTING.md)。
+設定見 [Configuration.md](../docs/Configuration.md) 與 [README](../README.md#快速開始)，流程見 [DEVELOPMENT.md](../docs/DEVELOPMENT.md) 與 [CONTRIBUTING.md](../CONTRIBUTING.md)。
 
 `DISCORD_TOKEN` 必填；外部服務憑證、MySQL 連線、原 `GENSHIN_ENCRYPTION_KEY` 與選用的儀表板密鑰依功能配置。不得提交真實 `.env`、Token、Cookie、使用者資料或備份。
 

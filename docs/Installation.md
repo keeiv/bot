@@ -2,6 +2,16 @@
 
 專案最低要求 Python 3.10，目前部署使用 Python 3.13。從專案根目錄執行命令，避免相對資料路徑指向其他位置。
 
+## 快速安裝（開發者）
+
+`install.py` 是只做「下載專案」的安裝程式：一次完成下面的取得程式碼、虛擬環境、依賴與 `.env` 範本，並確認套件都能匯入。在終端機裡會開啟黑白的方框畫面（文字方塊輸入資料夾、進度與即時輸出），不是終端機時改印純文字；只用 Python 內建功能。
+
+```bash
+python install.py --dir bot --test
+```
+
+沒有 git 時改下載 ZIP；已安裝的資料夾再執行就是更新，不會更動 `.env` 與 `.venv`。選項見 `python install.py --help`。以下是手動步驟。
+
 ```bash
 git clone https://github.com/keeiv/bot.git
 cd bot
@@ -28,7 +38,7 @@ python -m pip install -r requirements.txt
 python -m pip install -r requirements-dev.txt
 ```
 
-在根目錄建立 `.env`，至少設定 `DISCORD_TOKEN`。完整範例與 MySQL 連線欄位見 [README](../README.md#安裝)，支援設定見 [Configuration.md](Configuration.md)。Discord 應用程式必須啟用程式需要的 Message Content 與 Server Members intents。
+在根目錄建立 `.env`，至少設定 `DISCORD_TOKEN`。完整範例與 MySQL 連線欄位見 [README](../README.md#快速開始)，支援設定見 [Configuration.md](Configuration.md)。Discord 應用程式必須啟用程式需要的 Message Content 與 Server Members intents。
 
 ## 儲存初始化
 

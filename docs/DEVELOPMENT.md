@@ -7,7 +7,7 @@
 | Python | 最低 3.10，目前部署使用 3.13；CI 在 Linux 測 3.10–3.13 |
 | 依賴 | 以 `pyproject.toml` 為準；`requirements.txt`、`requirements-dev.txt` 只是安裝入口 |
 | 儲存 | 正式環境 Oracle MySQL 8.4，另有 JSON 相容模式 |
-| 安裝與啟動 | [安裝指南](Installation.md)、[README](../README.md#快速開始) |
+| 安裝與啟動 | 一行指令的快速安裝：`python install.py`（見 [README](../README.md#快速開始)）；手動步驟見 [安裝指南](Installation.md) |
 | 提交規則 | [貢獻指南](../CONTRIBUTING.md) |
 
 ## 目錄
@@ -25,6 +25,7 @@
 ## 專案結構
 
 ```text
+install.py               安裝程式：從 GitHub 下載專案並配置開發環境（只用標準函式庫，黑白方框畫面）
 src/
   main.py               啟動入口：Token、重複程序與儲存就緒檢查
   bot.py                Bot、全域黑名單檢查、Cog 自動載入、指令翻譯器
