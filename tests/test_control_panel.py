@@ -388,13 +388,22 @@ def test_restart_stops_then_starts(paths):
 
 # ── menu ──────────────────────────────────────────────────────────
 def test_menu_keeps_every_key_of_the_old_launcher():
-    assert set(menu.BY_KEY) == set("123456789twdslqmh")
+    assert set(menu.BY_KEY) == set("123456789twrdslqmh")
     assert len(menu.ITEMS) == len(menu.BY_KEY)  # no duplicate hotkeys
     assert menu.BY_KEY["t"].label == "檔案工具終端"
 
 
 def test_every_menu_item_has_something_to_run(paths):
-    handled = {"start", "stop", "restart", "status", "logs", "guide", "worker"}
+    handled = {
+        "start",
+        "stop",
+        "restart",
+        "status",
+        "logs",
+        "guide",
+        "worker",
+        "review",
+    }
     handled |= {"database", "host"}
     handled |= {"project", "data", "quit"}
     for item in menu.ITEMS:
@@ -405,7 +414,7 @@ def test_every_menu_item_has_something_to_run(paths):
     for item in menu.ITEMS:
         if item.action in ("stop", "restart"):
             assert item.confirm  # these ask first
-    for choice in menu.WORKER_CHOICES:
+    for choice in (*menu.WORKER_CHOICES, *menu.REVIEW_CHOICES):
         if choice.action not in ("back", "worker_packages"):
             actions.build_command(paths, choice.action)
 
@@ -603,6 +612,15 @@ def test_worker_menu_runs_the_chosen_command_and_returns(paths, monkeypatch):
     # open menu, press 2 (enable), any key after the result, Q back, Q quit
     assert _panel(paths, "w", "2", "x", "q", "q").run() == 0
     assert ran == ["驗證後啟用遠端處理"]
+
+
+def test_review_menu_runs_the_review_worker_setup(paths, monkeypatch):
+    ran = []
+    monkeypatch.setattr(
+        actions, "run_command", lambda p, c: ran.append(c.argv[-2:]) or 0
+    )
+    assert _panel(paths, "r", "2", "x", "q", "q").run() == 0
+    assert ran == [("check", "--quick")]
 
 
 def test_stop_and_restart_ask_first_when_the_bot_is_running(paths, monkeypatch):

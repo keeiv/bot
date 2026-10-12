@@ -103,21 +103,9 @@ async def check_worker(config):
     return health
 
 
-def build_worker(worker_ip, main_ip, output, config_path):
-    for address in (worker_ip, main_ip):
-        ip = ipaddress.ip_address(address)
-        if ip.version != 4 or not ip.is_private or ip.is_loopback:
-            raise ValueError("配對位址必須為區域網路 IPv4")
-    config_path = Path(config_path)
-    if config_path.exists():
-        raise ValueError("配對設定已存在；重新配對前須保留原設定並更換設定檔路徑")
-    output = Path(output).resolve()
-    output.mkdir(parents=True, exist_ok=True)
-    directory = output / ("novagrid-worker-" + uuid.uuid4().hex[:8])
-    directory.mkdir()
-    runtime = directory / "runtime"
+def prepare_runtime(output, runtime, packages):
+    """Unpack the pinned embeddable Python into ``runtime`` and install ``packages``."""
     runtime.mkdir()
-    archive_path = output / (directory.name + ".zip")
     with tempfile.TemporaryDirectory(prefix="download-", dir=output) as scratch:
         temporary = Path(scratch).resolve()
         if not temporary.is_relative_to(output):
@@ -165,12 +153,28 @@ def build_worker(worker_ip, main_ip, output, config_path):
             "cp314",
             "--target",
             str(runtime / "site-packages"),
-            "aiohttp==3.14.4",
-            "Pillow==12.3.0",
+            *packages,
         ],
         check=True,
         timeout=180,
     )
+
+
+def build_worker(worker_ip, main_ip, output, config_path):
+    for address in (worker_ip, main_ip):
+        ip = ipaddress.ip_address(address)
+        if ip.version != 4 or not ip.is_private or ip.is_loopback:
+            raise ValueError("配對位址必須為區域網路 IPv4")
+    config_path = Path(config_path)
+    if config_path.exists():
+        raise ValueError("配對設定已存在；重新配對前須保留原設定並更換設定檔路徑")
+    output = Path(output).resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    directory = output / ("novagrid-worker-" + uuid.uuid4().hex[:8])
+    directory.mkdir()
+    runtime = directory / "runtime"
+    archive_path = output / (directory.name + ".zip")
+    prepare_runtime(output, runtime, ("aiohttp==3.14.4", "Pillow==12.3.0"))
     for name in WORKER_FILES:
         shutil.copyfile(ROOT / "src/services" / name, directory / name)
     shutil.copyfile(ROOT / "LICENSE", directory / "LICENSE")

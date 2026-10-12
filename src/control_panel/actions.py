@@ -87,6 +87,26 @@ def build_command(paths: Paths, name: str) -> Command:
             (*utf8, "-m", "src.tool_worker_setup", "disable"),
             {},
         ),
+        "review_check": Command(
+            "圖片審核工作站：完整驗證",
+            (*utf8, "-m", "src.moderation_worker_setup", "check"),
+            {},
+        ),
+        "review_quick": Command(
+            "圖片審核工作站：快速檢查",
+            (*utf8, "-m", "src.moderation_worker_setup", "check", "--quick"),
+            {},
+        ),
+        "review_enable": Command(
+            "驗證後啟用 AI 審核",
+            (*utf8, "-m", "src.moderation_worker_setup", "enable"),
+            {},
+        ),
+        "review_disable": Command(
+            "停用 AI 審核",
+            (*utf8, "-m", "src.moderation_worker_setup", "disable"),
+            {},
+        ),
     }
     return commands[name]
 

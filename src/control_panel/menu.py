@@ -122,6 +122,13 @@ COLUMNS: tuple[MenuColumn, ...] = (
                 "submenu",
             ),
             MenuItem(
+                "r",
+                "圖片審核工作站",
+                "AI 審核圖片的遠端節點：驗證、啟用或改回人工審核",
+                "review",
+                "submenu",
+            ),
+            MenuItem(
                 "d",
                 "開發者指令說明",
                 "在 Discord 裡使用的開發者指令",
@@ -160,6 +167,15 @@ WORKER_CHOICES: tuple[Choice, ...] = (
     Choice("2", "驗證後啟用遠端處理", "worker_enable"),
     Choice("3", "恢復本機處理", "worker_disable"),
     Choice("4", "開啟可攜式工作站套件資料夾", "worker_packages"),
+    Choice("q", "返回", "back"),
+)
+
+REVIEW_CHOICES: tuple[Choice, ...] = (
+    Choice("1", "完整驗證（連線、三個模型與一次審核）", "review_check"),
+    Choice("2", "快速檢查（只看連線與模型）", "review_quick"),
+    Choice("3", "驗證後啟用 AI 審核", "review_enable"),
+    Choice("4", "停用 AI，全部改回人工審核", "review_disable"),
+    Choice("5", "開啟工作站套件資料夾", "worker_packages"),
     Choice("q", "返回", "back"),
 )
 

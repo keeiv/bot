@@ -48,7 +48,7 @@
 
 ### 機器人外觀
 - `/bot_appearance name` 更改伺服器暱稱
-- `/bot_appearance avatar` / `banner` 更改頭像/橫幅 (需開發者審核)
+- `/bot_appearance avatar` / `banner` 更改頭像/橫幅：設定 [AI 圖片審核節點](docs/image-review.md) 後先由三階段本地模型審核，AI 無法判定時才改由開發者人工審核；未設定時一律人工審核
 
 ### 抽獎系統
 - `/giveaway start` 建立抽獎 (支援 `1d12h30m` 時長格式)
