@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="48 -52 1892.88 928" width="2366" height="1160"><defs>
+  <linearGradient id="gSun" x1="138" y1="0" x2="532" y2="0" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#F9AB2C"/><stop offset="1" stop-color="#FA8640"/>
+  </linearGradient>
+  <linearGradient id="gLeft" x1="0" y1="160" x2="0" y2="690" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#FB8B3D"/><stop offset="0.55" stop-color="#FB5A4A"/><stop offset="1" stop-color="#F7335C"/>
+  </linearGradient>
+  <linearGradient id="gBlue" x1="0" y1="38" x2="0" y2="485" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#5D89F0"/><stop offset="1" stop-color="#3D78EE"/>
+  </linearGradient>
+  <linearGradient id="gCrimson" x1="330" y1="640" x2="560" y2="770" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#F4346F"/><stop offset="1" stop-color="#EA2468"/>
+  </linearGradient>
+  <linearGradient id="gTeal" x1="450" y1="520" x2="700" y2="700" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#2FD3CD"/><stop offset="1" stop-color="#27C3C6"/>
+  </linearGradient>
+  <linearGradient id="gMagenta" x1="352" y1="350" x2="522" y2="545" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#E55BD8"/><stop offset="1" stop-color="#C348D8"/>
+  </linearGradient>
+  <linearGradient id="gSheen" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#fff" stop-opacity="0.22"/><stop offset="0.45" stop-color="#fff" stop-opacity="0"/>
+  </linearGradient>
+<linearGradient id="gMagenta2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E55BD8"/><stop offset="1" stop-color="#C348D8"/></linearGradient></defs><g>
+  <rect x="138" y="38" width="394" height="114" rx="16" fill="url(#gSun)"/>
+  <path d="M138 176 Q138 160 150 166 L258 231 Q268 238 268 250 L268 478
+           C268 532 306 572 344 597 Q354 604 345 611 L252 676
+           C192 692 138 642 138 574 Z" fill="url(#gLeft)"/>
+  <path d="M619 38 H726 Q742 38 742 54 V483 Q742 490 735 486 L611 402 Q603 397 603 388 V54 Q603 38 619 38 Z" fill="url(#gBlue)"/>
+  <path d="M443 625 L565 716 C540 758 482 786 420 781 C370 776 330 746 312 718 C340 682 392 650 443 625 Z" fill="url(#gCrimson)"/>
+  <path d="M441 628 C510 612 574 574 611 497 Q614 490 621 494 L729 560 Q741 568 734 580 L565 716 Z" fill="url(#gTeal)"/>
+  <circle cx="437" cy="447" r="100" fill="url(#gMagenta)"/>
+
+  <rect x="138" y="38" width="394" height="52" rx="16" fill="url(#gSheen)"/>
+  <path d="M619 38 H726 Q742 38 742 54 V120 H603 V54 Q603 38 619 38 Z" fill="url(#gSheen)"/>
+</g><path d="M877 282 V612 M877 313 H956 A67 67 0 0 1 956 447 H877 M877 447 H978 A67 67 0 0 1 978 581 H877" fill="none" stroke="#1B1714" stroke-width="62" stroke-linejoin="round"/><circle cx="1285" cy="447" r="134" fill="none" stroke="#1B1714" stroke-width="62"/><path d="M1494 313 H1730 M1612 282 V612" fill="none" stroke="#1B1714" stroke-width="62" stroke-linejoin="round"/><circle cx="1812.44" cy="573.56" r="38.44" fill="url(#gMagenta2)"/></svg>
