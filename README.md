@@ -1,165 +1,169 @@
-<img width="1384" height="1040" alt="圖片" src="https://github.com/user-attachments/assets/39815446-fc60-4a4a-9c13-df71df9be1c0" />
+<div align="center">
 
-# Discord Bot
+<img src="src/control_panel/assets/bot-logo.png" width="96" alt="BOT. 圖標">
 
-一個功能完整的 Discord 機器人，包含訊息管理、伺服器安全、遊戲、成就、osu! 整合、HoYoLAB/米游社 整合、GitHub 監控與暫時語音頻道。
+# BOT.
 
-## 技術棧與運行架構
+**一隻會顧門、會招呼客人、還會順手收拾的 Discord 機器人。**
 
-| 技術 | 實際用途 |
-|------|----------|
-| Python 3.13 | 目前部署的執行環境；專案最低要求為 Python 3.10 |
-| discord.py 2.7 | Discord Gateway、指令、事件與互動元件 |
-| aiohttp 3.14 | 非同步 HTTP 客戶端與儀表板 API 伺服器 |
-| Oracle MySQL 8.4 + PyMySQL | 正式環境業務資料、快取、指標與運作歷史儲存 |
-| ossapi | osu! API v2 玩家資料查詢 |
-| genshin + cryptography | HoYoLAB／米游社整合與帳號 Cookie 加密 |
-| psutil | 系統資源監控 |
-| GitHub Actions | Python 3.10–3.13 自動測試、格式與品質檢查，以及 MySQL 8.4 整合測試 |
+防洗版與管理、歡迎與自動身分組、臨時語音、工單、小遊戲與成就、osu!／HoYoLAB／GitHub 整合、檔案工具，<br>
+以及一個可以在網站上完成設定的儀表板。
 
-機器人與 MySQL 在 Windows 本機運行。網站使用 Next.js、React 與 Tailwind CSS，部署於 Vercel；網站伺服器透過 Cloudflare Tunnel 存取本機 aiohttp API。網站不直接連線 MySQL，API 密鑰保存在伺服器環境變數。
+[![CI](https://github.com/keeiv/bot/actions/workflows/ci.yml/badge.svg)](https://github.com/keeiv/bot/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.10%E2%80%933.13-3776AB)
+![discord.py](https://img.shields.io/badge/discord.py-2.7-5865F2)
+![License](https://img.shields.io/badge/license-AGPL--3.0--only-F99549)
 
-## 主要功能
+[網站與儀表板](https://botweb.shizune.life) ·
+[功能一覽](#功能一覽) ·
+[快速開始](#快速開始) ·
+[開發指南](docs/DEVELOPMENT.md) ·
+[文件導覽](docs/Home.md)
 
-### 訊息管理
-- 記錄 Discord 快取內非機器人成員的文字或附件編輯與單筆刪除，發送到指定日誌頻道；範圍與限制見 [訊息日誌指南](MESSAGE_LOGGER_README.md)
-- 審計日誌：成員加入/離開、語音頻道異動、角色變更、暱稱變更、頻道建立/刪除/修改
+</div>
 
-### 管理指令
-- `/clear` 清除訊息、`/kick` 踢出、`/ban` 封禁、`/mute` 禁言、`/warn` 警告
-- `/blacklist add` / `remove` / `list` / `info` 管理本地黑名單並查詢 CatHome API 狀態
-- `/appeal` / `/appeal_status` 提交及查詢申訴，由開發者審核；提交使用原封鎖原因，沒有使用者原因表單。接受本地申訴會移除本地封鎖；CatHome 封鎖仍須由外部管理者解除，詳見 [黑名單指南](BLACKLIST_GUIDE.md)
-- `/settings` 伺服器設定儀表板 (日誌/舉報頻道、防刷屏、歡迎訊息一站式管理)
-- `/role assign` / `/role remove` 身份組管理
-- `/emoji get` / `/emoji upload` 表情符號管理
-- `/welcome setup` / `/welcome disable` 設定或停用歡迎訊息
-- `/auto_role setup` / `list` / `remove` 管理自動角色規則
+## 目錄
 
-### 防刷屏系統
-- 7 層偵測引擎：洪水/重複/提及/連結/表情/換行/突襲
-- 6 種處理動作：警告/刪除/禁言/踢出/封禁/封鎖頻道
-- 自動升級懲罰 + 白名單管理
-- `/anti_spam` 群組指令設定介面（11 個子指令，包含 `mute_duration`）
+- [功能一覽](#功能一覽)
+- [快速開始](#快速開始)
+- [終端機控制台（Windows）](#終端機控制台windows)
+- [權限](#權限)
+- [資料與儲存](#資料與儲存)
+- [專案結構](#專案結構)
+- [授權](#授權)
 
-### 舉報系統
-- 右鍵訊息 > 應用程式 > `舉報訊息`（英文介面為 `Report message`）— 舉報可疑訊息到設定頻道
-- 管理員可透過按鈕直接禁言/封禁/警告，每個動作附帶表單
-- `/report_channel set` 設定舉報頻道
+## 功能一覽
 
-### 機器人外觀
-- `/bot_appearance name` 更改伺服器暱稱
-- `/bot_appearance avatar` / `banner` 更改頭像/橫幅：設定 [AI 圖片審核節點](docs/image-review.md) 後先由三階段本地模型審核，AI 無法判定時才改由開發者人工審核；未設定時一律人工審核
+| 範圍 | 做什麼 | 主要指令 |
+| --- | --- | --- |
+| 防護與管理 | 七種洗版偵測、自動加重處分、黑名單與申訴、舉報、訊息與審計日誌 | `/anti_spam` `/blacklist` `/appeal` `/clear` `/kick` `/ban` `/mute` `/warn` |
+| 迎接新成員 | 歡迎訊息範本、自動身分組、年齡守門 | `/welcome` `/auto_role` `/age_guard` |
+| 伺服器服務 | 工單、臨時語音、抽獎、身分組與表情符號、伺服器設定面板 | `>>>ticket` `/temp_voice` `/giveaway` `/role` `/emoji` `/settings` |
+| 遊戲與成就 | 兩款雙人小遊戲、18 個成就 | `/deep-sea-oxygen` `/russian-roulette` `/achievements` |
+| 帳號整合 | osu!、HoYoLAB／米游社、GitHub 倉庫通知 | `/osu` `/mhy` `/repo_watch` `/repo_track` |
+| 工具 | 檔案轉換與壓縮（NovaGrid）、訊息翻譯 | `/convert` `/compress` `/usage` `翻譯訊息` |
+| 語言 | 英文與中文介面，伺服器與個人各自設定 | `/language` |
 
-### 抽獎系統
-- `/giveaway start` 建立抽獎 (支援 `1d12h30m` 時長格式)
-- `/giveaway end` 提前結束、`/giveaway reroll` 重新抽取
-- 按鈕式參與，自動到期結算
+下面依範圍列出完整內容。
 
-### 工單系統
-- `>>>ticket setup #頻道 @身份組` 設定工單系統
-- 點擊「開啟工單」按鈕自動建立私人討論串，@通知指定身份組
-- 支援關閉工單 / 有原因關閉工單，使用討論串鎖定保留紀錄
+### 防護與管理
 
-### 遊戲
-- `/deep-sea-oxygen` 深海氧氣瓶：2 人合作回合制，共享氧氣 + 道具系統
-- `/russian-roulette` 俄羅斯輪盤：2 人對抗，籌碼 + 道具系統
+**防洗版**：`/anti_spam` 群組有 11 個子指令（`setup`、`flood`、`duplicate`、`mention`、`link`、`raid`、`escalation`、`whitelist`、`lockdown_off`、`status`、`mute_duration`）。
 
-### 檔案工具
-- `/convert`：靜態圖片轉 PNG／JPG／WebP／PDF，UTF-8 CSV／TSV／JSON 平面表格互轉。
-- `/compress`：圖片壓縮，可設定品質與最大尺寸；未縮小不扣點。
-- `/usage`：顯示等級、週用量與近三小時用量圖片；`/ir`：重置券背包與歷史使用紀錄。
-- 網站 `/tools` 與 Discord 共用帳號額度；網站或 `!convert [format]` 支援依等級限制的批次處理。
-- 首次使用即有 Free. 額度，30 天升 Run.、60 天 Dash.、120 天 Grow.、180 天 Ultra.。
-- 檔案工具無需付費，點數僅用於用量管理；伺服器安全與基本管理不消耗點數。
-- [額度、支援格式及開發者操作](docs/file-tools.md)。
+| 偵測 | 預設門檻 | 預設處理 |
+| --- | --- | --- |
+| 洪水 | 10 秒內超過 10 則訊息 | 禁言 |
+| 重複內容 | 30 秒內同樣內容 4 次 | 刪除訊息 |
+| 大量提及 | 單則訊息 8 次提及 | 禁言 |
+| 連結 | 15 秒內 5 個連結（Discord 邀請連結直接刪除） | 刪除訊息 |
+| 表情 | 單則訊息 20 個表情 | 刪除訊息 |
+| 換行 | 單則訊息 30 個換行 | 刪除訊息 |
+| 突襲 | 30 秒內 10 人加入 | 封鎖頻道 |
 
-### 成就系統
-- 聊天互動、遊戲、社交等多種成就類型
-- `/achievements` 查看個人成就進度與解鎖狀態
+處理方式共六種：警告、刪除訊息、禁言、踢出、封禁、封鎖頻道。10 分鐘內累計 3 次違規，會比這次最重的處分再升一級（最高到封鎖頻道）。洪水、重複、提及、連結與突襲的門檻可調整，也能設定白名單身分組與頻道；表情與換行目前使用預設門檻。
 
-### osu! 整合
-- `/user_info_osu` 查詢玩家資料
-- `/osu bind` 綁定帳號、`/osu unbind` 解除綁定
-- `/osu best` 查詢 Best Performance、`/osu recent` 最近遊玩記錄
+**黑名單與申訴**：`/blacklist add`／`remove`／`list`／`info` 管理本地黑名單並查詢 CatHome API（開發者限定）。被擋下的使用者可用 `/appeal` 提交、`/appeal_status` 查詢，由開發者審核；提交時沿用原本的封鎖原因，沒有另外填寫的表單。接受申訴只會移除本地黑名單，CatHome API 的封鎖仍須由對方解除。詳見 [黑名單指南](BLACKLIST_GUIDE.md)。
 
-### HoYoLAB/米游社 整合
-- `/mhy bind` 安全綁定 HoYoLAB/米游社 Cookie（支援國際服/國服）
-- `/mhy tutorial` 獲取 Cookie 獲取教學指引
-- `/mhy status` 查看帳號綁定狀態
-- `/mhy toggle_autosignin` 開啟/關閉每日自動簽到
-- `/mhy checkin` 手動簽到
-- `/mhy notes` 查詢遊戲便箋（樹脂/體力等）
-- `/mhy redeem` 兌換遊戲禮包碼
-- `/mhy stats` 查詢遊戲統計數據
-- `/mhy abyss` 查詢深境螺旋/虛構敘述數據
-- 支援原神、崩壞：星穹鐵道、絕區零等多款遊戲
+**舉報**：右鍵訊息 → 應用程式 → `舉報訊息`（英文介面為 `Report message`），送到 `/report_channel set` 設定的頻道；管理員可直接按按鈕禁言、封禁或警告，每個動作都附表單。`/report_channel status` 查看目前設定。
 
-### GitHub 監控
-- `/repo_watch set` 設定通用倉庫監控、`/repo_watch status` / `disable`
-- `/repo_track add` 專門追蹤 keeiv/bot 的新提交與最新開啟 PR；不追蹤 PR 合併狀態
-- 倉庫追蹤使用 `GITHUB_TOKEN` 認證、共用查詢快取與 ETag；受到限流時依重試時間暫停輪詢
+**日誌**：`/message_log_settings` 指定頻道，記錄機器人快取得到的非機器人成員訊息編輯與單筆刪除，範圍與限制見 [訊息日誌指南](MESSAGE_LOGGER_README.md)。審計日誌記錄成員加入／離開、語音異動、身分組與暱稱變更，以及頻道建立、刪除與修改。
 
-### 錯誤集中處理
-- 全域攔截 Slash / Prefix 指令錯誤，回覆友善中文提示
-- 未預期錯誤自動記錄到指定頻道 + 終端輸出
-- 處理類型：權限不足、冷卻中、參數錯誤、CheckFailure 等
+**管理指令**：`/clear` 清除訊息、`/kick` 踢出、`/ban` 封禁、`/mute` 禁言、`/warn` 警告。
 
-### 伺服器設定儀表板
-- `/settings` 開啟互動式設定面板 (需管理員)
-- 支援設定：日誌頻道、舉報頻道、防刷屏開關、歡迎訊息總覽
-- Select Menu + Button 即時修改，無需記指令
+### 迎接新成員
+
+- **歡迎訊息**：`/welcome setup` 設定頻道與範本，可用 `{user}`、`{server}`、`{count}`；`/welcome templates` 列出內建範本、`/welcome preview` 預覽、`/welcome disable` 停用。
+- **自動身分組**：`/auto_role setup`／`list`／`remove` 管理加入時自動給予的身分組規則。
+- **年齡守門**：從訊息中的「數字 + 歲」辨識未成年的年齡宣告，依設定移除成人身分組並加入指定身分組。`/age_guard set_adult_role`、`set_punishment_role`、`toggle`、`status`。
+
+### 伺服器服務
+
+- **工單**：`>>>ticket setup #頻道 @身分組` 建立面板。成員按「開啟工單」會建立私人討論串並通知工作人員身分組；可直接關閉或附原因關閉，討論串會鎖定保留紀錄。
+- **臨時語音**：`/temp_voice setup` 設定觸發頻道、類別與名稱範本（預設 `{username}的家`），`status` 查看、`disable` 停用。成員加入觸發頻道就會得到自己的語音頻道，人都離開後自動刪除。房主可用 `envc*` 前綴指令管理：
+
+  | 類型 | 指令 |
+  | --- | --- |
+  | 基本設定 | `envc*name`、`envc*limit`、`envc*bitrate` |
+  | 隱私 | `envc*hide`／`unhide`、`envc*lock`／`unlock` |
+  | 成員 | `envc*kick`、`envc*ban`／`unban` |
+  | 房主 | `envc*transfer`、`envc*claim` |
+
+- **抽獎**：`/giveaway start`（時長可寫 `1d12h30m`）、`end` 提前結束、`reroll` 重抽、`list` 列出；按按鈕參加，到期自動開獎。
+- **身分組與表情符號**：`/role assign`／`remove`、`/emoji get`／`upload`。
+- **設定面板**：`/settings` 用選單和按鈕查看與修改日誌頻道、舉報頻道、防洗版與歡迎訊息。
+- **機器人外觀**：`/bot_appearance name` 改伺服器暱稱，`reset` 還原頭像或橫幅。`avatar`／`banner` 的圖片在設定 [AI 圖片審核節點](docs/image-review.md) 後，先由三個本地模型依序審核；AI 無法判定或未設定時，由開發者人工審核。
+
+### 遊戲與成就
+
+- `/deep-sea-oxygen` 深海氧氣瓶：雙人合作回合制，共享氧氣與道具。
+- `/russian-roulette` 俄羅斯輪盤：雙人對戰，籌碼與道具。
+- 成就共 18 個（普通 6、少見 7、稀有 5），涵蓋聊天、遊戲與社交。`/achievements` 查看進度，`/achievement_codex` 看全部成就，`/achievement_info` 看單一成就。
+
+### 帳號整合
+
+- **osu!**：`/osu bind`／`unbind` 綁定帳號，`/osu best`、`/osu recent` 查成績，`/user_info_osu` 查玩家資料。
+- **HoYoLAB／米游社**：支援原神、崩壞：星穹鐵道、絕區零與崩壞3（深境螺旋等挑戰紀錄僅前三者），國際服與國服皆可。
+  - 帳號：`/mhy bind` 綁定（Cookie 加密保存）、`unbind`、`status`、`tutorial` 取得 Cookie 的教學。
+  - 日常：`/mhy toggle_autosignin` 每日自動簽到、`checkin` 手動簽到、`notes` 查便箋、`redeem` 兌換禮包碼。
+  - 紀錄：`/mhy stats` 遊戲統計、`/mhy abyss` 挑戰紀錄。
+- **GitHub**：`/repo_watch set`／`status`／`disable` 監控任意倉庫的提交；`/repo_track add`／`remove`／`status` 追蹤 keeiv/bot 的新提交與新開的 PR（不追蹤 PR 合併）。使用 `GITHUB_TOKEN`、共用快取與 ETag，遇到限流會依重試時間暫停。
+
+### 工具
+
+**檔案工具**
+
+| 指令 | 用途 |
+| --- | --- |
+| `/convert` | 靜態圖片轉 PNG／JPG／WebP／PDF；UTF-8 CSV／TSV／JSON 平面表格互轉 |
+| `/compress` | 用 NovaGrid 引擎壓縮圖片，可設定品質與最大尺寸；沒有變小就不扣點 |
+| `/usage` | 等級、週用量與近三小時用量圖 |
+| `/ir` | 重置券背包與使用紀錄 |
+
+- 全部免費，點數只用來管理用量。首次使用即有 Free. 額度，使用滿 30 天升 Run.、60 天 Dash.、120 天 Grow.、180 天 Ultra.。
+- 網站 `/tools` 與 Discord 共用同一份額度；網站或 `!convert [format]` 可依等級批次處理。
+- 處理工作可以分給區網內另一台電腦。詳見 [檔案工具](docs/file-tools.md)、[NovaGrid 引擎](docs/novagrid.md)、[區網處理節點](docs/tool-worker.md)。
+
+**翻譯**：右鍵訊息 → 應用程式 → `翻譯訊息`（英文介面為 `Translate message`），可選 14 種語言：繁體中文、簡體中文、英文、日文、韓文、法文、德文、西班牙文、俄文、葡萄牙文、泰文、越南文、印尼文、阿拉伯文。
+
+### 語言（English／中文）
+
+- 斜線指令名稱一律是英文；指令說明、參數與右鍵選單依 Discord 用戶端語言顯示英文或中文。
+- 回覆、選單、按鈕與表單都有英文與中文兩版。在機器人所在的伺服器依伺服器語言；在私訊，或在機器人沒有加入的伺服器以個人應用程式使用時，依個人設定，沒有設定時依 Discord 用戶端語言。
+- 新加入的伺服器預設英文，並建立 `#bot-guide` 說明頻道，可在選單切換語言（需「管理伺服器」權限）；功能上線前已加入的伺服器維持中文。
+- `/language`：在機器人所在的伺服器切換伺服器語言（需「管理伺服器」權限），在私訊或個人應用程式中切換個人語言。
+- 尚未翻譯：網站儀表板 API 的回應（維持中文以相容網站）、本機命令列工具，以及日誌。
+- 程式已標記可在個人應用程式使用的指令（`/help`、`/language`、`/osu`、`/user_info_osu`、`/mhy`、`/convert`、`/compress`、`/usage`、`/ir`、`翻譯訊息`）；要在 Discord Developer Portal 開啟 User Install 後才會出現。
 
 ### 網站儀表板
 
-- Discord 登入、伺服器選擇與管理權限檢查
-- 管理歡迎訊息、防刷屏、年齡守門員、暫時語音頻道、工單、GitHub 監控與審計日誌設定
-- 設定檢查、面板部署，以及機器人即時狀態與 24 小時／7 天歷史資料
-- 本機 API 預設使用 `127.0.0.1:8080`，以共享密鑰驗證請求
-
-### 翻譯系統
-- 右鍵訊息 > 應用程式 > `翻譯訊息`（英文介面為 `Translate message`）— 將任意訊息翻譯為指定語言
-- 可在個人應用程式中使用（私訊、未加入機器人的伺服器）
-- 支援 14 個語言選項：繁體中文、簡體中文、英文、日文、韓文、法文、德文、西班牙文、俄文、葡萄牙文、泰文、越南文、印尼文、阿拉伯文
-
-### 語言（English / 中文）
-- 斜線指令名稱一律為英文；指令說明、參數與右鍵選單依 Discord 用戶端語言顯示英文或中文
-- 機器人回覆的語言：在機器人所在的伺服器依伺服器語言；在私訊或只以個人應用程式使用時依個人設定，未設定時依 Discord 用戶端語言
-- 新加入的伺服器預設英文，並建立 `#bot-guide` 說明頻道，下方選單可切換語言（需「管理伺服器」權限）；功能上線前已加入的伺服器維持中文
-- `/language` 在伺服器中切換伺服器語言（需「管理伺服器」權限），在私訊或個人應用程式中切換個人語言
-- 個人應用程式可使用：`/help`、`/language`、`/osu`、`/user_info_osu`、`/mhy`、`/convert`、`/compress`、`/usage`、`/ir`、`翻譯訊息`
-- 指令回覆、選單、按鈕與表單的文字都有英文與中文兩版；遊戲道具、申訴狀態等儲存用的識別字維持原值，只在顯示時翻譯
-- 尚未翻譯：網站儀表板 API 的回應（維持中文以相容網站）、檔案工具的本機命令列程式（`tool_console`、`tool_worker_setup` 等），以及日誌訊息
-- 語言設定存於 `data/storage/languages.json` 文件
-
-### 年齡守門員
-- `/age_guard set_adult_role` 設定 18+ 身份組、`/age_guard set_punishment_role` 設定懲罰身份組
-- `/age_guard toggle` 啟用/禁用、`/age_guard status` 查看狀態
-- 從訊息中的「數字 + 歲」偵測未成年年齡宣告，依設定移除成人身份組並加入懲罰身份組
-
-### 暫時語音頻道
-- `/temp_voice setup` 設定觸發頻道、類別與名稱範本（`{username}` 佔位符，預設：`{username}的家`）
-- `/temp_voice status` 查看系統狀態、`/temp_voice disable` 停用系統
-- 加入觸發頻道後自動建立個人語音頻道，成員離開後自動刪除
-- 使用者可透過 `envc*` 前綴指令自行管理頻道：
-  - 基礎設定：`envc*name`、`envc*limit`、`envc*bitrate`
-  - 隱私設定：`envc*hide`/`unhide`、`envc*lock`/`unlock`
-  - 成員管理：`envc*kick`、`envc*ban`/`unban`
-  - 所有權管理：`envc*transfer`、`envc*claim`
+[botweb.shizune.life](https://botweb.shizune.life) 用 Discord 登入，選擇自己有管理權限的伺服器後，可以設定歡迎訊息、防洗版、年齡守門、臨時語音、工單、GitHub 通知與審計日誌，執行設定檢查與面板部署，也能查看機器人的即時狀態與 24 小時／7 天歷史。網站透過 Cloudflare Tunnel 呼叫機器人的本機 API，不直接連線資料庫。
 
 ### 其他
-- `/user_info` 查看用戶資訊 (含 osu! 綁定與成就進度)
-- `/server_info` 查看伺服器資訊
-- `/help` 多頁幫助資訊
 
-## 安裝
+- `/help` 多頁說明，`/user_info` 查看使用者（含 osu! 綁定與成就進度），`/server_info` 查看伺服器。
+- 指令錯誤統一處理：權限不足、冷卻中、參數錯誤等會以使用者的語言回覆；未預期的錯誤記錄到指定的錯誤頻道與終端機。
+- 開發者專用：`/dev-status`（也有 `!dev-status`）、`>>>info` 開發者面板，以及檔案工具的測試等級與重置指令（見 [檔案工具](docs/file-tools.md)）。
 
-1. 安裝依賴
+## 快速開始
+
+需要 Python 3.10 以上（目前部署使用 3.13）。
+
+> **全新安裝請先使用 JSON 相容模式**（`STORAGE_BACKEND=json`）。MySQL 模式啟動前必須先完成資料搬移，而搬移工具只能從 `data/` 底下既有的 JSON／SQLite 資料搬移；目前還沒有直接建立空白 MySQL 資料庫的流程。正式環境使用 Oracle MySQL 8.4。
+
+**1. 安裝**
+
 ```bash
-pip install -r requirements.txt
+python -m venv .venv
 ```
 
-2. 設定環境變數
-在專案根目錄建立 `.env`，設定 Discord、外部服務與儲存連線資訊：
+啟用虛擬環境（Windows PowerShell：`.\.venv\Scripts\Activate.ps1`；Linux／macOS：`source .venv/bin/activate`）後安裝：
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+**2. 設定 `.env`**（放在專案根目錄，不納入 Git）
+
 ```env
 DISCORD_TOKEN=
 OSU_CLIENT_ID=
@@ -167,7 +171,7 @@ OSU_CLIENT_SECRET=
 GITHUB_TOKEN=
 BLACKLIST_API_KEY=
 GENSHIN_ENCRYPTION_KEY=
-STORAGE_BACKEND=mysql
+STORAGE_BACKEND=json
 STORAGE_ROOT=
 MYSQL_HOST=127.0.0.1
 MYSQL_PORT=3307
@@ -180,107 +184,123 @@ BOT_API_PORT=8080
 BOT_API_SECRET=
 ```
 
-`STORAGE_ROOT` 可設定為專案絕對路徑；未設定時以啟動目錄為準，應從專案根目錄執行。MySQL 資料庫與專用帳號需預先建立，帳號須具備建表及資料讀寫權限。未設定 `STORAGE_BACKEND` 時程式使用 JSON 相容模式；目前正式環境明確設定為 `mysql`。
+<details>
+<summary>各項設定說明</summary>
 
-全新帳號儲存會產生並保存 `GENSHIN_ENCRYPTION_KEY`；已有加密帳號時必須沿用原金鑰，缺失時服務會中止初始化。啟用儀表板 API 時，設定 `BOT_API_ENABLED=true` 與至少 32 字元的 `BOT_API_SECRET`。
+- `STORAGE_ROOT` 可設為專案的絕對路徑；不設定時以啟動目錄為準，所以要從專案根目錄執行。
+- `STORAGE_BACKEND` 只接受 `json` 或 `mysql`（不寫這一行等同 `json`，但不能留空白值）。完成第 3 步的搬移後再改為 `mysql`。MySQL 的資料庫與專用帳號要先建立，帳號需能建表與讀寫；使用 JSON 模式時 `MYSQL_*` 可以不填。
+- 全新安裝會產生並保存 `GENSHIN_ENCRYPTION_KEY`。已經有加密帳號時必須沿用原金鑰，缺少時服務會停止初始化，不會用新金鑰覆蓋。
+- 要讓網站連線，設定 `BOT_API_ENABLED=true` 與至少 32 字元的 `BOT_API_SECRET`。
 
-3. 搬移既有資料
+</details>
 
-停止機器人後，在專案根目錄執行：
+**3. 改用 MySQL：從既有資料搬移（只需要一次，使用 JSON 模式時略過）**
+
+停止機器人後執行：
 
 ```bash
 python -m src.migrate_storage
 ```
 
-遷移程式備份並核對 JSON／SQLite 來源、每份文件與各資料表內容，通過後寫入驗證標記。原檔不刪除；目的資料有衝突時中止搬移。Windows 備份位於 `%LOCALAPPDATA%\NewBotMySQL\backups`。MySQL 模式啟動前會核對驗證標記。
+會先備份並核對 JSON／SQLite 來源、每份文件與各資料表，全部通過才寫入驗證標記；原檔不刪除，目的地有衝突就中止。Windows 的備份在 `%LOCALAPPDATA%\NewBotMySQL\backups`。MySQL 模式啟動前會檢查這個標記。
 
-4. 執行
+**4. 啟動**
+
 ```bash
 python -m src.main
 ```
 
-Windows 上也可以改用終端機控制台：在一個畫面裡啟動、停止、重新啟動機器人，查看即時狀態（PID、運行時間、CPU、記憶體）與彩色日誌，並執行安裝依賴、測試、格式檢查等。
+## 終端機控制台（Windows）
 
-- 標頭有 BOT. 圖標與這台電腦的型號、處理器、顯示卡、記憶體；狀態卡有資料庫連線、系統記憶體與近 5 分鐘的警告／錯誤數
-- 第一次開啟時會先檢查主機與資料庫；資料庫沒有在執行就自動啟動。啟動、重新啟動機器人也會走同一套逐步檢查（環境設定、資料庫、鎖定檔），並用動畫顯示；`M` 可單獨檢查／啟動資料庫
-- 啟動資料庫只處理本機 3307 連接埠的 `NewBotMySQL` 實例：先找 `%LOCALAPPDATA%\NewBotMySQL`，找不到再找各應用程式（例如 Codex）套件資料夾裡的同名資料夾。標準位置有 `start-mysql.ps1` 就用它；實例在套件資料夾時，改直接執行 `mysqld`，並用 `--datadir`、`--log-error` 指向實際路徑。啟動前會確認沒有同一個實例的 `mysqld` 在執行，避免兩個程序同時使用同一份資料
-- 日誌區會把重複的訊息合併成一行（例如 `×282`）
 ```bash
 python -X utf8 -m src.control_panel
 ```
-用 ↑↓ 選擇、Enter 執行，也可以直接按選項前的字母或數字；`Q` 離開，不會停止在獨立視窗執行的機器人。本機的 `run_bot.bat` 只是啟動它的捷徑（不在版本控制內）。
 
-## 權限說明
+在同一個畫面啟動、停止、重新啟動機器人，看即時狀態（PID、運行時間、CPU、記憶體）、這台電腦的硬體、資料庫連線，以及彩色日誌（重複訊息會合併成一行，例如 `×282`）；也能執行安裝依賴、測試、格式檢查與兩種區網節點的設定。
 
-| 指令 | 所需權限 |
-|------|----------|
-| 訊息日誌設定 | 管理員 |
-| 防刷屏設定 | 管理員 |
-| 清除/踢出/封禁/禁言/警告 | 對應管理權限 |
-| 舉報頻道設定 | 管理伺服器 |
-| 工單系統設定 | 管理員 |
-| 翻譯系統 | 無特殊限制 |
-| 年齡守門員設定 | 管理員（Discord 預設指令權限） |
-| 暫時語音頻道設定 | 管理頻道 |
-| 身份組管理 | 管理角色 |
-| 表情符號上傳 | 管理表情符號 |
-| 歡迎訊息設定 | 管理頻道 |
-| 通用 GitHub 監控設定（repo_watch） | 管理伺服器 |
-| 固定倉庫追蹤新增／移除（repo_track） | 管理頻道 |
-| HoYoLAB/米游社 綁定 | 無特殊限制 |
-| 黑名單管理 | 開發者限定 |
-| 設定儀表板 | 管理員 |
-| 其他查詢指令 | 無特殊限制 |
+- 開啟和啟動機器人時會逐步檢查環境、資料庫與鎖定檔，並以動畫顯示；資料庫沒有在執行就自動啟動。`M` 可單獨檢查／啟動資料庫。
+- 資料庫只處理本機 3307 埠的 `NewBotMySQL` 實例：先找 `%LOCALAPPDATA%\NewBotMySQL`，找不到再找各應用程式套件資料夾裡的同名實例；啟動前會確認同一個實例沒有其他 `mysqld` 在執行。
+- 右上角是吉祥物 Nova 與 AI 用量欄位；目前沒有接上任何模型，所以顯示「無模型」。
+- `python -m src.control_panel.shortcut install` 在桌面建立捷徑：已經開著就切回那個視窗，沒開才開新的。
+- 操作：↑↓ 選擇、Enter 執行，或直接按選項前的字母／數字；`Q` 離開控制台，不會停止在獨立視窗執行的機器人。
 
-## 資料存放
+本機的 `run_bot.bat` 只是啟動控制台的捷徑，不在版本控制內。
 
-- `documents`：以原檔案相對路徑為主鍵，在 MySQL 中保存完整 JSON 結構與 SHA-256 校驗值，涵蓋設定、成就、黑名單、osu! 綁定、加密帳號及其他功能資料。
-- `samples`、`cache_entries`、`metrics`、`audit_logs`：儲存運作歷史、快取、指標與審計資料。
-- `migration_sources`、`migration_state`：儲存搬移來源副本與驗證完成標記。
-- MySQL 模式不更新原 JSON／SQLite，資料庫連線失敗時不回退至舊檔。保留的原檔是遷移快照，後續新增資料以 MySQL 為準。
-- `data/logs/runtime.log` 與啟動日誌仍使用檔案；日誌經背景佇列寫入，降低阻塞 Discord 心跳的風險。
-- `.env` 保存連線資訊與加密金鑰，不納入 Git。
+## 權限
 
-本機 Oracle MySQL 使用 `127.0.0.1:3307`，資料目錄位於 `%LOCALAPPDATA%\NewBotMySQL\data`。目前透過 Windows 使用者登入啟動；若 `start-mysql.ps1` 已配置，機器人啟動時也會啟動尚未運行的本機 3307 資料庫並等待就緒。此處理不適用於遠端資料庫。
+| 功能 | 需要的權限 |
+| --- | --- |
+| `/clear` | 管理訊息 |
+| `/kick`、`/ban` | 踢出成員、封禁成員 |
+| `/mute`、`/warn` | 禁言成員 |
+| `/message_log_settings`、`/bot_appearance`、`>>>ticket setup` | 管理員 |
+| `/anti_spam`、`/age_guard`、`/giveaway`、`/settings` | 預設只有管理員能用（Discord 指令的預設權限，伺服器可在「整合」設定裡調整） |
+| `/report_channel set`／`status`、`/repo_watch set`／`disable` | 管理伺服器 |
+| 用 `/language` 或 `#bot-guide` 切換機器人所在伺服器的語言（查詢目前語言、切換個人語言不需要） | 管理伺服器 |
+| `/welcome setup`／`disable`、`/temp_voice`、`/repo_track add`／`remove` | 管理頻道 |
+| `/role`、`/auto_role setup`／`remove` | 管理身分組 |
+| `/emoji upload` | 管理表情符號 |
+| `/blacklist`、開發者指令 | 開發者限定 |
+| 其他指令，例如遊戲、成就、osu!、HoYoLAB、翻譯、檔案工具、`/repo_watch status`、`/repo_track status`、`/welcome templates`／`preview` | 不需要特殊權限 |
 
-## 時區
+## 資料與儲存
 
-主要 Discord 日誌與使用者介面的格式化時間使用 UTC+8。GitHub API 等外部資料及部分診斷時間使用 UTC；內部也使用 Unix 時間戳與單調時鐘，不應將所有時間值當成 UTC+8 字串。
+| 位置 | 內容 |
+| --- | --- |
+| MySQL `documents` | 以原本的檔案路徑為鍵保存完整 JSON 與 SHA-256 校驗值：設定、成就、黑名單、osu! 綁定、加密帳號等 |
+| MySQL `samples`、`cache_entries`、`metrics`、`audit_logs` | 運作歷史、快取、指標與審計資料 |
+| MySQL `migration_sources`、`migration_state` | 搬移來源副本與驗證標記 |
+| `data/logs/runtime.log` | 執行日誌，經背景佇列寫入，避免卡住 Discord 心跳 |
+| `.env` | 連線資訊與加密金鑰，不納入 Git |
 
-## 開發
+- MySQL 模式不會寫回舊的 JSON／SQLite，資料庫失敗時也不會退回舊檔；保留的原檔只是搬移時的快照。
+- 本機 MySQL 使用 `127.0.0.1:3307`，資料在 `%LOCALAPPDATA%\NewBotMySQL\data`。設定好 `start-mysql.ps1` 時，機器人啟動也會順便啟動尚未執行的本機資料庫（不適用遠端資料庫）。
+- 時間：Discord 日誌與介面顯示 UTC+8；GitHub 等外部資料與部分診斷使用 UTC，內部也使用 Unix 時間戳。
 
-- `src/`：核心原始碼，包含機器人主要的 Cogs 模組與邏輯
-- `src/cogs/core/`：核心管理 (admin、audit_log、blacklist、bot_appearance、report、error_handler、settings 等)
-- `src/cogs/features/`：功能模組 (anti_spam、giveaway、achievements、osu_info、genshin_cog、translate、age_guard、temp_voice 等)
-- `src/cogs/games/`：遊戲模組
-- `src/utils/`：工具函式庫
-- `src/services/`：業務規則、設定與資料保存，以及外部服務整合（management_service、github_watch_service、genshin_service、osu_service 等）
-- `services/`：獨立外部整合，如 GitHub 客戶端與 osu! API 服務
-- `tests/`：自動化測試
-- `docs/`：說明文件
+## 專案結構
 
-## 依賴
+```text
+src/
+  main.py               啟動入口
+  bot.py                Bot、全域黑名單檢查與 Cog 自動載入
+  cogs/core/            錯誤處理、設定、日誌、黑名單、外觀、語言、儀表板 API
+  cogs/features/        防洗版、工單、臨時語音、抽獎、整合與檔案工具等功能
+  cogs/games/           小遊戲
+  services/             業務規則與資料保存，以及 NovaGrid、區網節點、圖片審核
+  locales/              英文與中文的訊息目錄
+  utils/                儲存、背景工作、翻譯與共用工具
+  control_panel/        Windows 終端機控制台與 Nova
+services/               獨立外部整合（GitHub 客戶端、osu! API）
+tests/                  自動化測試（CI：Python 3.10–3.13 與 MySQL 8.4）
+docs/                   說明文件
+```
 
-- Python 3.10+
-- 依賴版本由 `pyproject.toml` 統一管理；使用 `requirements.txt` 安裝執行環境，使用 `requirements-dev.txt` 安裝開發工具。
-- genshin (HoYoLAB/米游社 API)
-- cryptography (加密)
-- psutil (系統監控)
-- aiohttp (非同步 HTTP)
-- discord.py (Discord 框架)
-- PyMySQL (MySQL 連線)
-- ossapi (osu! API v2)
-- deep-translator (免費多引擎翻譯)
+<details>
+<summary>主要依賴</summary>
+
+版本由 `pyproject.toml` 統一管理；`requirements.txt` 安裝執行環境，`requirements-dev.txt` 安裝開發工具。
+
+| 套件 | 用途 |
+| --- | --- |
+| discord.py | Discord Gateway、指令、事件與互動元件 |
+| aiohttp | 非同步 HTTP 客戶端與儀表板 API |
+| PyMySQL | MySQL 連線 |
+| Pillow | 圖片轉換與 NovaGrid 壓縮 |
+| ossapi | osu! API v2 |
+| genshin、cryptography | HoYoLAB／米游社整合與 Cookie 加密 |
+| deep-translator | 訊息翻譯 |
+| psutil | 系統資源監控 |
+| python-dotenv | 讀取 `.env` |
+| rich | 終端機控制台畫面 |
+
+</details>
+
+想參與開發，先讀 [開發指南](docs/DEVELOPMENT.md) 與 [貢獻指南](CONTRIBUTING.md)；安裝、設定、部署與排查見 [文件導覽](docs/Home.md)。
 
 ## 授權
 
 Copyright (c) 2026 Keeiv。
 
-目前版本採用 **GNU Affero General Public License v3.0 only（AGPL-3.0-only）**，完整條文見 [LICENSE](LICENSE)，專案著作權聲明見 [NOTICE](NOTICE)。允許複製、修改、散布與商業使用；修改版本透過網路提供互動服務時，須向使用者提供免費取得該版本完整對應原始碼的方式。原始碼不包含部署密鑰或使用者資料。
+採用 **GNU Affero General Public License v3.0 only（AGPL-3.0-only）**，條文見 [LICENSE](LICENSE)，著作權聲明見 [NOTICE](NOTICE)。可以複製、修改、散布與商業使用；修改後透過網路提供服務時，須讓使用者能免費取得該版本完整的對應原始碼。原始碼不包含部署密鑰或使用者資料。
 
-本次授權變更不追溯取代已發布版本的 MIT 授權；舊聲明保留於 [LICENSES/MIT-legacy.txt](LICENSES/MIT-legacy.txt)。第三方元件保留各自的授權與著作權聲明。
-
-
-## 開發文件
-
-首次接手先閱讀 [開發指南](docs/DEVELOPMENT.md) 與 [貢獻指南](CONTRIBUTING.md)。Cog 自動掃描載入；資料修改由公開 Service 方法完成，MySQL 模式中的 `.json` 路徑是資料鍵。安裝、設定、部署與排查入口見 [文件導覽](docs/Home.md)。
+這次授權變更不追溯取代已發布版本的 MIT 授權，舊聲明保留於 [LICENSES/MIT-legacy.txt](LICENSES/MIT-legacy.txt)。第三方元件保留各自的授權與著作權聲明。
