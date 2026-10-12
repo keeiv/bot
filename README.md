@@ -1,8 +1,11 @@
 <div align="center">
 
-<img src="src/control_panel/assets/bot-logo.png" width="96" alt="BOT. 圖標">
-
-# BOT.
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo/bot-logo-wordmark-light.png">
+    <img src="assets/logo/bot-logo-wordmark.png" alt="BOT." width="320">
+  </picture>
+</h1>
 
 **一隻會顧門、會招呼客人、還會順手收拾的 Discord 機器人。**
 

@@ -1,3 +1,12 @@
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/logo/bot-logo-wordmark-light.png">
+  <img src="assets/logo/bot-logo-wordmark.png" alt="BOT." width="220">
+</picture>
+
+</div>
+
 # 貢獻指南
 
 本專案接受錯誤修復、功能、測試與文件更新。一般貢獻使用 Fork 與 Pull Request；維護者可依已確認的變更範圍直接提交至 `main`。
