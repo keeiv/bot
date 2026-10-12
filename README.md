@@ -150,6 +150,24 @@
 
 > **全新安裝請先使用 JSON 相容模式**（`STORAGE_BACKEND=json`）。MySQL 模式啟動前必須先完成資料搬移，而搬移工具只能從 `data/` 底下既有的 JSON／SQLite 資料搬移；目前還沒有直接建立空白 MySQL 資料庫的流程。正式環境使用 Oracle MySQL 8.4。
 
+**開發者快速安裝**：只想把程式碼取下來、裝好依賴就能開發，不用照下面一步一步做，用安裝程式即可。它只做一件事：下載專案。在終端機裡會開啟黑白的方框畫面（版面和下面的控制台相似，有圖標、輸入安裝資料夾的文字方塊、進度與即時輸出），照著做：檢查環境、從 GitHub 取得程式碼（沒有 git 就改下載 ZIP）、建立虛擬環境、安裝依賴、建立空白的 `.env`、確認套件都能匯入。它只用 Python 內建的功能，沒有顏色也沒有 Nova；不是終端機（例如接到檔案或管線）時會改印純文字。已經安裝的資料夾再執行會改成更新，不會動你的 `.env` 和虛擬環境。
+
+```powershell
+# Windows PowerShell
+irm https://raw.githubusercontent.com/keeiv/bot/main/install.py -OutFile install.py
+python install.py
+```
+
+```bash
+# Linux／macOS
+curl -O https://raw.githubusercontent.com/keeiv/bot/main/install.py
+python3 install.py
+```
+
+畫面操作：輸入或貼上資料夾、Enter 開始、Esc 離開；下載中 Ctrl+C 可中止，失敗後 Enter 重試。選項：`--dir 資料夾` 指定位置、`--yes` 直接開始、`--test` 裝好後跑全部測試、`--no-dev` 不裝開發工具、`--check` 只檢查環境、`--plain` 不開畫面只印文字；`python install.py --help` 看全部選項。安裝程式不會詢問或寫入任何密鑰，`DISCORD_TOKEN` 要自己填進 `.env`。
+
+下面是手動安裝的步驟。
+
 **1. 安裝**
 
 ```bash
