@@ -13,7 +13,8 @@ coverage.xml
 *.egg-info/
 
 bot.lock
-run_bot.bat
+run_bot*.bat
+src/control_panel/assets/bot-panel.ico
 start.py
 
 data/

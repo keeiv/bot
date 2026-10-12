@@ -52,7 +52,7 @@ Discord 與網站 `/tools` 使用同一份帳號額度。使用等級依使用�
 
 檔案處理可選用[區域網路處理節點](tool-worker.md)。網站、Discord、資料庫與扣點保留於主機，僅將檔案處理移交已配對的節點。連線採專用授權及固定憑證校驗；排隊與傳輸時間不計入扣點。分工預設停用，連線與圖片轉換驗證通過後才能啟用，設定於機器人下一次啟動時生效。此變更不需要更改網站或 Tunnel 的設定。
 
-本機 `run_bot.bat` 選單新增 `[T] Developer file-tools terminal`。輸入 `DEVELOPER_IDS` 中自己的 Discord ID 後，可使用 `plan Free.`、`plan Run.`、`plan Dash.`、`plan Grow.`、`plan Ultra.` 切換自己的測試等級，`status` 查看，`plan Nova` 或 `plan auto` 還原 Nova 20x.，`exit` 離開。測試覆寫 24 小時後自動失效，不修改年資、不重置用量或券；降低等級可能使既有用量超過新額度。另可使用 `nova [userid]`、`unova [userid]` 授予或撤銷單一帳號的隱藏等級；`plan` 不接受其他帳號參數。終端機依賴本機作業系統與資料庫的存取控制。
+本機 `run_bot.bat` 控制台的 `T`（檔案工具終端）會開啟它。輸入 `DEVELOPER_IDS` 中自己的 Discord ID 後，可使用 `plan Free.`、`plan Run.`、`plan Dash.`、`plan Grow.`、`plan Ultra.` 切換自己的測試等級，`status` 查看，`plan Nova` 或 `plan auto` 還原 Nova 20x.，`exit` 離開。測試覆寫 24 小時後自動失效，不修改年資、不重置用量或券；降低等級可能使既有用量超過新額度。另可使用 `nova [userid]`、`unova [userid]` 授予或撤銷單一帳號的隱藏等級；`plan` 不接受其他帳號參數。終端機依賴本機作業系統與資料庫的存取控制。
 
 亦可執行 `.venv\Scripts\python.exe -X utf8 -m src.tool_console --user 開發者ID --command "plan Ultra."`。網站重新整理、Discord 再次查詢即讀取共用儲存中的等級。此命令不啟停機器人程序。測試等級儲存在新增的 `tool_tier_overrides` 表。
 

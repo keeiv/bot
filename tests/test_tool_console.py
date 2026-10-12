@@ -66,10 +66,15 @@ def test_terminal_grant_is_explicit_single_target_and_developer_only(tmp_path):
 
 
 def test_launcher_has_separate_terminal_option():
+    from src.control_panel import actions
+    from src.control_panel import menu
+    from src.control_panel.state import project_paths
+
+    # The file-tools terminal is still a menu entry, now in the control panel.
+    assert menu.BY_KEY["t"].label == "檔案工具終端"
+    command = actions.build_command(project_paths(), "tools")
+    assert command.argv[1:] == ("-X", "utf8", "-m", "src.tool_console")
     launcher = Path(__file__).resolve().parents[1] / "run_bot.bat"
-    if not launcher.is_file():
-        pytest.skip("Local Windows launcher is not part of the source checkout")
-    source = launcher.read_text(encoding="utf-8")
-    assert "[T] Developer file-tools terminal" in source
-    assert "-X utf8 -m src.tool_console" in source
-    assert "if !MENU_CHOICE! == 14 goto TOOL_TERMINAL" in source
+    if launcher.is_file():
+        source = launcher.read_text(encoding="utf-8")
+        assert "-X utf8 -m src.control_panel" in source

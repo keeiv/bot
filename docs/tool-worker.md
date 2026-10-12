@@ -27,7 +27,7 @@
 .venv\Scripts\python.exe -X utf8 -m src.tool_worker_setup enable
 ```
 
-`check` 驗證 HTTPS、授權、引擎原始碼校驗與實際透明圖片轉換，不建立用戶帳本紀錄或扣點。`enable` 會重新完成相同驗證，通過後才修改配對設定。重啟機器人後啟用分工。亦可使用本機 `run_bot.bat` 的 `[W] LAN file-worker settings` 選單完成檢查與切換。
+`check` 驗證 HTTPS、授權、引擎原始碼校驗與實際透明圖片轉換，不建立用戶帳本紀錄或扣點。`enable` 會重新完成相同驗證，通過後才修改配對設定。重啟機器人後啟用分工。亦可使用本機 `run_bot.bat` 控制台的 `W`（區網檔案工作站）選單完成檢查與切換。
 
 兩台電腦的位址變更時須更新配對與防火牆設定，建議在路由器設定 DHCP 位址保留。VPN 須允許區網連線；同一 Wi-Fi 的裝置隔離也可能阻擋連線。此服務使用區網位址，不需要路由器轉發埠號或另外建立 Tunnel。
 
