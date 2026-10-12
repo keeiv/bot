@@ -9,6 +9,7 @@ from src.utils.document_store import document_exists
 from src.utils.document_store import open_document
 from src.utils.document_store import using_mysql
 from src.utils.document_store import write_document
+from src.utils.i18n import text as tx
 from src.utils.time_utils import get_now
 
 _DATA_FILE = "data/storage/petition.json"
@@ -46,7 +47,9 @@ class PetitionService:
                 os.unlink(temporary_file)
             except OSError:
                 pass
-            raise OSError(f"無法儲存請願書資料: {error}") from error
+            raise OSError(
+                tx("petition_service.could_not_save_petition_data", v0=(error))
+            ) from error
 
     def sign(self, user_id: int, today: Optional[date] = None) -> int:
         """記錄一次副署並回傳目前連續天數。"""

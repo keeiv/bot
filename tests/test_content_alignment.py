@@ -223,6 +223,8 @@ async def test_custom_prefix_commands_check_blacklist_before_action(kind, entry)
     user.id, user.bot = 42, False
     user.guild_permissions.administrator = True
     event = SimpleNamespace(
+        locale=discord.Locale.taiwan_chinese,
+        client=SimpleNamespace(get_guild=lambda _: object()),
         author=user,
         guild=Mock(),
         content=">>>ticket setup" if kind == "ticket" else "envc*name new",
@@ -255,6 +257,9 @@ async def test_appeal_accept_notification_matches_actual_blacklist_source(source
     )
     modal = AppealAcceptModal(42, SimpleNamespace(bot=bot))
     event = SimpleNamespace(
+        locale=discord.Locale.taiwan_chinese,
+        guild_id=None,
+        client=SimpleNamespace(get_guild=lambda _: object()),
         response=SimpleNamespace(defer=AsyncMock()),
         followup=SimpleNamespace(send=AsyncMock()),
         user=SimpleNamespace(id=1),

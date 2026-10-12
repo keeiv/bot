@@ -19,6 +19,7 @@ from src.services.tool_protocol import safe_name
 from src.services.tool_quota import MAX_TOTAL_BYTES
 from src.services.tool_quota import ToolQuota
 from src.services.tool_remote import RemoteWorker
+from src.utils.i18n import text as tx
 from src.utils.storage_worker import run_blocking
 
 log = logging.getLogger(__name__)
@@ -70,7 +71,7 @@ class ToolTokens:
                 raise ValueError
             return data
         except (ValueError, KeyError, TypeError) as exc:
-            raise ValueError("檔案授權已失效") from exc
+            raise ValueError(tx("file_tools.file_authorization_has_expired")) from exc
 
 
 class FileTools:
@@ -127,18 +128,18 @@ class FileTools:
 
     async def _submit(self, uid, files, operation, quality, max_edge, job_id):
         if self.quota is None:
-            raise ValueError("檔案服務尚未就緒")
+            raise ValueError(tx("file_tools.the_file_service_is_not_ready"))
         if len(self.tasks) >= (2 if self.remote else 6) or len(self.directories) >= 32:
-            raise ValueError("處理佇列已滿，稍後可重新提交")
+            raise ValueError(tx("file_tools.the_processing_queue_is_full_retry"))
         if (
             type(quality) is not int
             or not 40 <= quality <= 95
             or type(max_edge) is not int
             or not 256 <= max_edge <= 8192
         ):
-            raise ValueError("輸出品質或尺寸不符合要求")
+            raise ValueError(tx("file_tools.output_quality_or_dimensions_are_outside"))
         if len(files) > 16 or sum(len(data) for _, data in files) > MAX_TOTAL_BYTES:
-            raise ValueError("批次超過處理上限")
+            raise ValueError(tx("file_tools.the_batch_exceeds_the_processing_limit"))
         quote = await run_blocking(
             self.quota.quote, uid, [len(data) for _, data in files], operation
         )
@@ -209,7 +210,9 @@ class FileTools:
                 )
                 await asyncio.wait_for(process.wait(), timeout=quote["timeout"])
                 if process.returncode != 0:
-                    raise ValueError("轉換失敗：格式、內容或處理上限不符合要求")
+                    raise ValueError(
+                        tx("file_tools.conversion_failed_format_content_or_processing")
+                    )
                 output = json.loads(
                     await run_blocking(
                         (root / "result.json").read_text, encoding="utf-8"
@@ -257,7 +260,9 @@ class FileTools:
                     )
                 else:
                     self.results[job_id].update(
-                        state="failed", points=0, error="檔案處理失敗或超時；本次未扣點"
+                        state="failed",
+                        points=0,
+                        error=tx("file_tools.file_processing_failed_or_timed_out"),
                     )
                 self.settlements.pop(job_id, None)
                 return
@@ -265,19 +270,20 @@ class FileTools:
                 if attempt == 2:
                     log.exception("Tool settlement awaiting retry: %s", job_id)
         self.results[job_id].update(
-            state="settling", error="用量紀錄核對中，結果將於確認後開放下載"
+            state="settling",
+            error=tx("file_tools.usage_records_are_being_verified_downloads"),
         )
 
     def result(self, uid, job_id):
         data = self.results.get(job_id)
         if not data or data["userId"] != str(uid) or data["expiresAt"] <= time.time():
-            raise ValueError("檔案工作不存在或已到期")
+            raise ValueError(tx("file_tools.the_file_job_does_not_exist"))
         return dict(data)
 
     def download(self, uid, job_id):
         data = self.result(uid, job_id)
         if data["state"] != "done":
-            raise ValueError("檔案尚未完成")
+            raise ValueError(tx("file_tools.the_file_is_not_ready"))
         return Path(self.directories[job_id].name) / "result.bin", safe_name(
             data["name"]
         )

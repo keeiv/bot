@@ -17,6 +17,8 @@ from discord.ui import TextDisplay
 from discord.ui import Thumbnail
 
 from src.config.constants import DEVELOPER_IDS
+from src.utils.i18n import text as tx
+from src.utils.lang_context import localized
 
 
 def _dev_markdown(title: str, lines: Sequence[str]) -> str:
@@ -29,35 +31,36 @@ class DevInfoSectionSelect(Select[Any]):
         self.parent_view = parent_view
         options = [
             discord.SelectOption(
-                label="總覽",
+                label=tx("developer.overview"),
                 value="overview",
-                description="基本統計與運行狀態",
+                description=tx("developer.basic_statistics_and_status"),
                 default=parent_view.section == "overview",
             ),
             discord.SelectOption(
-                label="伺服器列表",
+                label=tx("developer.server_list"),
                 value="guilds",
-                description="已加入的所有伺服器",
+                description=tx("developer.all_joined_servers"),
                 default=parent_view.section == "guilds",
             ),
             discord.SelectOption(
-                label="系統資訊",
+                label=tx("developer.system_info"),
                 value="system",
-                description="執行環境與版本資訊",
+                description=tx("developer.runtime_and_version_details"),
                 default=parent_view.section == "system",
             ),
         ]
         super().__init__(
-            placeholder="選擇資訊分區",
+            placeholder=tx("developer.choose_an_information_section"),
             min_values=1,
             max_values=1,
             options=options,
         )
 
+    @localized("interaction")
     async def callback(self, interaction: discord.Interaction) -> None:
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
-                "[拒絕] 僅限開發者使用", ephemeral=True
+                tx("developer.denied_developers_only"), ephemeral=True
             )
             return
         next_view = DevInfoLayoutView(bot=self.parent_view.bot, section=self.values[0])
@@ -83,23 +86,26 @@ class DevInfoLayoutView(LayoutView):
         total_guilds = len(self.bot.guilds)
 
         section_labels = {
-            "overview": "總覽",
-            "guilds": "伺服器列表",
-            "system": "系統資訊",
+            "overview": tx("developer.overview"),
+            "guilds": tx("developer.server_list"),
+            "system": tx("developer.system_info"),
         }
         section_label = section_labels[self.section]
 
         if self.bot.user is not None:
             container.add_item(
                 Section(
-                    TextDisplay("## 開發者面板"),
+                    TextDisplay(tx("developer.developer_panel")),
                     TextDisplay(
-                        f"目前分區：**{section_label}**\n"
-                        f"伺服器數量：**{total_guilds}**"
+                        tx(
+                            "developer.current_section_servers",
+                            v0=(section_label),
+                            v1=(total_guilds),
+                        )
                     ),
                     accessory=Thumbnail(
                         self.bot.user.display_avatar.url,
-                        description="機器人頭像",
+                        description=tx("developer.bot_avatar"),
                     ),
                 )
             )
@@ -109,7 +115,7 @@ class DevInfoLayoutView(LayoutView):
         )
 
         if self.section == "overview":
-            uptime_str = "未知"
+            uptime_str = tx("audit_log.unknown")
             start_time: Optional[datetime] = getattr(self.bot, "_start_time", None)
             if start_time is not None:
                 delta = datetime.now(timezone.utc) - start_time
@@ -119,15 +125,19 @@ class DevInfoLayoutView(LayoutView):
 
             latency_ms = round(self.bot.latency * 1000, 2)
             overview_lines = (
-                f"伺服器數量：**{total_guilds}**",
-                f"網路延遲：**{latency_ms} ms**",
-                f"運行時間：**{uptime_str}**",
+                tx("developer.servers", v0=(total_guilds)),
+                tx("developer.latency_ms", v0=(latency_ms)),
+                tx("developer.uptime", v0=(uptime_str)),
             )
-            container.add_item(TextDisplay(_dev_markdown("基本統計", overview_lines)))
+            container.add_item(
+                TextDisplay(
+                    _dev_markdown(tx("developer.basic_statistics"), overview_lines)
+                )
+            )
 
         elif self.section == "guilds":
             guild_lines = [
-                f"`{g.name}` — ID: `{g.id}` — {g.member_count} 位成員"
+                tx("developer.id_members", v0=(g.name), v1=(g.id), v2=(g.member_count))
                 for g in sorted(
                     self.bot.guilds,
                     key=lambda x: x.member_count or 0,
@@ -135,29 +145,40 @@ class DevInfoLayoutView(LayoutView):
                 )
             ]
             if not guild_lines:
-                guild_lines = ["尚未加入任何伺服器"]
+                guild_lines = [tx("developer.no_servers_joined")]
 
             container.add_item(
                 TextDisplay(
-                    _dev_markdown(f"伺服器列表 ({total_guilds})", guild_lines[:20])
+                    _dev_markdown(
+                        tx("developer.server_list_697b0c", v0=(total_guilds)),
+                        guild_lines[:20],
+                    )
                 )
             )
             if len(guild_lines) > 20:
                 container.add_item(
-                    TextDisplay(f"*...及其他 {len(guild_lines) - 20} 個伺服器*")
+                    TextDisplay(
+                        tx("developer.and_other_servers", v0=(len(guild_lines) - 20))
+                    )
                 )
 
         elif self.section == "system":
-            bot_id = str(self.bot.user.id) if self.bot.user else "未知"
-            bot_name = self.bot.user.name if self.bot.user else "未知"
+            bot_id = str(self.bot.user.id) if self.bot.user else tx("audit_log.unknown")
+            bot_name = self.bot.user.name if self.bot.user else tx("audit_log.unknown")
             system_lines = (
-                f"Python 版本：**{sys.version.split()[0]}**",
-                f"discord.py 版本：**{discord.__version__}**",
-                f"作業系統：**{platform.system()} {platform.release()}**",
-                f"機器人 ID：**{bot_id}**",
-                f"機器人名稱：**{bot_name}**",
+                tx("developer.python_version", v0=(sys.version.split()[0])),
+                tx("developer.discord_py_version", v0=(discord.__version__)),
+                tx(
+                    "developer.operating_system",
+                    v0=(platform.system()),
+                    v1=(platform.release()),
+                ),
+                tx("developer.bot_id", v0=(bot_id)),
+                tx("developer.bot_name", v0=(bot_name)),
             )
-            container.add_item(TextDisplay(_dev_markdown("系統資訊", system_lines)))
+            container.add_item(
+                TextDisplay(_dev_markdown(tx("developer.system_info"), system_lines))
+            )
 
         action_row = ActionRow[Any]()
         action_row.add_item(self._section_select)
@@ -195,6 +216,7 @@ class Developer(commands.Cog):
             self.bot._start_time = datetime.now(timezone.utc)
 
     @commands.Cog.listener()
+    @localized("message")
     async def on_message(self, message: discord.Message) -> None:
         """處理 >>>info 開發者面板指令"""
         if message.author.bot:
@@ -202,49 +224,59 @@ class Developer(commands.Cog):
         if not message.content.strip().startswith(">>>info"):
             return
         if message.author.id not in DEVELOPER_IDS:
-            await message.reply("[拒絕] 僅限開發者使用此指令", delete_after=5)
+            await message.reply(
+                tx("developer.denied_this_command_is_restricted_to"), delete_after=5
+            )
             return
 
         view = DevInfoLayoutView(bot=self.bot)
         msg = await message.reply(view=view)
         view.message = msg
 
-    @app_commands.command(name="dev-status", description="查看開發者狀態")
+    @app_commands.command(name="dev-status", description="Show developer status")
+    @localized("interaction")
     async def dev_status_slash(self, interaction: discord.Interaction) -> None:
         """開發者狀態檢查"""
         if not self.is_developer_slash(interaction):
             await interaction.response.send_message(
-                "[拒絕] 你沒有權限使用此指令", ephemeral=True
+                tx("developer.denied_permission_to_use_this_command"), ephemeral=True
             )
             return
 
         embed = discord.Embed(
-            title="[開發者] 系統狀態", color=discord.Color.from_rgb(155, 89, 182)
+            title=tx("developer.developer_system_status"),
+            color=discord.Color.from_rgb(155, 89, 182),
         )
         embed.add_field(
-            name="開發者ID",
+            name=tx("developer.developer_ids"),
             value=f"`{', '.join(str(d) for d in DEVELOPER_IDS)}`",
             inline=True,
         )
-        embed.add_field(name="機器人狀態", value="運行中", inline=True)
-        embed.set_footer(text=f"請求者: {interaction.user.name}")
+        embed.add_field(
+            name=tx("developer.bot_status"), value=tx("developer.running"), inline=True
+        )
+        embed.set_footer(text=tx("developer.requested_by", v0=(interaction.user.name)))
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @commands.command(name="dev-status", description="開發者狀態檢查")
     @commands.check(lambda ctx: ctx.author.id in DEVELOPER_IDS)
+    @localized("ctx")
     async def dev_status_command(self, ctx: Any) -> None:
         """開發者狀態檢查"""
         embed = discord.Embed(
-            title="[開發者] 系統狀態", color=discord.Color.from_rgb(155, 89, 182)
+            title=tx("developer.developer_system_status"),
+            color=discord.Color.from_rgb(155, 89, 182),
         )
         embed.add_field(
-            name="開發者ID",
+            name=tx("developer.developer_ids"),
             value=f"`{', '.join(str(d) for d in DEVELOPER_IDS)}`",
             inline=True,
         )
-        embed.add_field(name="機器人狀態", value="運行中", inline=True)
-        embed.set_footer(text=f"請求者: {ctx.author.name}")
+        embed.add_field(
+            name=tx("developer.bot_status"), value=tx("developer.running"), inline=True
+        )
+        embed.set_footer(text=tx("developer.requested_by", v0=(ctx.author.name)))
 
         await ctx.send(embed=embed, ephemeral=True)
 

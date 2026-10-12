@@ -7,6 +7,7 @@ import pytest
 
 from src.cogs.features.file_tools import FileToolsCog
 from src.config.constants import DEVELOPER_IDS
+from src.services.language_service import language_service
 from src.services.tool_card import usage_card
 from src.services.tool_quota import MIB
 from src.services.tool_quota import TIERS
@@ -82,6 +83,7 @@ def test_grant_persists_without_developer_privilege_or_erasing_state(tmp_path):
     ],
 )
 async def test_discord_no_space_commands_and_reply_only_to_request(command, tmp_path):
+    language_service().set_user_lang(OWNER, "zh")  # a Chinese-speaking developer
     quota = ToolQuota(tmp_path / "quota.db")
     quota.register("123")
     guild = SimpleNamespace(
@@ -91,6 +93,7 @@ async def test_discord_no_space_commands_and_reply_only_to_request(command, tmp_
     cog.engine = SimpleNamespace(quota=quota)
     cog.bot = SimpleNamespace(guilds=[guild], get_guild=lambda _: guild)
     message = SimpleNamespace(
+        guild=None,
         author=SimpleNamespace(bot=False, id=OWNER),
         content=command,
         id=123456,
@@ -107,11 +110,14 @@ async def test_discord_no_space_commands_and_reply_only_to_request(command, tmp_
 
 
 async def test_spaced_prefix_is_not_a_command_and_non_developer_is_rejected(tmp_path):
+    language_service().set_user_lang(OWNER, "zh")
+    language_service().set_user_lang(123, "zh")
     quota = ToolQuota(tmp_path / "quota.db")
     cog = FileToolsCog.__new__(FileToolsCog)
     cog.engine = SimpleNamespace(quota=quota)
     cog.bot = SimpleNamespace(guilds=[])
     message = SimpleNamespace(
+        guild=None,
         author=SimpleNamespace(bot=False, id=OWNER),
         content=">>> ireset",
         id=1,

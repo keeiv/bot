@@ -9,6 +9,10 @@ from discord.ext import commands
 from src.services.report_service import ReportService
 from src.utils.config_manager import get_guild_report_channel
 from src.utils.config_manager import set_guild_report_channel
+from src.utils.i18n import text as tx
+from src.utils.lang_context import localized
+from src.utils.localized_ui import LocalizedModal
+from src.utils.localized_ui import LocalizedView
 from src.utils.storage_worker import run_storage
 from src.utils.time_utils import TZ_OFFSET
 
@@ -16,11 +20,20 @@ _service = ReportService()
 
 
 # ========== 禁言表單 ==========
-class MuteModal(ui.Modal, title="禁言處理"):
+class MuteModal(LocalizedModal, title="Mute member"):
     """禁言表單 - 填寫天/時/分/原因"""
 
+    i18n = {
+        "title": "report.mute_member",
+        "days.label": "report.days",
+        "hours.label": "report.hours",
+        "minutes.label": "report.minutes",
+        "reason.label": "blacklist.reason",
+        "reason.placeholder": "report.enter_a_reason_for_the_mute",
+    }
+
     days = ui.TextInput[Any](
-        label="天數",
+        label="Days",
         placeholder="0",
         default="0",
         max_length=3,
@@ -28,7 +41,7 @@ class MuteModal(ui.Modal, title="禁言處理"):
     )
 
     hours = ui.TextInput[Any](
-        label="小時",
+        label="Hours",
         placeholder="0",
         default="0",
         max_length=3,
@@ -36,7 +49,7 @@ class MuteModal(ui.Modal, title="禁言處理"):
     )
 
     minutes = ui.TextInput[Any](
-        label="分鐘",
+        label="Minutes",
         placeholder="60",
         default="60",
         max_length=4,
@@ -44,8 +57,8 @@ class MuteModal(ui.Modal, title="禁言處理"):
     )
 
     reason = ui.TextInput[Any](
-        label="原因",
-        placeholder="請輸入禁言原因...",
+        label="Reason",
+        placeholder="Enter a reason for the mute…",
         style=discord.TextStyle.paragraph,
         max_length=1000,
         required=True,
@@ -58,6 +71,7 @@ class MuteModal(ui.Modal, title="禁言處理"):
         self.target = target
         self.reported_message = reported_message
 
+    @localized("interaction")
     async def on_submit(self, interaction: discord.Interaction) -> None:
         """執行禁言"""
         try:
@@ -66,7 +80,7 @@ class MuteModal(ui.Modal, title="禁言處理"):
             m = int(self.minutes.value or "0")
         except ValueError:
             await interaction.response.send_message(
-                "[失敗] 時間格式錯誤，請輸入數字", ephemeral=True
+                tx("report.failed_invalid_time_format_enter_numbers"), ephemeral=True
             )
             return
 
@@ -85,25 +99,36 @@ class MuteModal(ui.Modal, title="禁言處理"):
 
 
 # ========== Ban 表單 ==========
-class BanModal(ui.Modal, title="封禁處理"):
+class BanModal(LocalizedModal, title="Ban member"):
     """封禁表單 - 暫時封禁/刪除訊息天數/原因"""
 
+    i18n = {
+        "title": "report.ban_member",
+        "temp_ban.label": "report.temporary_ban_enter_yes_leave_blank",
+        "temp_ban.placeholder": "report.blank_permanent_ban",
+        "temp_duration.label": "report.temporary_ban_duration_in_seconds",
+        "temp_duration.placeholder": "report.example_86400_1_day_3600_1",
+        "delete_days.label": "report.delete_messages_from_the_past_0",
+        "reason.label": "blacklist.reason",
+        "reason.placeholder": "report.enter_a_reason_for_the_ban",
+    }
+
     temp_ban = ui.TextInput[Any](
-        label="是否暫時封禁 (輸入 '是' 或留空為永久)",
-        placeholder="留空 = 永久封禁",
+        label="Temporary ban? Enter yes; leave blank for permanent",
+        placeholder="Blank = permanent ban",
         max_length=10,
         required=False,
     )
 
     temp_duration = ui.TextInput[Any](
-        label="暫時封禁時長 (秒，僅暫時封禁時填寫)",
-        placeholder="例如: 86400 (1天) / 3600 (1小時)",
+        label="Temporary ban duration in seconds",
+        placeholder="Example: 86400 (1 day) / 3600 (1 hour)",
         max_length=10,
         required=False,
     )
 
     delete_days = ui.TextInput[Any](
-        label="刪除幾天內的訊息 (0-7)",
+        label="Delete messages from the past 0–7 days",
         placeholder="0",
         default="0",
         max_length=1,
@@ -111,8 +136,8 @@ class BanModal(ui.Modal, title="封禁處理"):
     )
 
     reason = ui.TextInput[Any](
-        label="原因",
-        placeholder="請輸入封禁原因...",
+        label="Reason",
+        placeholder="Enter a reason for the ban…",
         style=discord.TextStyle.paragraph,
         max_length=1000,
         required=True,
@@ -125,10 +150,11 @@ class BanModal(ui.Modal, title="封禁處理"):
         self.target = target
         self.reported_message = reported_message
 
+    @localized("interaction")
     async def on_submit(self, interaction: discord.Interaction) -> None:
         """執行封禁"""
         reason_text = self.reason.value
-        is_temp = self.temp_ban.value.strip() == "是"
+        is_temp = self.temp_ban.value.strip().casefold() in {"是", "yes", "true", "1"}
 
         try:
             del_days = int(self.delete_days.value or "0")
@@ -156,11 +182,18 @@ class BanModal(ui.Modal, title="封禁處理"):
 
 
 # ========== 警告表單 ==========
-class WarnModal(ui.Modal, title="警告處理"):
+class WarnModal(LocalizedModal, title="Warn member"):
     """警告表單 - 警告次數/原因"""
 
+    i18n = {
+        "title": "report.warn_member",
+        "warn_count.label": "report.warning_count",
+        "reason.label": "blacklist.reason",
+        "reason.placeholder": "report.enter_a_reason_for_the_warning",
+    }
+
     warn_count = ui.TextInput[Any](
-        label="警告次數",
+        label="Warning count",
         placeholder="1",
         default="1",
         max_length=2,
@@ -168,8 +201,8 @@ class WarnModal(ui.Modal, title="警告處理"):
     )
 
     reason = ui.TextInput[Any](
-        label="原因",
-        placeholder="請輸入警告原因...",
+        label="Reason",
+        placeholder="Enter a reason for the warning…",
         style=discord.TextStyle.paragraph,
         max_length=1000,
         required=True,
@@ -182,6 +215,7 @@ class WarnModal(ui.Modal, title="警告處理"):
         self.target = target
         self.reported_message = reported_message
 
+    @localized("interaction")
     async def on_submit(self, interaction: discord.Interaction) -> None:
         """執行警告"""
         if (
@@ -190,7 +224,7 @@ class WarnModal(ui.Modal, title="警告處理"):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.response.send_message(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         try:
@@ -216,8 +250,14 @@ class WarnModal(ui.Modal, title="警告處理"):
 
 
 # ========== 舉報處理面板 (按鈕) ==========
-class ReportActionView(ui.View):
+class ReportActionView(LocalizedView):
     """舉報處理面板 - 禁言/封禁/警告 按鈕"""
+
+    i18n = {
+        "mute_button.label": "report.mute",
+        "ban_button.label": "report.ban",
+        "warn_button.label": "report.warn",
+    }
 
     def __init__(
         self, target: discord.Member, reported_message: discord.Message
@@ -236,7 +276,7 @@ class ReportActionView(ui.View):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.response.send_message(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return False
         error = ReportService.permission_error(
@@ -247,7 +287,8 @@ class ReportActionView(ui.View):
             return False
         return True
 
-    @ui.button(label="禁言", style=discord.ButtonStyle.primary, emoji=None)
+    @ui.button(label="Mute", style=discord.ButtonStyle.primary, emoji=None)
+    @localized("interaction")
     async def mute_button(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
@@ -257,7 +298,8 @@ class ReportActionView(ui.View):
         modal = MuteModal(self.target, self.reported_message)
         await interaction.response.send_modal(modal)
 
-    @ui.button(label="封禁", style=discord.ButtonStyle.danger, emoji=None)
+    @ui.button(label="Ban", style=discord.ButtonStyle.danger, emoji=None)
+    @localized("interaction")
     async def ban_button(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
@@ -267,7 +309,8 @@ class ReportActionView(ui.View):
         modal = BanModal(self.target, self.reported_message)
         await interaction.response.send_modal(modal)
 
-    @ui.button(label="警告", style=discord.ButtonStyle.secondary, emoji=None)
+    @ui.button(label="Warn", style=discord.ButtonStyle.secondary, emoji=None)
+    @localized("interaction")
     async def warn_button(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
@@ -286,7 +329,7 @@ class Report(commands.Cog):
         self.bot = bot
         # 註冊右鍵選單
         self.report_ctx_menu = app_commands.ContextMenu(
-            name="舉報訊息",
+            name="Report message",
             callback=self.report_message,
         )
         self.bot.tree.add_command(self.report_ctx_menu)
@@ -297,6 +340,7 @@ class Report(commands.Cog):
             self.report_ctx_menu.name, type=self.report_ctx_menu.type
         )
 
+    @localized("interaction")
     async def report_message(
         self, interaction: discord.Interaction, message: discord.Message
     ) -> None:
@@ -307,26 +351,26 @@ class Report(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.response.send_message(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         if not interaction.guild:
             await interaction.response.send_message(
-                "[失敗] 此功能僅限伺服器內使用", ephemeral=True
+                tx("report.failed_this_feature_is_only_available"), ephemeral=True
             )
             return
 
         # 不能舉報自己
         if message.author.id == interaction.user.id:
             await interaction.response.send_message(
-                "[失敗] 你不能舉報自己的訊息", ephemeral=True
+                tx("report.failed_reporting_one_s_own_messages"), ephemeral=True
             )
             return
 
         # 不能舉報機器人
         if message.author.bot:
             await interaction.response.send_message(
-                "[失敗] 你不能舉報機器人的訊息", ephemeral=True
+                tx("report.failed_bot_messages_cannot_be_reported"), ephemeral=True
             )
             return
 
@@ -336,7 +380,7 @@ class Report(commands.Cog):
         )
         if not report_channel_id:
             await interaction.response.send_message(
-                "[失敗] 此伺服器尚未設定舉報頻道，請管理員使用 `/report_channel set` 設定",
+                tx("report.failed_no_report_channel_is_configured"),
                 ephemeral=True,
             )
             return
@@ -352,45 +396,45 @@ class Report(commands.Cog):
             ),
         ):
             await interaction.response.send_message(
-                "[失敗] 舉報頻道不存在或已被刪除，請管理員重新設定",
+                tx("report.failed_the_report_channel_does_not"),
                 ephemeral=True,
             )
             return
 
         # 截斷過長內容
-        content = message.content or "(無文字內容)"
+        content = message.content or tx("report.no_text_content")
         if len(content) > 1024:
             content = content[:1021] + "..."
 
         # 建立舉報 Embed
         embed = discord.Embed(
-            title="[舉報] 新的訊息舉報",
+            title=tx("report.report_new_message_report"),
             color=discord.Color.from_rgb(231, 76, 60),
             timestamp=datetime.now(TZ_OFFSET),
         )
         embed.add_field(
-            name="被舉報者",
+            name=tx("report.reported_user"),
             value=f"{message.author.mention} ({message.author.id})",
             inline=True,
         )
         embed.add_field(
-            name="舉報人",
+            name=tx("report.reported_by"),
             value=f"{interaction.user.mention} ({interaction.user.id})",
             inline=True,
         )
         embed.add_field(
-            name="頻道",
+            name=tx("audit_log.channel"),
             value=f"{message.channel.mention}",
             inline=True,
         )
         embed.add_field(
-            name="訊息內容",
+            name=tx("report.message_content"),
             value=content,
             inline=False,
         )
         embed.add_field(
-            name="訊息連結",
-            value=f"[點擊跳轉]({message.jump_url})",
+            name=tx("report.message_link"),
+            value=tx("report.open_message", v0=(message.jump_url)),
             inline=False,
         )
 
@@ -400,13 +444,15 @@ class Report(commands.Cog):
                 f"[{att.filename}]({att.url})" for att in message.attachments[:5]
             )
             embed.add_field(
-                name="附件",
+                name=tx("report.attachments"),
                 value=attachment_list,
                 inline=False,
             )
 
         embed.set_footer(
-            text=f"訊息 ID: {message.id} | 伺服器: {interaction.guild.name}"
+            text=tx(
+                "report.message_id_server", v0=(message.id), v1=(interaction.guild.name)
+            )
         )
 
         await interaction.response.defer(ephemeral=True)
@@ -423,23 +469,28 @@ class Report(commands.Cog):
             await report_channel.send(embed=embed, view=view)
         else:
             embed.add_field(
-                name="注意",
-                value="被舉報的用戶已不在伺服器中，無法執行處理動作",
+                name=tx("report.notice"),
+                value=tx("report.the_reported_user_has_left_the"),
                 inline=False,
             )
             await report_channel.send(embed=embed)
 
         # 回覆舉報者
         await interaction.followup.send(
-            "[成功] 你的舉報已送出，管理員將會進行審查", ephemeral=True
+            tx("report.success_report_submitted_for_moderator_review"), ephemeral=True
         )
 
     # ========== 設定舉報頻道指令 ==========
-    report_group = app_commands.Group(name="report_channel", description="舉報系統設定")
+    report_group = app_commands.Group(
+        name="report_channel", description="Report settings"
+    )
 
-    @report_group.command(name="set", description="設定舉報訊息接收頻道")
-    @app_commands.describe(channel="要接收舉報訊息的頻道")
+    @report_group.command(
+        name="set", description="Set the channel that receives reports"
+    )
+    @app_commands.describe(channel="The channel for reports")
     @app_commands.checks.has_permissions(manage_guild=True)
+    @localized("interaction")
     async def report_channel_set(
         self, interaction: discord.Interaction, channel: discord.TextChannel
     ) -> None:
@@ -451,20 +502,21 @@ class Report(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.followup.send(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         await run_storage(set_guild_report_channel, interaction.guild.id, channel.id)
 
         embed = discord.Embed(
-            title="[成功] 舉報頻道已設定",
-            description=f"舉報訊息將發送至 {channel.mention}",
+            title=tx("report.success_report_channel_saved"),
+            description=tx("report.reports_will_be_sent_to", v0=(channel.mention)),
             color=discord.Color.from_rgb(46, 204, 113),
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @report_group.command(name="status", description="查看舉報頻道設定")
+    @report_group.command(name="status", description="Show the report channel")
     @app_commands.checks.has_permissions(manage_guild=True)
+    @localized("interaction")
     async def report_channel_status(self, interaction: discord.Interaction) -> None:
         """查看舉報頻道設定"""
         await interaction.response.defer(thinking=True, ephemeral=True)
@@ -474,7 +526,7 @@ class Report(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.followup.send(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         channel_id = await run_storage(get_guild_report_channel, interaction.guild.id)
@@ -489,14 +541,14 @@ class Report(commands.Cog):
                     discord.StageChannel,
                 ),
             ):
-                desc = f"目前舉報頻道: {channel.mention}"
+                desc = tx("report.current_report_channel", v0=(channel.mention))
             else:
-                desc = "已設定的頻道不存在，請重新設定"
+                desc = tx("report.the_configured_channel_no_longer_exists")
         else:
-            desc = "尚未設定舉報頻道，請使用 `/report_channel set` 設定"
+            desc = tx("report.no_report_channel_is_configured_use")
 
         embed = discord.Embed(
-            title="[舉報系統] 頻道設定",
+            title=tx("report.reports_channel_settings"),
             description=desc,
             color=discord.Color.from_rgb(52, 152, 219),
         )

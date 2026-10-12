@@ -7,6 +7,8 @@ from discord import app_commands
 from discord.ext import commands
 
 from src.config.constants import ERROR_LOG_CHANNEL_ID
+from src.utils.i18n import text as tx
+from src.utils.lang_context import localized
 from src.utils.time_utils import TZ_OFFSET
 
 
@@ -25,6 +27,7 @@ class ErrorHandler(commands.Cog):
 
     # ==================== Slash Command 錯誤 ====================
 
+    @localized("interaction")
     async def on_app_command_error(
         self, interaction: discord.Interaction, error: app_commands.AppCommandError
     ) -> None:
@@ -36,7 +39,7 @@ class ErrorHandler(commands.Cog):
             missing = ", ".join(error.missing_permissions)
             await self._respond(
                 interaction,
-                f"[失敗] 你缺少以下權限: {missing}",
+                tx("error_handler.failed_missing_permissions", v0=(missing)),
             )
             return
 
@@ -45,7 +48,7 @@ class ErrorHandler(commands.Cog):
             missing = ", ".join(error.missing_permissions)
             await self._respond(
                 interaction,
-                f"[失敗] 機器人缺少以下權限: {missing}",
+                tx("error_handler.failed_the_bot_is_missing_permissions", v0=(missing)),
             )
             return
 
@@ -53,7 +56,10 @@ class ErrorHandler(commands.Cog):
         if isinstance(error, app_commands.CommandOnCooldown):
             await self._respond(
                 interaction,
-                f"[提示] 指令冷卻中，請在 {error.retry_after:.1f} 秒後重試",
+                tx(
+                    "error_handler.info_command_on_cooldown_retry_in",
+                    v0=(error.retry_after),
+                ),
             )
             return
 
@@ -65,7 +71,7 @@ class ErrorHandler(commands.Cog):
         if isinstance(error, app_commands.CheckFailure):
             await self._respond(
                 interaction,
-                "[失敗] 您沒有使用此指令的權限",
+                tx("error_handler.failed_permission_to_use_this_command"),
             )
             return
 
@@ -73,7 +79,7 @@ class ErrorHandler(commands.Cog):
         if isinstance(error, app_commands.TransformerError):
             await self._respond(
                 interaction,
-                f"[失敗] 參數格式錯誤: {error}",
+                tx("error_handler.failed_invalid_argument_format", v0=(error)),
             )
             return
 
@@ -83,6 +89,7 @@ class ErrorHandler(commands.Cog):
     # ==================== Prefix Command 錯誤 ====================
 
     @commands.Cog.listener()
+    @localized("ctx")
     async def on_command_error(
         self, ctx: commands.Context[Any], error: commands.CommandError
     ) -> None:
@@ -94,24 +101,38 @@ class ErrorHandler(commands.Cog):
 
         if isinstance(error, commands.MissingPermissions):
             missing = ", ".join(error.missing_permissions)
-            await ctx.send(f"[失敗] 你缺少以下權限: {missing}")
+            await ctx.send(tx("error_handler.failed_missing_permissions", v0=(missing)))
             return
 
         if isinstance(error, commands.BotMissingPermissions):
             missing = ", ".join(error.missing_permissions)
-            await ctx.send(f"[失敗] 機器人缺少以下權限: {missing}")
+            await ctx.send(
+                tx("error_handler.failed_the_bot_is_missing_permissions", v0=(missing))
+            )
             return
 
         if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send(f"[失敗] 缺少必要參數: {error.param.name}")
+            await ctx.send(
+                tx(
+                    "error_handler.failed_required_argument_missing",
+                    v0=(error.param.name),
+                )
+            )
             return
 
         if isinstance(error, commands.BadArgument):
-            await ctx.send(f"[失敗] 參數格式錯誤: {error}")
+            await ctx.send(
+                tx("error_handler.failed_invalid_argument_format", v0=(error))
+            )
             return
 
         if isinstance(error, commands.CommandOnCooldown):
-            await ctx.send(f"[提示] 指令冷卻中，請在 {error.retry_after:.1f} 秒後重試")
+            await ctx.send(
+                tx(
+                    "error_handler.info_command_on_cooldown_retry_in",
+                    v0=(error.retry_after),
+                )
+            )
             return
 
         if isinstance(error, commands.CheckFailure):
@@ -139,14 +160,16 @@ class ErrorHandler(commands.Cog):
         # 回覆使用者
         await self._respond(
             interaction,
-            "[錯誤] 發生未預期的錯誤，開發者已收到通知",
+            tx("error_handler.error_an_unexpected_error_occurred_the"),
         )
 
         # 格式化堆疊
         tb = "".join(
             traceback.format_exception(type(error), error, error.__traceback__)
         )
-        cmd_name = interaction.command.name if interaction.command else "未知"
+        cmd_name = (
+            interaction.command.name if interaction.command else tx("audit_log.unknown")
+        )
 
         # 記錄到日誌頻道
         await self._log_error(
@@ -161,12 +184,12 @@ class ErrorHandler(commands.Cog):
         self, ctx: commands.Context[Any], error: Exception
     ) -> None:
         """處理未預期的 Prefix Command 錯誤"""
-        await ctx.send("[錯誤] 發生未預期的錯誤，開發者已收到通知")
+        await ctx.send(tx("error_handler.error_an_unexpected_error_occurred_the"))
 
         tb = "".join(
             traceback.format_exception(type(error), error, error.__traceback__)
         )
-        cmd_name = ctx.command.name if ctx.command else "未知"
+        cmd_name = ctx.command.name if ctx.command else tx("audit_log.unknown")
 
         await self._log_error(
             guild=ctx.guild,
@@ -186,26 +209,30 @@ class ErrorHandler(commands.Cog):
     ) -> None:
         """將錯誤記錄到日誌頻道 + 開發者私訊"""
         embed = discord.Embed(
-            title="[錯誤] 未預期的指令錯誤",
+            title=tx("error_handler.error_unexpected_command_error"),
             color=discord.Color.from_rgb(231, 76, 60),
             timestamp=datetime.now(TZ_OFFSET),
         )
-        embed.add_field(name="指令", value=f"`/{command_name}`", inline=True)
         embed.add_field(
-            name="使用者",
+            name=tx("error_handler.command"), value=f"`/{command_name}`", inline=True
+        )
+        embed.add_field(
+            name=tx("error_handler.user"),
             value=f"{user} ({user.id})",
             inline=True,
         )
         if guild:
             embed.add_field(
-                name="伺服器",
+                name=tx("bot_appearance.server"),
                 value=f"{guild.name} ({guild.id})",
                 inline=False,
             )
 
         # 堆疊截斷到 1024
         short_tb = traceback_str[-1000:] if len(traceback_str) > 1000 else traceback_str
-        embed.add_field(name="錯誤", value=f"```\n{short_tb}\n```", inline=False)
+        embed.add_field(
+            name=tx("error_handler.error"), value=f"```\n{short_tb}\n```", inline=False
+        )
 
         # 發送到指定錯誤日誌頻道
         try:

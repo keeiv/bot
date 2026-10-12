@@ -7,6 +7,8 @@ from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
 
+from src.utils.i18n import text as tx
+
 
 def font(size):
     for filename in (
@@ -29,7 +31,7 @@ def usage_card(data):
     )
     draw.rounded_rectangle((56, 62, 62, 119), radius=3, fill=accent)
     draw.text((82, 59), "FILE TOOLS", font=font(17), fill="#8095ae")
-    draw.text((80, 82), "使用額度", font=font(34), fill="#f3f7fc")
+    draw.text((80, 82), tx("tool_card.usage_allowance"), font=font(34), fill="#f3f7fc")
     badge_font = font(25)
     badge_width = max(163, round(draw.textlength(tier["name"], font=badge_font)) + 48)
     draw.rounded_rectangle((1028 - badge_width, 62, 1028, 113), radius=25, fill=accent)
@@ -41,7 +43,10 @@ def usage_card(data):
         anchor="mm",
     )
     for index, (key, label) in enumerate(
-        (("weekly", "本週用量"), ("rolling", "近三小時用量"))
+        (
+            ("weekly", tx("tool_card.weekly_usage")),
+            ("rolling", tx("tool_card.last_three_hours")),
+        )
     ):
         top = 188 + index * 130
         item = data[key]
@@ -58,23 +63,31 @@ def usage_card(data):
             )
         draw.text(
             (80, top + 76),
-            f"可用 {max(0, item['limit'] - item['used'] - data['reserved']):,} 點",
+            tx(
+                "tool_card.available_pt",
+                v0=(max(0, item["limit"] - item["used"] - data["reserved"])),
+            ),
             font=font(17),
             fill="#8297b1",
         )
     draw.line((80, 459, 1020, 459), fill="#27384e", width=1)
     draw.text(
         (80, 483),
-        f"使用年資 {data['days']} 天  ·  重置券 {data['coupons']} 張  ·  預留 {data['reserved']} 點",
+        tx(
+            "tool_card.tenure_days_vouchers_reserved_pt",
+            v0=(data["days"]),
+            v1=(data["coupons"]),
+            v2=(data["reserved"]),
+        ),
         font=font(19),
         fill="#c6d2e2",
     )
     draw.text(
         (80, 530),
         (
-            "固定授權等級 · 無需付費 · 點數僅用於用量管理"
+            tx("tool_card.assigned_tier_no_payment_required_points")
             if tier.get("hidden")
-            else "依使用天數自動升級 · 無需付費 · 點數僅用於用量管理"
+            else tx("tool_card.tiers_grow_with_tenure_no_payment")
         ),
         font=font(18),
         fill="#8297b1",

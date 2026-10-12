@@ -15,6 +15,7 @@ import aiohttp
 from src.utils.document_store import read_document
 from src.utils.document_store import using_mysql
 from src.utils.document_store import write_document
+from src.utils.i18n import text as tx
 from src.utils.storage_worker import run_storage
 from src.utils.time_utils import format_datetime as _format_time
 
@@ -287,7 +288,9 @@ class ManagementService:
                         "type": "commit",
                         "channel_id": repo_data["channel_id"],
                         "repo_key": repo_key,
-                        "title": f"[GitHub] {repo_key} 新 Commit",
+                        "title": tx(
+                            "management_service.github_new_commit", v0=(repo_key)
+                        ),
                         "description": latest["commit"]["message"][:200],
                         "url": latest["html_url"],
                         "sha": latest["sha"][:7],
@@ -316,7 +319,9 @@ class ManagementService:
                         "type": "pr",
                         "channel_id": repo_data["channel_id"],
                         "repo_key": repo_key,
-                        "title": f"[GitHub] {repo_key} 新 Pull Request",
+                        "title": tx(
+                            "management_service.github_new_pull_request", v0=(repo_key)
+                        ),
                         "description": latest["title"][:200],
                         "url": latest["html_url"],
                         "pr_number": str(latest["number"]),

@@ -13,6 +13,10 @@ from discord import ui
 from discord.ext import commands
 
 from src.services.ticket_service import TicketService
+from src.utils.i18n import text as tx
+from src.utils.lang_context import localized
+from src.utils.localized_ui import LocalizedModal
+from src.utils.localized_ui import LocalizedView
 
 if TYPE_CHECKING:
     from src.bot import Bot
@@ -23,17 +27,24 @@ TZ_OFFSET = timezone(timedelta(hours=8))
 _service = TicketService()
 
 
-class CloseReasonModal(ui.Modal, title="關閉工單"):
+class CloseReasonModal(LocalizedModal, title="Close ticket"):
     """關閉工單原因表單"""
 
+    i18n = {
+        "title": "ticket.close_ticket",
+        "reason.label": "ticket.closure_reason",
+        "reason.placeholder": "ticket.enter_a_reason_for_closing_the",
+    }
+
     reason = ui.TextInput[Any](
-        label="關閉原因",
-        placeholder="請輸入關閉工單的原因...",
+        label="Closure reason",
+        placeholder="Enter a reason for closing the ticket…",
         style=discord.TextStyle.paragraph,
         max_length=1000,
         required=True,
     )
 
+    @localized("interaction")
     async def on_submit(self, interaction: discord.Interaction) -> None:
         """提交關閉原因並鎖定討論串"""
         await interaction.response.defer(thinking=True)
@@ -42,20 +53,24 @@ class CloseReasonModal(ui.Modal, title="關閉工單"):
         thread = interaction.channel
         if not isinstance(thread, discord.Thread):
             await interaction.followup.send(
-                "[失敗] 此指令只能在工單討論串中使用", ephemeral=True
+                tx("ticket.failed_this_command_is_only_available"), ephemeral=True
             )
             return
 
         reason_text = self.reason.value
 
         embed = discord.Embed(
-            title="[關閉] 工單已關閉",
-            description=f"此工單已由 {interaction.user.mention} 關閉",
+            title=tx("ticket.closed_ticket_closed"),
+            description=tx(
+                "ticket.this_ticket_was_closed_by", v0=(interaction.user.mention)
+            ),
             color=discord.Color.from_rgb(231, 76, 60),
             timestamp=datetime.now(TZ_OFFSET),
         )
-        embed.add_field(name="關閉原因", value=reason_text, inline=False)
-        embed.set_footer(text=f"工單ID: {thread.id}")
+        embed.add_field(
+            name=tx("ticket.closure_reason"), value=reason_text, inline=False
+        )
+        embed.set_footer(text=tx("ticket.ticket_id", v0=(thread.id)))
 
         await interaction.followup.send(embed=embed)
 
@@ -72,8 +87,13 @@ class CloseReasonModal(ui.Modal, title="關閉工單"):
             pass
 
 
-class TicketCloseView(ui.View):
+class TicketCloseView(LocalizedView):
     """工單關閉按鈕視圖 (持久化)"""
+
+    i18n = {
+        "close_button.label": "ticket.close_ticket",
+        "close_reason_button.label": "ticket.close_with_reason",
+    }
 
     def __init__(self) -> None:
         super().__init__(timeout=None)
@@ -95,13 +115,17 @@ class TicketCloseView(ui.View):
             or not isinstance(interaction.user, discord.Member)
         ):
             await self._respond(
-                interaction, "此功能只能在伺服器內使用。", ephemeral=True
+                interaction,
+                tx("bot_appearance.this_feature_is_only_available_in"),
+                ephemeral=True,
             )
             return False
         thread = interaction.channel
         if not isinstance(thread, discord.Thread):
             await self._respond(
-                interaction, "[失敗] 此指令只能在工單討論串中使用", ephemeral=True
+                interaction,
+                tx("ticket.failed_this_command_is_only_available"),
+                ephemeral=True,
             )
             return False
 
@@ -112,17 +136,20 @@ class TicketCloseView(ui.View):
             )
         ):
             await self._respond(
-                interaction, "[失敗] 只有管理員或工單建立者可以關閉工單", ephemeral=True
+                interaction,
+                tx("ticket.failed_only_staff_or_the_ticket"),
+                ephemeral=True,
             )
             return False
 
         return True
 
     @ui.button(
-        label="關閉工單",
+        label="Close ticket",
         style=discord.ButtonStyle.secondary,
         custom_id="ticket_close",
     )
+    @localized("interaction")
     async def close_button(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
@@ -137,12 +164,14 @@ class TicketCloseView(ui.View):
             return
 
         embed = discord.Embed(
-            title="[關閉] 工單已關閉",
-            description=f"此工單已由 {interaction.user.mention} 關閉",
+            title=tx("ticket.closed_ticket_closed"),
+            description=tx(
+                "ticket.this_ticket_was_closed_by", v0=(interaction.user.mention)
+            ),
             color=discord.Color.from_rgb(231, 76, 60),
             timestamp=datetime.now(TZ_OFFSET),
         )
-        embed.set_footer(text=f"工單ID: {thread.id}")
+        embed.set_footer(text=tx("ticket.ticket_id", v0=(thread.id)))
 
         await interaction.followup.send(embed=embed)
 
@@ -154,10 +183,11 @@ class TicketCloseView(ui.View):
             pass
 
     @ui.button(
-        label="有原因關閉工單",
+        label="Close with reason",
         style=discord.ButtonStyle.danger,
         custom_id="ticket_close_reason",
     )
+    @localized("interaction")
     async def close_reason_button(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
@@ -165,17 +195,20 @@ class TicketCloseView(ui.View):
         await interaction.response.send_modal(CloseReasonModal())
 
 
-class TicketOpenView(ui.View):
+class TicketOpenView(LocalizedView):
     """開啟工單按鈕視圖 (持久化)"""
+
+    i18n = {"open_button.label": "ticket.open_ticket"}
 
     def __init__(self) -> None:
         super().__init__(timeout=None)
 
     @ui.button(
-        label="開啟工單",
+        label="Open ticket",
         style=discord.ButtonStyle.primary,
         custom_id="ticket_open",
     )
+    @localized("interaction")
     async def open_button(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
@@ -191,7 +224,9 @@ class TicketOpenView(ui.View):
             or not guild_config.get("enabled", True)
             or interaction.channel_id != guild_config.get("channel_id")
         ):
-            await interaction.followup.send("[失敗] 工單系統尚未設定", ephemeral=True)
+            await interaction.followup.send(
+                tx("ticket.failed_the_ticket_system_is_not"), ephemeral=True
+            )
             return
 
         role_id = guild_config.get("role_id")
@@ -202,7 +237,7 @@ class TicketOpenView(ui.View):
         )
         if existing_tid:
             await interaction.followup.send(
-                f"[失敗] 你已有一個開啟中的工單: <#{existing_tid}>",
+                tx("ticket.failed_an_open_ticket_already_exists", v0=(existing_tid)),
                 ephemeral=True,
             )
             return
@@ -210,13 +245,15 @@ class TicketOpenView(ui.View):
         # 遞增工單編號
         ticket_count = await run_storage(_service.increment_ticket_count, guild.id)
 
-        thread_name = f"工單-{ticket_count:04d}-{interaction.user.display_name}"
+        thread_name = tx(
+            "ticket.ticket", v0=(ticket_count), v1=(interaction.user.display_name)
+        )
 
         # 建立私人討論串
         channel = interaction.channel
         if not isinstance(channel, discord.TextChannel):
             await interaction.followup.send(
-                "工單面板必須位於文字頻道。", ephemeral=True
+                tx("ticket.the_ticket_panel_must_be_in"), ephemeral=True
             )
             return
         try:
@@ -227,11 +264,13 @@ class TicketOpenView(ui.View):
             )
         except discord.Forbidden:
             await interaction.followup.send(
-                "[失敗] 機器人權限不足，無法建立私人討論串", ephemeral=True
+                tx("ticket.failed_the_bot_cannot_create_private"), ephemeral=True
             )
             return
         except Exception as e:
-            await interaction.followup.send(f"[失敗] 建立工單失敗: {e}", ephemeral=True)
+            await interaction.followup.send(
+                tx("ticket.failed_ticket_creation_failed", v0=(e)), ephemeral=True
+            )
             return
 
         # 儲存工單資料
@@ -246,22 +285,24 @@ class TicketOpenView(ui.View):
 
         # 歡迎 Embed
         embed = discord.Embed(
-            title="[工單] 新工單已建立",
-            description="請詳細說明你的問題，工作人員會盡快回覆。",
+            title=tx("ticket.ticket_new_ticket_created"),
+            description=tx("ticket.describe_the_issue_in_detail_staff"),
             color=discord.Color.from_rgb(52, 152, 219),
             timestamp=datetime.now(TZ_OFFSET),
         )
         embed.add_field(
-            name="建立者",
+            name=tx("ticket.created_by"),
             value=f"{interaction.user.mention} ({interaction.user.id})",
             inline=True,
         )
         embed.add_field(
-            name="工單編號",
+            name=tx("ticket.ticket_number"),
             value=f"#{ticket_count:04d}",
             inline=True,
         )
-        embed.set_footer(text=f"工單ID: {thread.id} | 伺服器: {guild.name}")
+        embed.set_footer(
+            text=tx("ticket.ticket_id_server", v0=(thread.id), v1=(guild.name))
+        )
 
         role_mention = f"<@&{role_id}>" if role_id else ""
         await thread.send(
@@ -271,7 +312,7 @@ class TicketOpenView(ui.View):
         )
 
         await interaction.followup.send(
-            f"[成功] 已建立工單: {thread.mention}", ephemeral=True
+            tx("ticket.success_ticket_created", v0=(thread.mention)), ephemeral=True
         )
 
 
@@ -289,6 +330,7 @@ class Ticket(commands.Cog):
         self.bot.add_view(TicketCloseView())
 
     @commands.Cog.listener()
+    @localized("message")
     async def on_message(self, message: discord.Message) -> None:
         """處理 >>> 前綴指令"""
         if (
@@ -304,7 +346,10 @@ class Ticket(commands.Cog):
             return
 
         if not message.author.guild_permissions.administrator:
-            await message.reply("[失敗] 你需要管理員權限才能使用此指令", delete_after=5)
+            await message.reply(
+                tx("message_logger.failed_administrator_permission_is_required_for"),
+                delete_after=5,
+            )
             return
 
         parts = message.content.strip().split()
@@ -312,7 +357,7 @@ class Ticket(commands.Cog):
             await self._handle_setup(message)
         else:
             await message.reply(
-                "[提示] 使用方式: `>>>ticket setup <#頻道> <@身份組>`",
+                tx("ticket.info_syntax_ticket_setup_channel_role"),
                 delete_after=10,
             )
 
@@ -322,23 +367,21 @@ class Ticket(commands.Cog):
             return
         if not message.channel_mentions or not message.role_mentions:
             await message.reply(
-                "[失敗] 請提供頻道和身份組\n"
-                "使用方式: `>>>ticket setup <#頻道> <@身份組>`",
+                tx("ticket.failed_provide_a_channel_and_role"),
                 delete_after=10,
             )
             return
 
         channel = message.channel_mentions[0]
         if not isinstance(channel, discord.TextChannel):
-            await message.reply("工單面板必須位於文字頻道。")
+            await message.reply(tx("ticket.the_ticket_panel_must_be_in"))
             return
         role = message.role_mentions[0]
         guild = message.guild
 
         if role.is_default():
             await message.reply(
-                "[失敗] 無法使用 @everyone 作為工單通知身份組\n"
-                "請建立專用的工作人員身份組",
+                tx("ticket.failed_everyone_cannot_be_used_for"),
                 delete_after=10,
             )
             return
@@ -346,22 +389,18 @@ class Ticket(commands.Cog):
         bot_perms = channel.permissions_for(guild.me)
         if not bot_perms.send_messages or not bot_perms.create_private_threads:
             await message.reply(
-                f"[失敗] 機器人在 {channel.mention} 中缺少"
-                "「發送訊息」或「建立私人討論串」權限",
+                tx("ticket.failed_the_bot_lacks_send_messages", v0=(channel.mention)),
                 delete_after=10,
             )
             return
 
         panel_embed = discord.Embed(
-            title="[工單] 支援工單系統",
-            description=(
-                "如果你需要協助，請點擊下方按鈕開啟工單。\n"
-                "工作人員會在私人討論串中回覆你。"
-            ),
+            title=tx("ticket.tickets_support_tickets"),
+            description=(tx("ticket.use_the_button_below_to_open")),
             color=discord.Color.from_rgb(52, 152, 219),
             timestamp=datetime.now(TZ_OFFSET),
         )
-        panel_embed.set_footer(text=f"伺服器: {guild.name}")
+        panel_embed.set_footer(text=tx("age_guard.server", v0=(guild.name)))
 
         panel_message = await channel.send(embed=panel_embed, view=TicketOpenView())
 
@@ -376,11 +415,14 @@ class Ticket(commands.Cog):
         )
 
         embed = discord.Embed(
-            title="[成功] 工單系統已設定",
+            title=tx("ticket.success_ticket_system_configured"),
             description=(
-                f"工單頻道: {channel.mention}\n"
-                f"通知身份組: {role.mention}\n"
-                f"面板訊息ID: {panel_message.id}"
+                tx(
+                    "ticket.ticket_channel_staff_role_panel_message",
+                    v0=(channel.mention),
+                    v1=(role.mention),
+                    v2=(panel_message.id),
+                )
             ),
             color=discord.Color.from_rgb(46, 204, 113),
             timestamp=datetime.now(TZ_OFFSET),

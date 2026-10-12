@@ -13,6 +13,7 @@ import discord
 
 from src.utils.document_store import open_document
 from src.utils.document_store import read_document
+from src.utils.i18n import text as tx
 
 # UTC+8 時區
 TZ_OFFSET = timezone(timedelta(hours=8))
@@ -303,7 +304,7 @@ class AntiSpamManager:
             return (
                 DETECT_RAID,
                 s["raid_action"],
-                f"{window} 秒內有 {count} 人加入",
+                tx("protection.19", v0=(window), v1=(count)),
             )
         return None
 
@@ -353,7 +354,7 @@ class AntiSpamManager:
             return (
                 DETECT_FLOOD,
                 s["flood_action"],
-                f"{window}s 內發送 {count}/{limit} 條訊息",
+                tx("protection.20", v0=(window), v1=(count), v2=(limit)),
             )
         return None
 
@@ -382,7 +383,7 @@ class AntiSpamManager:
             return (
                 DETECT_DUPLICATE,
                 s["duplicate_action"],
-                f"{window}s 內重複相同內容 {dup_count} 次",
+                tx("protection.21", v0=(window), v1=(dup_count)),
             )
         return None
 
@@ -399,7 +400,7 @@ class AntiSpamManager:
             return (
                 DETECT_MENTION,
                 s["mention_action"],
-                f"單條訊息包含 {mention_count} 個提及",
+                tx("protection.22", v0=(mention_count)),
             )
         return None
 
@@ -423,9 +424,9 @@ class AntiSpamManager:
         count = len(self.link_log[guild_id][user_id])
         if count >= limit:
             has_invite = bool(INVITE_RE.search(content))
-            detail = f"{window}s 內貼出 {count} 個連結"
+            detail = tx("protection.9", v0=(window), v1=(count))
             if has_invite:
-                detail += " (含邀請連結)"
+                detail += tx("protection.23")
             return (DETECT_LINK, s["link_action"], detail)
         return None
 
@@ -440,7 +441,7 @@ class AntiSpamManager:
             return (
                 DETECT_EMOJI,
                 s["emoji_action"],
-                f"單條訊息包含 {count} 個表情",
+                tx("protection.24", v0=(count)),
             )
         return None
 
@@ -455,7 +456,7 @@ class AntiSpamManager:
             return (
                 DETECT_NEWLINE,
                 s["newline_action"],
-                f"單條訊息包含 {count} 個換行",
+                tx("protection.25", v0=(count)),
             )
         return None
 
@@ -497,7 +498,7 @@ class AntiSpamManager:
 
         if escalated_action and escalated_action != ACTION_LOCKDOWN:
             return [
-                (det, escalated_action, detail + f" [自動升級: {strike_count} 次違規]")
+                (det, escalated_action, detail + tx("protection.27", v0=(strike_count)))
                 for det, _, detail in triggers
             ]
 
@@ -525,6 +526,34 @@ ACTION_NAMES = {
     ACTION_LOCKDOWN: "封鎖頻道",
 }
 
+
+def detection_name(value: str, default=None) -> str:
+    keys = {
+        DETECT_FLOOD: "anti_spam.message_flood",
+        DETECT_DUPLICATE: "protection.0",
+        DETECT_MENTION: "protection.1",
+        DETECT_LINK: "protection.2",
+        DETECT_EMOJI: "protection.3",
+        DETECT_NEWLINE: "protection.4",
+        DETECT_RAID: "protection.5",
+    }
+    key = keys.get(value)
+    return tx(key) if key else (default or value)
+
+
+def action_name(value: str, default=None) -> str:
+    keys = {
+        ACTION_WARN: "report.warn",
+        ACTION_DELETE: "protection.6",
+        ACTION_MUTE: "report.mute",
+        ACTION_KICK: "protection.7",
+        ACTION_BAN: "report.ban",
+        ACTION_LOCKDOWN: "protection.8",
+    }
+    key = keys.get(value)
+    return tx(key) if key else (default or value)
+
+
 DETECT_COLORS = {
     DETECT_FLOOD: discord.Color.from_rgb(255, 165, 0),
     DETECT_DUPLICATE: discord.Color.from_rgb(255, 200, 0),
@@ -549,24 +578,34 @@ def create_anti_spam_log_embed(
 ) -> discord.Embed:
     """建立防炸群日誌 Embed"""
     color = DETECT_COLORS.get(detection_type, discord.Color.from_rgb(255, 165, 0))
-    type_name = DETECT_NAMES.get(detection_type, detection_type)
-    action_name = ACTION_NAMES.get(action, action)
+    type_name = detection_name(detection_type, detection_type)
+    action_label = action_name(action, action)
 
     embed = discord.Embed(
-        title=f"[防炸群] {type_name}",
+        title=tx("protection.10", v0=(type_name)),
         color=color,
         timestamp=datetime.now(TZ_OFFSET),
     )
 
-    embed.add_field(name="用戶", value=f"<@{user_id}> ({user_id})", inline=False)
-    embed.add_field(name="用戶名", value=user_name, inline=True)
-    embed.add_field(name="頻道", value=f"<#{channel_id}> ({channel_id})", inline=True)
-    embed.add_field(name="偵測類型", value=type_name, inline=True)
-    embed.add_field(name="詳細資訊", value=detail, inline=False)
-    embed.add_field(name="執行動作", value=action_name, inline=True)
+    embed.add_field(
+        name=tx("audit_log.user"), value=f"<@{user_id}> ({user_id})", inline=False
+    )
+    embed.add_field(name=tx("protection.11"), value=user_name, inline=True)
+    embed.add_field(
+        name=tx("audit_log.channel"),
+        value=f"<#{channel_id}> ({channel_id})",
+        inline=True,
+    )
+    embed.add_field(name=tx("protection.12"), value=type_name, inline=True)
+    embed.add_field(name=tx("protection.13"), value=detail, inline=False)
+    embed.add_field(name=tx("protection.14"), value=action_label, inline=True)
 
     if strike_count > 0:
-        embed.add_field(name="累計違規", value=f"{strike_count} 次", inline=True)
+        embed.add_field(
+            name=tx("protection.26"),
+            value=tx("anti_spam.times", v0=(strike_count)),
+            inline=True,
+        )
 
     embed.set_footer(text=f"{guild_name} ({guild_id})")
 
@@ -581,25 +620,19 @@ def create_raid_alert_embed(
     action: str,
 ) -> discord.Embed:
     """建立突襲警報 Embed"""
-    action_name = ACTION_NAMES.get(action, action)
+    action_label = action_name(action, action)
 
     embed = discord.Embed(
-        title="[防炸群] 突襲警報",
-        description=(
-            f"偵測到可能的突襲行為\n" f"{window} 秒內有 **{join_count}** 人加入伺服器"
-        ),
+        title=tx("protection.15"),
+        description=(tx("protection.16", v0=(window), v1=(join_count))),
         color=discord.Color.from_rgb(255, 0, 0),
         timestamp=datetime.now(TZ_OFFSET),
     )
 
-    embed.add_field(name="執行動作", value=action_name, inline=True)
+    embed.add_field(name=tx("protection.14"), value=action_label, inline=True)
     embed.add_field(
-        name="建議",
-        value=(
-            "1. 檢查近期加入的成員\n"
-            "2. 考慮啟用驗證等級\n"
-            "3. 使用 `/anti_spam lockdown_off` 解除封鎖"
-        ),
+        name=tx("protection.17"),
+        value=(tx("protection.18")),
         inline=False,
     )
     embed.set_footer(text=f"{guild_name} ({guild_id})")

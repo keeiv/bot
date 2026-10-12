@@ -11,6 +11,7 @@ from typing import Any, Optional
 
 from src.utils.document_store import open_document
 from src.utils.document_store import read_document
+from src.utils.i18n import text as tx
 
 TZ_OFFSET = timezone(timedelta(hours=8))
 _DATA_FILE = "data/storage/tickets.json"
@@ -70,7 +71,9 @@ class TicketService:
             config.get(k) != expected.get(k)
             for k in ("channel_id", "role_id", "enabled")
         ):
-            raise ValueError("工單設定已變更，請重新部署面板")
+            raise ValueError(
+                tx("ticket_service.ticket_settings_changed_deploy_the_panel")
+            )
         config["panel_message_id"] = message_id
         self._save(data)
 

@@ -240,6 +240,8 @@ async def test_report_ban_button_requires_ban_permission():
     actor = member(guild, 1, 5, ban=False, moderate=True)
     target = member(guild, 2, 3)
     event = SimpleNamespace(
+        locale=discord.Locale.taiwan_chinese,
+        client=SimpleNamespace(get_guild=lambda _: object()),
         guild=guild,
         guild_id=9,
         user=actor,
@@ -255,6 +257,8 @@ async def test_settings_acknowledges_before_storage():
     from src.cogs.features.age_guard import AgeGuard
 
     event = SimpleNamespace(
+        locale=discord.Locale.taiwan_chinese,
+        client=SimpleNamespace(get_guild=lambda _: object()),
         guild=Mock(),
         guild_id=9,
         user=Mock(spec=discord.Member),
@@ -279,6 +283,8 @@ async def test_message_listener_storage_runs_outside_loop():
     from src.cogs.core.message_logger import MessageLogger
 
     event = SimpleNamespace(
+        locale=discord.Locale.taiwan_chinese,
+        client=SimpleNamespace(get_guild=lambda _: object()),
         author=SimpleNamespace(id=1, bot=False),
         guild=SimpleNamespace(id=9),
         id=7,

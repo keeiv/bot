@@ -15,6 +15,10 @@ from src.cogs.features.osu_info import OsuInfo
 def interaction():
     return SimpleNamespace(
         user=SimpleNamespace(id=42),
+        guild=None,
+        guild_id=None,
+        locale=discord.Locale.taiwan_chinese,
+        client=SimpleNamespace(get_guild=lambda guild_id: object()),
         response=SimpleNamespace(defer=AsyncMock(), send_message=AsyncMock()),
         followup=SimpleNamespace(send=AsyncMock()),
     )
@@ -80,12 +84,14 @@ async def test_translation_runs_off_event_loop(monkeypatch):
         "GoogleTranslator",
         Mock(return_value=SimpleNamespace(translate=translate_text)),
     )
-    select = translate.LanguageSelect("original")
-    select._values = ["en"]
+    select = translate.LanguageSelect("original", "en")
+    select._values = ["ja"]
     event = interaction()
     await select.callback(event)
     event.response.defer.assert_awaited_once()
-    assert event.followup.send.call_args.kwargs["embed"].fields[1].value == "translated"
+    embed = event.followup.send.call_args.kwargs["embed"]
+    assert embed.fields[1].value == "translated"
+    assert embed.title == "Translated to Japanese"
 
 
 @pytest.mark.parametrize("content_type", [None, "image/png"])

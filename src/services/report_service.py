@@ -6,6 +6,7 @@ from datetime import timedelta
 
 import discord
 
+from src.utils.i18n import text as tx
 from src.utils.time_utils import TZ_OFFSET
 
 
@@ -18,16 +19,16 @@ class ReportService:
             not isinstance(moderator, discord.Member)
             or moderator.guild.id != target.guild.id
         ):
-            return "[失敗] 操作者必須是同一伺服器的成員"
+            return tx("report_service.failed_the_moderator_must_be_a")
         if not getattr(moderator.guild_permissions, permission, False):
-            return "[失敗] 操作者缺少此動作所需權限"
+            return tx("report_service.failed_the_moderator_lacks_the_permission")
         if target.id == target.guild.owner_id or target.id == moderator.id:
-            return "[失敗] 無法對伺服器擁有者或自己執行此操作"
+            return tx("report_service.failed_this_action_cannot_target_the")
         if (
             moderator.id != target.guild.owner_id
             and target.top_role >= moderator.top_role
         ):
-            return "[失敗] 目標身份組不低於操作者"
+            return tx("report_service.failed_the_target_s_highest_role")
         return ""
 
     async def authorize(self, target, moderator, permission):
@@ -36,7 +37,7 @@ class ReportService:
             not isinstance(moderator, discord.Member)
             or moderator.guild.id != target.guild.id
         ):
-            return None, "[失敗] 操作者必須是同一伺服器的成員"
+            return None, tx("report_service.failed_the_moderator_must_be_a")
         try:
             guild = target.guild
             actor, current_target = await asyncio.wait_for(
@@ -46,7 +47,7 @@ class ReportService:
                 timeout=10,
             )
         except (discord.HTTPException, asyncio.TimeoutError):
-            return None, "[失敗] 無法確認目前成員權限"
+            return None, tx("report_service.failed_could_not_verify_current_member")
         error = self.permission_error(current_target, actor, permission)
         bot_member = guild.me
         if not error and (
@@ -54,7 +55,7 @@ class ReportService:
             or not getattr(bot_member.guild_permissions, permission, False)
             or current_target.top_role >= bot_member.top_role
         ):
-            error = "[失敗] 機器人權限或身份組層級不足"
+            error = tx("report_service.failed_the_bot_lacks_the_required")
         return (None, error) if error else (current_target, "")
 
     # ========== 禁言 ==========
@@ -77,19 +78,19 @@ class ReportService:
         if error:
             return False, error
         if min(days, hours, minutes) < 0 or days == hours == minutes == 0:
-            return False, "[失敗] 禁言時間不能為零"
+            return False, tx("report_service.failed_mute_duration_must_be_greater")
 
         duration = timedelta(days=days, hours=hours, minutes=minutes)
         if duration.total_seconds() > 28 * 24 * 3600:
-            return False, "[失敗] 禁言時間不能超過 28 天"
+            return False, tx("report_service.failed_mute_duration_must_not_exceed")
 
         try:
             await target.timeout(duration, reason=reason)
             return True, ""
         except discord.Forbidden:
-            return False, "[失敗] 機器人權限不足，無法禁言此成員"
+            return False, tx("report_service.failed_the_bot_cannot_mute_this")
         except Exception as e:
-            return False, f"[失敗] 禁言失敗: {e}"
+            return False, tx("report_service.failed_mute_failed", v0=(e))
 
     def build_mute_embed(
         self,
@@ -103,20 +104,24 @@ class ReportService:
         """建立禁言完成 Embed"""
         parts = []
         if days:
-            parts.append(f"{days} 天")
+            parts.append(tx("audit_log.days", v0=(days)))
         if hours:
-            parts.append(f"{hours} 小時")
+            parts.append(tx("audit_log.hours", v0=(hours)))
         if minutes:
-            parts.append(f"{minutes} 分鐘")
+            parts.append(tx("osu_service.minutes", v0=(minutes)))
         time_str = " ".join(parts)
 
         return discord.Embed(
-            title="[禁言] 舉報處理完成",
+            title=tx("report_service.muted_report_action_completed"),
             description=(
-                f"**被處理成員:** {target.mention} ({target.id})\n"
-                f"**處理人:** {moderator.mention}\n"
-                f"**禁言時長:** {time_str}\n"
-                f"**原因:** {reason}"
+                tx(
+                    "report_service.target_moderator_duration_reason",
+                    v0=(target.mention),
+                    v1=(target.id),
+                    v2=(moderator.mention),
+                    v3=(time_str),
+                    v4=(reason),
+                )
             ),
             color=discord.Color.from_rgb(230, 126, 34),
             timestamp=datetime.now(TZ_OFFSET),
@@ -146,9 +151,9 @@ class ReportService:
             )
             return True, ""
         except discord.Forbidden:
-            return False, "[失敗] 機器人權限不足，無法封禁此成員"
+            return False, tx("report_service.failed_the_bot_cannot_ban_this")
         except Exception as e:
-            return False, f"[失敗] 封禁失敗: {e}"
+            return False, tx("report_service.failed_ban_failed", v0=(e))
 
     def build_ban_embed(
         self,
@@ -161,24 +166,38 @@ class ReportService:
     ) -> discord.Embed:
         """建立封禁完成 Embed"""
         embed = discord.Embed(
-            title="[封禁] 舉報處理完成",
+            title=tx("report_service.banned_report_action_completed"),
             description=(
-                f"**被處理成員:** {target.mention} ({target.id})\n"
-                f"**處理人:** {moderator.mention}\n"
-                f"**封禁類型:** {'暫時封禁' if is_temp else '永久封禁'}\n"
-                f"**刪除訊息:** {delete_days} 天內\n"
-                f"**原因:** {reason}"
+                tx(
+                    "report_service.target_moderator_ban_type_delete_messages",
+                    v0=(target.mention),
+                    v1=(target.id),
+                    v2=(moderator.mention),
+                    v3=(
+                        tx("report_service.temporary_ban")
+                        if is_temp
+                        else tx("report_service.permanent_ban")
+                    ),
+                    v4=(delete_days),
+                    v5=(reason),
+                )
             ),
             color=discord.Color.from_rgb(231, 76, 60),
             timestamp=datetime.now(TZ_OFFSET),
         )
         if is_temp and temp_seconds > 0:
             embed.add_field(
-                name="暫時封禁時長",
-                value=f"{temp_seconds} 秒 ({temp_seconds / 3600:.1f} 小時)",
+                name=tx("report_service.temporary_ban_duration"),
+                value=tx(
+                    "report_service.seconds_hours",
+                    v0=(temp_seconds),
+                    v1=(temp_seconds / 3600),
+                ),
                 inline=False,
             )
-            embed.set_footer(text="注意: 暫時封禁需手動解除或使用排程")
+            embed.set_footer(
+                text=tx("report_service.temporary_bans_require_manual_removal_or")
+            )
         return embed
 
     # ========== 警告 ==========
@@ -192,11 +211,14 @@ class ReportService:
     ) -> bool:
         """發送警告 DM，回傳是否成功送達"""
         warn_embed = discord.Embed(
-            title="[警告] 你已被警告",
+            title=tx("report_service.warning_member_warning"),
             description=(
-                f"**伺服器:** {guild_name}\n"
-                f"**警告次數:** {count} 次\n"
-                f"**原因:** {reason}"
+                tx(
+                    "report_service.server_warning_count_reason",
+                    v0=(guild_name),
+                    v1=(count),
+                    v2=(reason),
+                )
             ),
             color=discord.Color.from_rgb(241, 196, 15),
             timestamp=datetime.now(TZ_OFFSET),
@@ -217,13 +239,21 @@ class ReportService:
     ) -> discord.Embed:
         """建立警告完成 Embed"""
         return discord.Embed(
-            title="[警告] 舉報處理完成",
+            title=tx("report_service.warned_report_action_completed"),
             description=(
-                f"**被處理成員:** {target.mention} ({target.id})\n"
-                f"**處理人:** {moderator.mention}\n"
-                f"**警告次數:** {count} 次\n"
-                f"**原因:** {reason}\n"
-                f"**私訊通知:** {'已送達' if dm_sent else '無法送達 (對方可能關閉私訊)'}"
+                tx(
+                    "report_service.target_moderator_warnings_reason_dm_notification",
+                    v0=(target.mention),
+                    v1=(target.id),
+                    v2=(moderator.mention),
+                    v3=(count),
+                    v4=(reason),
+                    v5=(
+                        tx("report_service.delivered")
+                        if dm_sent
+                        else tx("report_service.not_delivered_dms_may_be_disabled")
+                    ),
+                )
             ),
             color=discord.Color.from_rgb(241, 196, 15),
             timestamp=datetime.now(TZ_OFFSET),

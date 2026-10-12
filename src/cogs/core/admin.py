@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Optional, Sequence
 
@@ -14,253 +13,23 @@ from discord.ui import Separator
 from discord.ui import TextDisplay
 from discord.ui import Thumbnail
 
+from src.locales.help import CATEGORIES as HELP_CATEGORIES
+from src.locales.help import HelpCategory
+from src.utils.i18n import Lang
+from src.utils.i18n import t
+from src.utils.i18n import text as tx
+from src.utils.lang_context import context_lang
+from src.utils.lang_context import interaction_lang
+from src.utils.lang_context import localized
 from src.utils.storage_worker import run_storage
 
 
-@dataclass(frozen=True)
-class HelpBlock:
-    title: str
-    lines: tuple[str, ...]
+def _categories(lang: Lang) -> tuple[HelpCategory, ...]:
+    return HELP_CATEGORIES[lang]
 
 
-@dataclass(frozen=True)
-class HelpCategory:
-    key: str
-    label: str
-    description: str
-    accent_color: discord.Color
-    summary: str
-    blocks: tuple[HelpBlock, ...]
-
-
-HELP_CATEGORIES: tuple[HelpCategory, ...] = (
-    HelpCategory(
-        key="overview",
-        label="總覽",
-        description="機器人介紹與常用入口",
-        accent_color=discord.Color.from_rgb(52, 152, 219),
-        summary=(
-            "功能完整的 Discord 機器人，包含管理、社群工具、遊戲、osu! 整合與 "
-            "GitHub 監控。使用下拉選單可以切換不同分區。"
-        ),
-        blocks=(
-            HelpBlock(
-                title="快速入口",
-                lines=(
-                    "`/help` - 開啟這份互動式說明",
-                    "`/achievements` - 查看成就進度",
-                    "`/user_info` - 查看用戶資訊",
-                    "`/server_info` - 查看伺服器資訊",
-                ),
-            ),
-            HelpBlock(
-                title="常用功能",
-                lines=(
-                    "`/clear` - 清除指定數量的訊息",
-                    "`/giveaway start` - 建立抽獎活動",
-                    "`/osu bind` - 綁定 osu! 帳號",
-                    "`/repo_track status` - 查看 keeiv/bot 追蹤狀態",
-                ),
-            ),
-            HelpBlock(
-                title="使用方式",
-                lines=(
-                    "下方選單可切換到管理、防護、社群工具、遊戲整合與開發指南。",
-                    "大部分管理類指令需要對應的伺服器權限才可使用。",
-                ),
-            ),
-        ),
-    ),
-    HelpCategory(
-        key="moderation",
-        label="管理與審計",
-        description="管理指令、審計、外觀與舉報",
-        accent_color=discord.Color.from_rgb(46, 204, 113),
-        summary="伺服器日常管理、訊息紀錄、機器人外觀調整與舉報流程。",
-        blocks=(
-            HelpBlock(
-                title="管理指令",
-                lines=(
-                    "`/編刪紀錄設定` - 設置訊息日誌頻道",
-                    "`/clear` - 清除指定數量的訊息",
-                    "`/kick` - 踢出成員",
-                    "`/ban` - 封禁成員",
-                    "`/mute` - 禁言成員",
-                    "`/warn` - 警告成員",
-                ),
-            ),
-            HelpBlock(
-                title="審計日誌",
-                lines=(
-                    "自動記錄成員加入/離開、語音頻道異動、角色變更、暱稱變更。",
-                    "也會追蹤頻道建立、刪除與修改等管理事件。",
-                ),
-            ),
-            HelpBlock(
-                title="機器人外觀",
-                lines=(
-                    "`/bot_appearance name` - 更改機器人暱稱",
-                    "`/bot_appearance avatar` - 更改機器人頭像 (需審核)",
-                    "`/bot_appearance banner` - 更改機器人橫幅 (需審核)",
-                ),
-            ),
-            HelpBlock(
-                title="舉報系統",
-                lines=(
-                    "右鍵訊息 > 應用程式 > `舉報訊息` - 舉報可疑訊息",
-                    "`/report_channel set` - 設定舉報接收頻道",
-                    "`/report_channel status` - 查看舉報頻道設定",
-                ),
-            ),
-        ),
-    ),
-    HelpCategory(
-        key="protection",
-        label="防護系統",
-        description="防炸群與白名單管理",
-        accent_color=discord.Color.from_rgb(231, 76, 60),
-        summary="針對洪水、重複訊息、提及轟炸、連結與突襲的保護機制。",
-        blocks=(
-            HelpBlock(
-                title="防炸群功能",
-                lines=(
-                    "`/anti_spam setup` - 啟用/禁用防炸群",
-                    "`/anti_spam flood` - 訊息洪水偵測設定",
-                    "`/anti_spam duplicate` - 重複內容偵測",
-                    "`/anti_spam mention` - 提及轟炸偵測",
-                    "`/anti_spam link` - 連結/邀請偵測",
-                    "`/anti_spam raid` - 突襲偵測",
-                ),
-            ),
-            HelpBlock(
-                title="進階設定",
-                lines=(
-                    "`/anti_spam escalation` - 自動升級懲罰",
-                    "`/anti_spam whitelist` - 白名單管理",
-                    "`/anti_spam lockdown_off` - 解除封鎖",
-                    "`/anti_spam status` - 查看完整狀態",
-                ),
-            ),
-        ),
-    ),
-    HelpCategory(
-        key="community",
-        label="社群工具",
-        description="翻譯、抽獎、工單與資訊指令",
-        accent_color=discord.Color.from_rgb(241, 196, 15),
-        summary="面向一般成員的常用工具與社群互動功能。",
-        blocks=(
-            HelpBlock(
-                title="翻譯",
-                lines=(
-                    "右鍵訊息 > 應用程式 > `翻譯訊息` - 翻譯任意訊息",
-                    "支援 14 種語言，自動偵測來源語言。",
-                ),
-            ),
-            HelpBlock(
-                title="抽獎",
-                lines=(
-                    "`/giveaway start` - 建立抽獎活動",
-                    "`/giveaway end` - 提前結束抽獎",
-                    "`/giveaway reroll` - 重新抽取得獎者",
-                    "`/giveaway list` - 查看進行中抽獎",
-                ),
-            ),
-            HelpBlock(
-                title="工單系統",
-                lines=(
-                    "`>>>ticket setup #頻道 @身份組` - 設定工單系統",
-                    "點擊「開啟工單」按鈕建立私人討論串",
-                    "支援一般關閉與附原因關閉工單",
-                ),
-            ),
-            HelpBlock(
-                title="其他資訊",
-                lines=(
-                    "`/achievements` - 查看成就",
-                    "`/user_info` - 查看用戶資訊",
-                    "`/server_info` - 查看伺服器資訊",
-                ),
-            ),
-        ),
-    ),
-    HelpCategory(
-        key="integrations",
-        label="遊戲與整合",
-        description="遊戲、osu! 與 GitHub",
-        accent_color=discord.Color.from_rgb(155, 89, 182),
-        summary="娛樂功能與外部服務整合，包含 osu! 和 GitHub 工作流。",
-        blocks=(
-            HelpBlock(
-                title="遊戲",
-                lines=(
-                    "`/deep-sea-oxygen` - 深海氧氣瓶遊戲",
-                    "`/russian-roulette` - 俄羅斯輪盤",
-                ),
-            ),
-            HelpBlock(
-                title="osu! 整合",
-                lines=(
-                    "`/user_info_osu` - 查詢 osu! 玩家資料",
-                    "`/osu bind` - 綁定 osu! 帳號",
-                    "`/osu best` - 查詢 BP",
-                    "`/osu recent` - 查詢最近遊玩",
-                ),
-            ),
-            HelpBlock(
-                title="GitHub 監控",
-                lines=(
-                    "`/repo_watch set` - 設定倉庫監控",
-                    "`/repo_track add` - 追蹤 keeiv/bot 更新",
-                    "`/repo_track status` - 查看追蹤狀態",
-                ),
-            ),
-        ),
-    ),
-    HelpCategory(
-        key="contribute",
-        label="參與開發",
-        description="PR 流程與程式碼規範",
-        accent_color=discord.Color.from_rgb(26, 188, 156),
-        summary="專案接受社群貢獻。小型更新可直接 PR，大型變更先開 Issue 討論。",
-        blocks=(
-            HelpBlock(
-                title="小型 / 中型更新",
-                lines=(
-                    "不需要事先討論，直接提交 PR 即可。",
-                    "例如：新增獨立指令、修復 Bug、更新文件、程式碼重構。",
-                ),
-            ),
-            HelpBlock(
-                title="大型更新",
-                lines=(
-                    "必須先開 Issue 討論後再開發。",
-                    "例如：新增依賴、架構變動、資料結構調整、破壞性變更。",
-                ),
-            ),
-            HelpBlock(
-                title="PR 提交流程",
-                lines=(
-                    "1. Fork 倉庫並建立分支",
-                    "2. 完成開發並確保通過 CI 檢查",
-                    "3. 使用 Conventional Commits，例如 `feat:`、`fix:`、`docs:`",
-                    "4. 提交 PR 並清楚描述變更內容",
-                ),
-            ),
-            HelpBlock(
-                title="程式碼規範",
-                lines=(
-                    "遵循 PEP 8 與現有專案風格。",
-                    "使用 Black + isort 格式化，並通過 flake8。",
-                    "新功能建議補上對應測試。",
-                    "倉庫：github.com/keeiv/bot",
-                ),
-            ),
-        ),
-    ),
-)
-
-HELP_CATEGORY_MAP = {category.key: category for category in HELP_CATEGORIES}
+def _category_map(lang: Lang) -> dict[str, HelpCategory]:
+    return {category.key: category for category in HELP_CATEGORIES[lang]}
 
 
 def _help_markdown(title: str, lines: Sequence[str]) -> str:
@@ -278,19 +47,20 @@ class HelpCategorySelect(Select[Any]):
                 description=category.description,
                 default=category.key == parent_view.category_key,
             )
-            for category in HELP_CATEGORIES
+            for category in _categories(parent_view.lang)
         ]
         super().__init__(
-            placeholder="選擇幫助分區",
+            placeholder=t(parent_view.lang, "help.placeholder"),
             min_values=1,
             max_values=1,
             options=options,
         )
 
+    @localized("interaction")
     async def callback(self, interaction: discord.Interaction) -> None:
         if interaction.user.id != self.parent_view.author_id:
             await interaction.response.send_message(
-                "[拒絕] 只有發起指令的人可以切換幫助分區", ephemeral=True
+                t(await interaction_lang(interaction), "help.denied"), ephemeral=True
             )
             return
 
@@ -298,6 +68,7 @@ class HelpCategorySelect(Select[Any]):
             bot=self.parent_view.bot,
             author_id=self.parent_view.author_id,
             category_key=self.values[0],
+            lang=self.parent_view.lang,
         )
         next_view.message = interaction.message
         self.parent_view.stop()
@@ -305,39 +76,48 @@ class HelpCategorySelect(Select[Any]):
 
 
 class HelpLayoutView(LayoutView):
-    def __init__(self, bot: commands.Bot, author_id: int, category_key: str) -> None:
+    def __init__(
+        self,
+        bot: commands.Bot,
+        author_id: int,
+        category_key: str,
+        lang: Lang = "en",
+    ) -> None:
         super().__init__(timeout=900)
         self.bot = bot
         self.author_id = author_id
+        self.lang: Lang = lang
         self.category_key = (
-            category_key if category_key in HELP_CATEGORY_MAP else "overview"
+            category_key if category_key in _category_map(lang) else "overview"
         )
         self.message: Optional[discord.Message] = None
         self.category_select = HelpCategorySelect(self)
         self._build()
 
     def _build(self) -> None:
-        category = HELP_CATEGORY_MAP[self.category_key]
+        category = _category_map(self.lang)[self.category_key]
         container = Container[Any](accent_color=category.accent_color)
 
         header_lines = (
-            f"目前分區：**{category.label}**",
+            t(self.lang, "help.current", label=category.label),
             category.summary,
         )
 
         if self.bot.user is not None:
             container.add_item(
                 Section(
-                    TextDisplay("## 幫助中心"),
+                    TextDisplay(f"## {t(self.lang, 'help.title')}"),
                     TextDisplay("\n".join(header_lines)),
                     accessory=Thumbnail(
                         self.bot.user.display_avatar.url,
-                        description="機器人頭像",
+                        description=t(self.lang, "help.avatar"),
                     ),
                 )
             )
         else:
-            container.add_item(TextDisplay(_help_markdown("幫助中心", header_lines)))
+            container.add_item(
+                TextDisplay(_help_markdown(t(self.lang, "help.title"), header_lines))
+            )
 
         for block in category.blocks:
             container.add_item(
@@ -374,14 +154,15 @@ class Admin(commands.Cog):
     def is_blacklisted_check(self) -> Any:
         """黑名單檢查裝飾器"""
 
+        @localized("ctx")
         async def predicate(ctx: commands.Context[Any]) -> Any:
             blacklist_manager = getattr(self.bot, "blacklist_manager", None)
             if blacklist_manager is not None and (
                 await run_storage(blacklist_manager.local_check, ctx.author.id)
             ):
                 embed = discord.Embed(
-                    title="[拒絕] 存取被拒",
-                    description="你已被禁止使用機器人指令，請聯繫管理員。",
+                    title=tx("admin.denied_access_denied"),
+                    description=tx("admin.bot_commands_are_unavailable_for_this"),
                     color=discord.Color.from_rgb(231, 76, 60),
                 )
                 await ctx.send(embed=embed)
@@ -390,45 +171,60 @@ class Admin(commands.Cog):
 
         return commands.check(predicate)
 
-    @commands.hybrid_command(name="clear", description="清除指定數量的訊息")
-    @app_commands.describe(amount="要刪除的訊息數量 (1-100，預設 10)")
+    @commands.hybrid_command(
+        name="clear", description="Delete a number of recent messages"
+    )
+    @app_commands.describe(amount="How many messages to delete (1-100, default 10)")
     @commands.has_permissions(manage_messages=True)
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @localized("ctx")
     async def clear(self, ctx: commands.Context[Any], amount: int = 10) -> None:
         """清除訊息"""
         if not ctx.author.guild_permissions.manage_messages:
-            await ctx.send("[失敗] 你需要「管理訊息」權限", ephemeral=True)
+            await ctx.send(
+                tx("admin.failed_the_manage_messages_permission_is"), ephemeral=True
+            )
             return
 
         if amount < 1 or amount > 100:
-            await ctx.send("[失敗] 數量必須在 1-100 之間", ephemeral=True)
+            await ctx.send(tx("admin.failed_the_count_must_be_between"), ephemeral=True)
             return
 
         await ctx.defer()
         deleted = await ctx.channel.purge(limit=amount)
-        await ctx.followup.send(f"[成功] 已清除 {len(deleted)} 則訊息", ephemeral=True)
+        await ctx.followup.send(
+            tx("admin.success_deleted_messages", v0=(len(deleted))), ephemeral=True
+        )
 
-    @commands.hybrid_command(name="kick", description="踢出成員")
-    @app_commands.describe(user="要踢出的成員", reason="踢出原因")
+    @commands.hybrid_command(name="kick", description="Kick a member")
+    @app_commands.describe(
+        user="The member to kick", reason="Why they are being kicked"
+    )
     @commands.has_permissions(kick_members=True)
+    @localized("ctx")
     async def kick(
         self,
         ctx: commands.Context[Any],
         user: discord.Member,
-        reason: str = "沒有提供原因",
+        reason: Optional[str] = None,
     ) -> None:
         """踢出成員"""
+        reason = reason or tx("admin.no_reason_given")
         if not ctx.author.guild_permissions.kick_members:
-            await ctx.send("[失敗] 你需要「踢出成員」權限", ephemeral=True)
+            await ctx.send(
+                tx("admin.failed_the_kick_members_permission_is"), ephemeral=True
+            )
             return
 
         if user == ctx.author:
-            await ctx.send("[失敗] 你不能踢出自己", ephemeral=True)
+            await ctx.send(
+                tx("admin.failed_self_kicking_is_not_allowed"), ephemeral=True
+            )
             return
 
         if user.top_role >= ctx.author.top_role:
             await ctx.send(
-                "[失敗] 你的權限不足以踢出此成員",
+                tx("admin.failed_insufficient_permission_to_kick_this"),
                 ephemeral=True,
             )
             return
@@ -436,35 +232,43 @@ class Admin(commands.Cog):
         try:
             await user.kick(reason=reason)
             embed = discord.Embed(
-                title="[成功] 成員已被踢出",
-                description=f"成員: {user.mention}\n原因: {reason}",
+                title=tx("admin.success_member_kicked"),
+                description=tx("admin.member_reason", v0=(user.mention), v1=(reason)),
                 color=discord.Color.from_rgb(46, 204, 113),
             )
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"[失敗] 無法踢出成員: {str(e)}", ephemeral=True)
+            await ctx.send(
+                tx("admin.failed_could_not_kick_member", v0=(str(e))), ephemeral=True
+            )
 
-    @commands.hybrid_command(name="ban", description="封禁成員")
-    @app_commands.describe(user="要封禁的成員", reason="封禁原因")
+    @commands.hybrid_command(name="ban", description="Ban a member")
+    @app_commands.describe(user="The member to ban", reason="Why they are being banned")
     @commands.has_permissions(ban_members=True)
+    @localized("ctx")
     async def ban(
         self,
         ctx: commands.Context[Any],
         user: discord.Member,
-        reason: str = "沒有提供原因",
+        reason: Optional[str] = None,
     ) -> None:
         """封禁成員"""
+        reason = reason or tx("admin.no_reason_given")
         if not ctx.author.guild_permissions.ban_members:
-            await ctx.send("[失敗] 你需要「封禁成員」權限", ephemeral=True)
+            await ctx.send(
+                tx("admin.failed_the_ban_members_permission_is"), ephemeral=True
+            )
             return
 
         if user == ctx.author:
-            await ctx.send("[失敗] 你不能封禁自己", ephemeral=True)
+            await ctx.send(
+                tx("admin.failed_self_banning_is_not_allowed"), ephemeral=True
+            )
             return
 
         if user.top_role >= ctx.author.top_role:
             await ctx.send(
-                "[失敗] 你的權限不足以封禁此成員",
+                tx("admin.failed_insufficient_permission_to_ban_this"),
                 ephemeral=True,
             )
             return
@@ -472,83 +276,118 @@ class Admin(commands.Cog):
         try:
             await user.ban(reason=reason)
             embed = discord.Embed(
-                title="[成功] 成員已被封禁",
-                description=f"成員: {user.mention}\n原因: {reason}",
+                title=tx("admin.success_member_banned"),
+                description=tx("admin.member_reason", v0=(user.mention), v1=(reason)),
                 color=discord.Color.from_rgb(46, 204, 113),
             )
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"[失敗] 無法封禁成員: {str(e)}", ephemeral=True)
+            await ctx.send(
+                tx("admin.failed_could_not_ban_member", v0=(str(e))), ephemeral=True
+            )
 
-    @commands.hybrid_command(name="mute", description="禁言成員")
+    @commands.hybrid_command(name="mute", description="Time out a member")
     @app_commands.describe(
-        user="要禁言的成員", duration="禁言時長 (分鐘，預設 60)", reason="禁言原因"
+        user="The member to time out",
+        duration="Timeout length in minutes (default 60)",
+        reason="Why they are being timed out",
     )
     @commands.has_permissions(moderate_members=True)
+    @localized("ctx")
     async def mute(
         self,
         ctx: commands.Context[Any],
         user: discord.Member,
         duration: int = 60,
-        reason: str = "沒有提供原因",
+        reason: Optional[str] = None,
     ) -> None:
         """禁言成員"""
+        reason = reason or tx("admin.no_reason_given")
         if not ctx.author.guild_permissions.moderate_members:
-            await ctx.send("[失敗] 你需要有管理成員的權限", ephemeral=True)
+            await ctx.send(
+                tx("admin.failed_the_moderate_members_permission_is"), ephemeral=True
+            )
             return
 
         if user == ctx.author:
-            await ctx.send("[失敗] 你不能禁言自己", ephemeral=True)
+            await ctx.send(
+                tx("admin.failed_self_muting_is_not_allowed"), ephemeral=True
+            )
             return
 
         if user.top_role >= ctx.author.top_role:
-            await ctx.send("[失敗] 你的權限不足以禁言此成員", ephemeral=True)
+            await ctx.send(
+                tx("admin.failed_insufficient_permission_to_mute_this"), ephemeral=True
+            )
             return
 
         try:
             await user.timeout(timedelta(minutes=duration), reason=reason)
             embed = discord.Embed(
-                title="[成功] 成員已被禁言",
-                description=f"成員: {user.mention}\n持續時間: {duration} 分鐘\n原因: {reason}",
+                title=tx("admin.success_member_muted"),
+                description=tx(
+                    "admin.member_duration_minutes_reason",
+                    v0=(user.mention),
+                    v1=(duration),
+                    v2=(reason),
+                ),
                 color=discord.Color.from_rgb(46, 204, 113),
             )
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"[失敗] 無法禁言成員: {str(e)}", ephemeral=True)
+            await ctx.send(
+                tx("admin.failed_could_not_mute_member", v0=(str(e))), ephemeral=True
+            )
 
-    @commands.hybrid_command(name="warn", description="警告成員")
-    @app_commands.describe(user="要警告的成員", reason="警告原因")
+    @commands.hybrid_command(name="warn", description="Warn a member")
+    @app_commands.describe(
+        user="The member to warn", reason="Why they are being warned"
+    )
     @commands.has_permissions(moderate_members=True)
+    @localized("ctx")
     async def warn(
         self,
         ctx: commands.Context[Any],
         user: discord.Member,
-        reason: str = "沒有提供原因",
+        reason: Optional[str] = None,
     ) -> None:
         """警告成員"""
+        reason = reason or tx("admin.no_reason_given")
         if not ctx.author.guild_permissions.moderate_members:
-            await ctx.send("[失敗] 你需要有管理成員的權限", ephemeral=True)
+            await ctx.send(
+                tx("admin.failed_the_moderate_members_permission_is"), ephemeral=True
+            )
             return
 
         embed = discord.Embed(
-            title="[警告] 警告成員",
-            description=f"{user.mention} 已被警告，原因如下:\n{reason}",
+            title=tx("admin.warning_member_warning"),
+            description=tx(
+                "admin.was_warned_for_the_following_reason",
+                v0=(user.mention),
+                v1=(reason),
+            ),
             color=discord.Color.from_rgb(241, 196, 15),
         )
 
         try:
             await user.send(embed=embed)
-            await ctx.send(f"[成功] 已警告 {user.mention}", ephemeral=True)
+            await ctx.send(
+                tx("admin.success_warned", v0=(user.mention)), ephemeral=True
+            )
         except Exception as e:
             await ctx.send(
-                f"[警告] 成員已被警告，但無法發送私訊: {str(e)}",
+                tx("admin.warning_member_warned_but_the_dm", v0=(str(e))),
                 ephemeral=True,
             )
 
-    @commands.hybrid_command(name="help", description="顯示機器人幫助資訊")
+    @commands.hybrid_command(name="help", description="Show what the bot can do")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @localized("ctx")
     async def help_command(self, ctx: commands.Context[Any]) -> None:
         """幫助指令"""
-        view = HelpLayoutView(self.bot, ctx.author.id, "overview")
+        lang = await context_lang(ctx)
+        view = HelpLayoutView(self.bot, ctx.author.id, "overview", lang)
         message = await ctx.send(view=view)
         if isinstance(message, discord.Message):
             view.message = message

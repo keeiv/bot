@@ -15,36 +15,45 @@ from src.services.file_tools import FileTools
 from src.services.tool_card import usage_card
 from src.services.tool_quota import FORMATS
 from src.services.tool_quota import TAIPEI
+from src.utils.i18n import text as tx
+from src.utils.lang_context import localized
+from src.utils.localized_ui import LocalizedView
 from src.utils.storage_worker import run_blocking
 
 log = logging.getLogger(__name__)
 
 
-class PrivateView(discord.ui.View):
+class PrivateView(LocalizedView):
     def __init__(self, owner):
         super().__init__(timeout=300)
         self.owner = owner
 
+    @localized("interaction")
     async def interaction_check(self, interaction):
         if interaction.user.id == self.owner:
             return True
-        await interaction.response.send_message("此操作僅限原請求帳號", ephemeral=True)
+        await interaction.response.send_message(
+            tx("file_tools.this_action_is_restricted_to_the"), ephemeral=True
+        )
         return False
 
 
 class RedeemView(PrivateView):
+    i18n = {"use.label": "file_tools.confirm_voucher_use"}
+
     def __init__(self, owner, engine, coupon):
         super().__init__(owner)
         self.engine = engine
         self.coupon = coupon
 
-    @discord.ui.button(label="確認使用重置券", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Confirm voucher use", style=discord.ButtonStyle.primary)
+    @localized("interaction")
     async def use(self, interaction, button):
         await interaction.response.defer(ephemeral=True)
         try:
             await run_blocking(self.engine.quota.redeem, self.owner, self.coupon)
             await interaction.edit_original_response(
-                content="本週與近三小時已用額度已重置。處理中的工作仍於完成後計點。",
+                content=tx("file_tools.weekly_and_three_hour_usage_reset"),
                 view=None,
             )
             self.stop()
@@ -53,6 +62,13 @@ class RedeemView(PrivateView):
 
 
 class CouponView(PrivateView):
+    i18n = {
+        "unused.label": "file_tools.unused",
+        "history.label": "file_tools.usage_history",
+        "previous.label": "file_tools.previous",
+        "next.label": "file_tools.next",
+    }
+
     def __init__(self, owner, engine, inventory, used=False):
         super().__init__(owner)
         self.engine = engine
@@ -68,20 +84,24 @@ class CouponView(PrivateView):
         self.next.disabled = (self.page + 1) * 10 >= inventory["total"]
         if not used and inventory["items"]:
             select = discord.ui.Select(
-                placeholder="選擇重置券",
+                placeholder=tx("file_tools.choose_a_reset_voucher"),
                 options=[
                     discord.SelectOption(
-                        label=f"重置券 · {datetime.fromtimestamp(item['issuedAt'], TAIPEI):%Y/%m/%d %H:%M}",
+                        label=tx(
+                            "file_tools.reset_voucher_40a182",
+                            v0=(datetime.fromtimestamp(item["issuedAt"], TAIPEI)),
+                        ),
                         value=item["id"],
-                        description=f"序號 {item['id'][-12:]}",
+                        description=tx("file_tools.serial", v0=(item["id"][-12:])),
                     )
                     for item in inventory["items"]
                 ],
             )
 
+            @localized("interaction")
             async def choose(interaction):
                 await interaction.response.send_message(
-                    "使用後將重置本週與近三小時已用額度，使用紀錄永久保留。",
+                    tx("file_tools.this_voucher_resets_weekly_and_three"),
                     view=RedeemView(self.owner, engine, select.values[0]),
                     ephemeral=True,
                 )
@@ -92,22 +112,33 @@ class CouponView(PrivateView):
     @staticmethod
     def embed(inventory, used):
         embed = discord.Embed(
-            title="重置券背包 · " + ("歷史使用" if used else "尚未使用"), color=0x38BDF8
+            title=tx("file_tools.reset_vouchers")
+            + (tx("file_tools.usage_history") if used else tx("file_tools.unused")),
+            color=0x38BDF8,
         )
         for item in inventory["items"]:
             stamp = int(item["usedAt"] if used else item["issuedAt"])
             embed.add_field(
-                name=f"重置券 · {item['id'][-12:]}",
-                value=f"{'使用' if used else '發放'}時間：<t:{stamp}:f>",
+                name=tx("file_tools.reset_voucher", v0=(item["id"][-12:])),
+                value=tx(
+                    "file_tools.at_t_f",
+                    v0=(tx("file_tools.used") if used else tx("file_tools.issued")),
+                    v1=(stamp),
+                ),
                 inline=False,
             )
         if not inventory["items"]:
-            embed.description = "目前無紀錄"
+            embed.description = tx("file_tools.no_records")
         embed.set_footer(
-            text=f"第 {inventory['page'] + 1} 頁 · 共 {inventory['total']} 張 · 重置券不改變使用年資"
+            text=tx(
+                "file_tools.page_vouchers_vouchers_do_not_change",
+                v0=(inventory["page"] + 1),
+                v1=(inventory["total"]),
+            )
         )
         return embed
 
+    @localized("interaction")
     async def refresh(self, interaction, used, page):
         await interaction.response.defer()
         data = await run_blocking(self.engine.quota.inventory, self.owner, used, page)
@@ -117,24 +148,30 @@ class CouponView(PrivateView):
         )
         self.stop()
 
-    @discord.ui.button(label="尚未使用")
+    @discord.ui.button(label="Unused")
+    @localized("interaction")
     async def unused(self, interaction, button):
         await self.refresh(interaction, False, 0)
 
-    @discord.ui.button(label="歷史使用")
+    @discord.ui.button(label="Usage history")
+    @localized("interaction")
     async def history(self, interaction, button):
         await self.refresh(interaction, True, 0)
 
-    @discord.ui.button(label="上一頁", row=1)
+    @discord.ui.button(label="Previous", row=1)
+    @localized("interaction")
     async def previous(self, interaction, button):
         await self.refresh(interaction, self.used, self.page - 1)
 
-    @discord.ui.button(label="下一頁", row=1)
+    @discord.ui.button(label="Next", row=1)
+    @localized("interaction")
     async def next(self, interaction, button):
         await self.refresh(interaction, self.used, self.page + 1)
 
 
 class ConvertView(PrivateView):
+    i18n = {"confirm.label": "file_tools.confirm_processing"}
+
     def __init__(self, owner, engine, attachments, operation, quality, edge):
         super().__init__(owner)
         self.engine = engine
@@ -144,10 +181,13 @@ class ConvertView(PrivateView):
         self.edge = edge
         self.started = False
 
-    @discord.ui.button(label="確認處理", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Confirm processing", style=discord.ButtonStyle.primary)
+    @localized("interaction")
     async def confirm(self, interaction, button):
         if self.started:
-            await interaction.response.send_message("工作已提交", ephemeral=True)
+            await interaction.response.send_message(
+                tx("file_tools.job_already_submitted"), ephemeral=True
+            )
             return
         self.started = True
         await interaction.response.defer(ephemeral=True, thinking=True)
@@ -157,7 +197,7 @@ class ConvertView(PrivateView):
                 for attachment in self.attachments:
                     data = await asyncio.wait_for(attachment.read(), timeout=30)
                     if len(data) != attachment.size:
-                        raise ValueError("附件大小不符")
+                        raise ValueError(tx("file_tools.attachment_size_mismatch"))
                     files.append((attachment.filename, data))
                 job = await self.engine.submit(
                     self.owner,
@@ -172,9 +212,15 @@ class ConvertView(PrivateView):
                 await asyncio.shield(task)
             result = self.engine.result(self.owner, job)
             if result["state"] != "done":
-                raise ValueError(result.get("error", "檔案處理失敗"))
+                raise ValueError(
+                    result.get("error", tx("file_tools.file_processing_failed"))
+                )
             path, name = self.engine.download(self.owner, job)
-            description = f"處理完成 · 扣除 {result['points']} 點 · 處理 {result['seconds']:.2f} 秒"
+            description = tx(
+                "file_tools.completed_points_charged_seconds",
+                v0=(result["points"]),
+                v1=(result["seconds"]),
+            )
             limit = (
                 interaction.guild.filesize_limit
                 if interaction.guild
@@ -191,7 +237,11 @@ class ConvertView(PrivateView):
                 ).rstrip("/")
                 await interaction.followup.send(
                     description
-                    + f"\n[下載結果（15 分鐘內有效）]({base}/tools/download?ticket={token})",
+                    + tx(
+                        "file_tools.download_result_valid_for_15_minutes",
+                        v0=(base),
+                        v1=(token),
+                    ),
                     ephemeral=True,
                 )
         except ValueError as exc:
@@ -199,7 +249,7 @@ class ConvertView(PrivateView):
         except Exception:
             log.exception("Discord file tool delivery failed")
             await interaction.followup.send(
-                "檔案工作未完成回覆。處理結果可於網站工作紀錄查詢。", ephemeral=True
+                tx("file_tools.the_file_job_response_was_not"), ephemeral=True
             )
         finally:
             self.stop()
@@ -217,6 +267,7 @@ class FileToolsCog(commands.Cog):
         await self.engine.close()
 
     @commands.Cog.listener()
+    @localized("interaction")
     async def on_interaction(self, interaction):
         if (
             interaction.type == discord.InteractionType.application_command
@@ -228,12 +279,16 @@ class FileToolsCog(commands.Cog):
                 log.exception("Unable to record tool tenure")
 
     @commands.Cog.listener()
+    @localized("ctx")
     async def on_command_completion(self, ctx):
         await run_blocking(self.engine.quota.register, ctx.author.id)
 
     @app_commands.command(
-        name="usage", description="查看使用等級、週用量與近三小時用量"
+        name="usage", description="Show your tier, weekly use and last three hours"
     )
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @localized("interaction")
     async def usage(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         data = await run_blocking(self.engine.quota.snapshot, interaction.user.id)
@@ -242,7 +297,12 @@ class FileToolsCog(commands.Cog):
             file=discord.File(image, filename="usage.png"), ephemeral=True
         )
 
-    @app_commands.command(name="ir", description="查看重置券背包與歷史使用紀錄")
+    @app_commands.command(
+        name="ir", description="Show your reset vouchers and their history"
+    )
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @localized("interaction")
     async def inventory(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         data = await run_blocking(self.engine.quota.inventory, interaction.user.id)
@@ -252,6 +312,7 @@ class FileToolsCog(commands.Cog):
             ephemeral=True,
         )
 
+    @localized("interaction")
     async def prepare(self, interaction, attachments, operation, quality, edge):
         await interaction.response.defer(ephemeral=True)
         try:
@@ -262,11 +323,17 @@ class FileToolsCog(commands.Cog):
                 operation,
             )
             embed = discord.Embed(
-                title="檔案處理預估",
-                description=f"檔案：{len(attachments)} 件\n輸入：{quote['inputBytes'] / 1048576:.2f} MiB\n最多預留：{quote['maximumPoints']} 點\n輸出：{operation}\n\n依實際檔案大小與處理時間計點。失敗或壓縮未縮小不扣點。",
+                title=tx("file_tools.file_processing_estimate"),
+                description=tx(
+                    "file_tools.files_input_mib_maximum_reservation_points",
+                    v0=(len(attachments)),
+                    v1=(quote["inputBytes"] / 1048576),
+                    v2=(quote["maximumPoints"]),
+                    v3=(operation),
+                ),
                 color=0x38BDF8,
             )
-            embed.set_footer(text="結果暫存 20 分鐘")
+            embed.set_footer(text=tx("file_tools.results_are_stored_for_20_minutes"))
             await interaction.followup.send(
                 embed=embed,
                 view=ConvertView(
@@ -283,7 +350,8 @@ class FileToolsCog(commands.Cog):
             await interaction.followup.send(str(exc), ephemeral=True)
 
     @app_commands.command(
-        name="convert", description="檔案轉換：靜態圖片、圖片轉 PDF、CSV／TSV／JSON"
+        name="convert",
+        description="Convert files: still images, images to PDF, CSV/TSV/JSON",
     )
     @app_commands.choices(
         format=[
@@ -292,6 +360,9 @@ class FileToolsCog(commands.Cog):
             if f != "compress"
         ]
     )
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @localized("interaction")
     async def convert(
         self,
         interaction: discord.Interaction,
@@ -306,8 +377,12 @@ class FileToolsCog(commands.Cog):
         )
 
     @app_commands.command(
-        name="compress", description="圖片壓縮：未縮小不扣點，支援品質與最大尺寸設定"
+        name="compress",
+        description="Compress images; no points charged if the file does not shrink",
     )
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @localized("interaction")
     async def compress(
         self,
         interaction: discord.Interaction,
@@ -327,12 +402,11 @@ class FileToolsCog(commands.Cog):
         )
 
     @commands.command(name="convert")
+    @localized("ctx")
     async def batch_convert(self, ctx, format: str = "compress"):
         attachments = ctx.message.attachments
         if not attachments:
-            await ctx.reply(
-                "附加檔案後使用 !convert png／jpg／webp／pdf／csv／tsv／json／compress。"
-            )
+            await ctx.reply(tx("file_tools.attach_files_and_use_convert_png"))
             return
         try:
             quote = await run_blocking(
@@ -342,7 +416,11 @@ class FileToolsCog(commands.Cog):
                 format,
             )
             await ctx.reply(
-                f"檔案處理 · {len(attachments)} 件 · 最多預留 {quote['maximumPoints']} 點\n實際扣點依檔案大小與處理時間計算。",
+                tx(
+                    "file_tools.file_processing_files_up_to_points",
+                    v0=(len(attachments)),
+                    v1=(quote["maximumPoints"]),
+                ),
                 view=ConvertView(
                     ctx.author.id, self.engine, attachments, format, 78, 4096
                 ),
@@ -351,6 +429,7 @@ class FileToolsCog(commands.Cog):
             await ctx.reply(str(exc))
 
     @commands.Cog.listener()
+    @localized("message")
     async def on_message(self, message):
         if message.author.bot or not message.content.strip().startswith(">>>"):
             return
@@ -372,7 +451,8 @@ class FileToolsCog(commands.Cog):
             return
         if message.author.id not in DEVELOPER_IDS:
             await message.reply(
-                "僅限開發者使用", allowed_mentions=discord.AllowedMentions.none()
+                tx("file_tools.developers_only"),
+                allowed_mentions=discord.AllowedMentions.none(),
             )
             return
         try:
@@ -381,7 +461,7 @@ class FileToolsCog(commands.Cog):
                 2 if command in {"ureset", "sreset", "nova", "unova"} else 1
             ):
                 raise ValueError(
-                    "格式：>>>reset／>>>ureset [userid]／>>>sreset [serverid]／>>>ireset／>>>nova [userid]／>>>unova [userid]"
+                    tx("file_tools.syntax_reset_ureset_userid_sreset_serverid")
                 )
             if command in {"nova", "unova"}:
                 data = await run_blocking(
@@ -392,7 +472,11 @@ class FileToolsCog(commands.Cog):
                     str(message.id),
                 )
                 await message.reply(
-                    f"等級授權已更新 · {data['userId']} · {data['tier']['name']}。年資、用量與重置券保留。",
+                    tx(
+                        "file_tools.tier_updated_account_tenure_usage_and",
+                        v0=(data["userId"]),
+                        v1=(data["tier"]["name"]),
+                    ),
                     allowed_mentions=discord.AllowedMentions.none(),
                 )
                 return
@@ -403,7 +487,7 @@ class FileToolsCog(commands.Cog):
             elif command == "sreset":
                 guild = self.bot.get_guild(int(parts[1]))
                 if guild is None:
-                    raise ValueError("機器人未加入此伺服器")
+                    raise ValueError(tx("file_tools.the_bot_has_not_joined_this"))
                 members = await guild.chunk(cache=True)
                 ids = [str(member.id) for member in members if not member.bot]
                 target = str(guild.id)
@@ -421,14 +505,24 @@ class FileToolsCog(commands.Cog):
                 target,
             )
             await message.reply(
-                f"{'重置券發放' if command == 'ireset' else '用量重置'}完成 · {count} 個帳號。使用年資保留。",
+                tx(
+                    "file_tools.completed_accounts_account_tenure_is_preserved",
+                    v0=(
+                        tx("file_tools.voucher_distribution")
+                        if command == "ireset"
+                        else tx("file_tools.usage_reset")
+                    ),
+                    v1=(count),
+                ),
                 allowed_mentions=discord.AllowedMentions.none(),
             )
         except (ValueError, PermissionError) as exc:
             await message.reply(str(exc))
         except Exception:
             log.exception("Tool quota administration failed")
-            await message.reply("操作未完成，未確認的結果可使用相同訊息事件重新核對。")
+            await message.reply(
+                tx("file_tools.operation_incomplete_the_same_message_event")
+            )
 
 
 async def setup(bot):
