@@ -35,6 +35,8 @@ def setup_case():
         user=user,
         guild=Mock(),
         guild_id=9,
+        locale=discord.Locale.taiwan_chinese,
+        client=SimpleNamespace(get_guild=lambda guild_id: object()),
         response=SimpleNamespace(
             defer=AsyncMock(), send_message=AsyncMock(), is_done=Mock(return_value=True)
         ),

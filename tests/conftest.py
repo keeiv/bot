@@ -25,6 +25,9 @@ for credential in (
 @pytest.fixture(autouse=True)
 def isolate_services(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    from src.services import language_service
+
+    monkeypatch.setattr(language_service, "_service", None)
     original_connect = socket.socket.connect
     original_connect_ex = socket.socket.connect_ex
 

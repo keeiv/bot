@@ -10,6 +10,8 @@ from discord.ext import tasks
 from src.cogs.features.achievements import Achievements
 from src.services.message_log_service import MessageLogService
 from src.utils.config_manager import ensure_data_dir
+from src.utils.i18n import text as tx
+from src.utils.lang_context import localized
 from src.utils.storage_worker import run_storage
 
 TZ_OFFSET = timezone(timedelta(hours=8))
@@ -41,6 +43,7 @@ class MessageLogger(commands.Cog):
     # ─────────────── 事件監聽 ───────────────
 
     @commands.Cog.listener()
+    @localized("message")
     async def on_message(self, message: discord.Message) -> None:
         """監聽所有訊息，記錄內容以備後用"""
         if message.author.bot or message.guild is None:
@@ -59,6 +62,7 @@ class MessageLogger(commands.Cog):
             )
 
     @commands.Cog.listener()
+    @localized("before")
     async def on_message_edit(
         self, before: discord.Message, after: discord.Message
     ) -> None:
@@ -138,6 +142,7 @@ class MessageLogger(commands.Cog):
             print(f"[失敗] 編輯監聽出錯: {e}")
 
     @commands.Cog.listener()
+    @localized("message")
     async def on_message_delete(self, message: discord.Message) -> None:
         """監聽訊息刪除"""
         if message.guild is None or message.author.bot:
@@ -204,10 +209,12 @@ class MessageLogger(commands.Cog):
     # ─────────────── 指令 ───────────────
 
     @discord.app_commands.command(
-        name="編刪紀錄設定", description="設置訊息編輯/刪除的日誌頻道"
+        name="message_log_settings",
+        description="Set the channel that logs edited and deleted messages",
     )
-    @discord.app_commands.describe(channel="要發送日誌的頻道")
+    @discord.app_commands.describe(channel="The channel for the log")
     @discord.app_commands.default_permissions(administrator=True)
+    @localized("interaction")
     async def set_log_channel(
         self, interaction: discord.Interaction, channel: discord.TextChannel
     ) -> None:
@@ -218,12 +225,13 @@ class MessageLogger(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.response.send_message(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message(
-                "[失敗] 你需要管理員權限才能使用此指令", ephemeral=True
+                tx("message_logger.failed_administrator_permission_is_required_for"),
+                ephemeral=True,
             )
             return
         await interaction.response.defer()
@@ -231,8 +239,11 @@ class MessageLogger(commands.Cog):
             self.service.set_log_channel_id, interaction.guild_id, channel.id
         )
         embed = discord.Embed(
-            title="[成功] 設置成功",
-            description=f"訊息編輯/刪除的日誌將發送到 {channel.mention}",
+            title=tx("message_logger.success_settings_saved"),
+            description=tx(
+                "message_logger.message_edit_and_deletion_logs_will",
+                v0=(channel.mention),
+            ),
             color=discord.Color.from_rgb(46, 204, 113),
         )
         await interaction.followup.send(embed=embed)

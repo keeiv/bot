@@ -3,6 +3,7 @@ from typing import Any, Optional
 
 import discord
 
+from src.utils.i18n import text as tx
 from src.utils.time_utils import get_current_time_str
 from src.utils.time_utils import TZ_OFFSET
 
@@ -48,16 +49,26 @@ def create_edit_embed(
 ) -> discord.Embed:
     """建立編輯訊息的 Embed"""
     embed = discord.Embed(
-        title="[編輯] 訊息已編輯",
+        title=tx("message_log_service.edited_message_edited"),
         color=discord.Color.from_rgb(52, 152, 219),
         timestamp=datetime.now(TZ_OFFSET),
     )
 
     # 新增基本資訊
-    embed.add_field(name="用戶", value=f"<@{user_id}> ({user_id})", inline=False)
-    embed.add_field(name="伺服器", value=f"{guild_name} ({guild_id})", inline=False)
-    embed.add_field(name="頻道", value=f"<#{channel_id}> ({channel_id})", inline=False)
-    embed.add_field(name="訊息 ID", value=str(message_id), inline=False)
+    embed.add_field(
+        name=tx("audit_log.user"), value=f"<@{user_id}> ({user_id})", inline=False
+    )
+    embed.add_field(
+        name=tx("bot_appearance.server"),
+        value=f"{guild_name} ({guild_id})",
+        inline=False,
+    )
+    embed.add_field(
+        name=tx("audit_log.channel"),
+        value=f"<#{channel_id}> ({channel_id})",
+        inline=False,
+    )
+    embed.add_field(name=tx("protection.28"), value=str(message_id), inline=False)
 
     # 檢查編輯前的附件
     before_image_url = (
@@ -67,13 +78,25 @@ def create_edit_embed(
     # 新增編輯前內容
     if before_image_url:
         # 如果有圖片，不用程式碼框
-        before_text = before_content[:1024] if before_content else "(空)"
-        if before_text and before_text != "(空)":
-            embed.add_field(name="編輯前 (文字)", value=before_text, inline=False)
+        before_text = (
+            before_content[:1024] if before_content else tx("message_log_service.empty")
+        )
+        if before_text and before_text != tx("message_log_service.empty"):
+            embed.add_field(
+                name=tx("message_log_service.before_edit_text"),
+                value=before_text,
+                inline=False,
+            )
     else:
         # 如果沒有圖片，用程式碼框包裹文字
-        before_text = before_content[:1024] if before_content else "(空)"
-        embed.add_field(name="編輯前", value=f"```\n{before_text}\n```", inline=False)
+        before_text = (
+            before_content[:1024] if before_content else tx("message_log_service.empty")
+        )
+        embed.add_field(
+            name=tx("message_log_service.before_edit"),
+            value=f"```\n{before_text}\n```",
+            inline=False,
+        )
 
     # 檢查編輯後的附件
     after_image_url = (
@@ -83,22 +106,38 @@ def create_edit_embed(
     # 新增編輯後內容
     if after_image_url:
         # 如果有圖片，不用程式碼框
-        after_text = after_content[:1024] if after_content else "(空)"
-        if after_text and after_text != "(空)":
-            embed.add_field(name="編輯後 (文字)", value=after_text, inline=False)
+        after_text = (
+            after_content[:1024] if after_content else tx("message_log_service.empty")
+        )
+        if after_text and after_text != tx("message_log_service.empty"):
+            embed.add_field(
+                name=tx("message_log_service.after_edit_text"),
+                value=after_text,
+                inline=False,
+            )
     else:
         # 如果沒有圖片，用程式碼框包裹文字
-        after_text = after_content[:1024] if after_content else "(空)"
-        embed.add_field(name="編輯後", value=f"```\n{after_text}\n```", inline=False)
+        after_text = (
+            after_content[:1024] if after_content else tx("message_log_service.empty")
+        )
+        embed.add_field(
+            name=tx("message_log_service.after_edit"),
+            value=f"```\n{after_text}\n```",
+            inline=False,
+        )
 
     # 如果有編輯後的圖片，新增到 Embed
     if after_image_url:
         embed.set_image(url=after_image_url)
 
-    embed.add_field(name="編輯次數", value=str(edit_count), inline=True)
-    embed.add_field(name="時間", value=get_current_time_str(), inline=True)
+    embed.add_field(
+        name=tx("message_log_service.edit_count"), value=str(edit_count), inline=True
+    )
+    embed.add_field(
+        name=tx("audit_log.time"), value=get_current_time_str(), inline=True
+    )
 
-    embed.set_footer(text=f"用戶 {user_name}")
+    embed.set_footer(text=tx("audit_log.user_941f2d", v0=(user_name)))
 
     return embed
 
@@ -115,16 +154,28 @@ def create_delete_embed(
 ) -> discord.Embed:
     """建立刪除訊息的embed"""
     embed = discord.Embed(
-        title="[刪除] 訊息已刪除",
+        title=tx("message_log_service.deleted_message_deleted"),
         color=discord.Color.from_rgb(231, 76, 60),
         timestamp=datetime.now(TZ_OFFSET),
     )
 
     # 新增基本資訊
-    embed.add_field(name="用戶", value=f"<@{user_id}> ({user_id})", inline=False)
-    embed.add_field(name="伺服器", value=f"{guild_name} ({guild_id})", inline=False)
-    embed.add_field(name="頻道", value=f"<#{channel_id}> ({channel_id})", inline=False)
-    embed.add_field(name="訊息ID", value=str(message_id), inline=False)
+    embed.add_field(
+        name=tx("audit_log.user"), value=f"<@{user_id}> ({user_id})", inline=False
+    )
+    embed.add_field(
+        name=tx("bot_appearance.server"),
+        value=f"{guild_name} ({guild_id})",
+        inline=False,
+    )
+    embed.add_field(
+        name=tx("audit_log.channel"),
+        value=f"<#{channel_id}> ({channel_id})",
+        inline=False,
+    )
+    embed.add_field(
+        name=tx("message_log_service.message_id"), value=str(message_id), inline=False
+    )
 
     # 檢查是否有圖片附件
     image_url = get_first_image_url(attachments) if attachments else None
@@ -132,24 +183,30 @@ def create_delete_embed(
     # 新增刪除前的訊息內容
     if image_url:
         # 如果有圖片，不用代碼框
-        content_text = content[:1024] if content else "(空)"
-        if content_text and content_text != "(空)":
+        content_text = content[:1024] if content else tx("message_log_service.empty")
+        if content_text and content_text != tx("message_log_service.empty"):
             embed.add_field(
-                name="刪除前的訊息 (文字)", value=content_text, inline=False
+                name=tx("message_log_service.before_deletion_text"),
+                value=content_text,
+                inline=False,
             )
     else:
         # 如果沒有圖片，用代碼框包裹文字
-        content_text = content[:1024] if content else "(空)"
+        content_text = content[:1024] if content else tx("message_log_service.empty")
         embed.add_field(
-            name="刪除前的訊息", value=f"```\n{content_text}\n```", inline=False
+            name=tx("message_log_service.message_before_deletion"),
+            value=f"```\n{content_text}\n```",
+            inline=False,
         )
 
     # 如果有圖片，新增到embed
     if image_url:
         embed.set_image(url=image_url)
 
-    embed.add_field(name="時間", value=get_current_time_str(), inline=True)
+    embed.add_field(
+        name=tx("audit_log.time"), value=get_current_time_str(), inline=True
+    )
 
-    embed.set_footer(text=f"用戶 {user_name}")
+    embed.set_footer(text=tx("audit_log.user_941f2d", v0=(user_name)))
 
     return embed

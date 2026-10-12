@@ -1,6 +1,7 @@
 import asyncio
 import os
 import pkgutil
+from typing import Any
 
 import discord
 from discord import app_commands
@@ -8,10 +9,32 @@ from discord.ext import commands
 from dotenv import load_dotenv
 
 from src.utils.blacklist_manager import BlacklistManager
+from src.utils.command_translator import CommandTranslator
+from src.utils.i18n import Lang
+from src.utils.i18n import t
+from src.utils.lang_context import interaction_lang
+from src.utils.lang_context import message_lang
 from src.utils.runtime import close_optimizations
 from src.utils.runtime import initialize_optimizations
 
 load_dotenv()
+
+
+def blacklist_embed(lang: Lang, entry: dict[str, Any]) -> discord.Embed:
+    """The notice shown to a blacklisted user, in the language of where they are."""
+    reason = entry.get("reason") or t(lang, "blacklist.no_reason")
+    source_key = (
+        "blacklist.source_local"
+        if entry.get("source") == "local"
+        else "blacklist.source_api"
+    )
+    return discord.Embed(
+        title=t(lang, "blacklist.title"),
+        description=t(
+            lang, "blacklist.body", reason=reason, source=t(lang, source_key)
+        ),
+        color=discord.Color.red(),
+    )
 
 
 class BlacklistCheckTree(app_commands.CommandTree):
@@ -20,7 +43,7 @@ class BlacklistCheckTree(app_commands.CommandTree):
         if not isinstance(bot, Bot):
             raise TypeError("Blacklist tree requires Bot")
         cmd_name = interaction.command.name if interaction.command else None
-        if cmd_name in ["申訴", "申訴狀態"]:
+        if cmd_name in ["appeal", "appeal_status"]:
             return True
         # 跳過 blacklist 群組指令 (開發者自行檢查權限)
         top_level = interaction.data.get("name") if interaction.data else None
@@ -36,24 +59,18 @@ class BlacklistCheckTree(app_commands.CommandTree):
         if not entry:
             return True
         mode = entry.get("mode")
-        reason = entry.get("reason", "未提供原因")
-        if mode == "global_ban" and interaction.guild:
+        reason = entry.get("reason") or "No reason given"
+        # Only ban where the bot is a member, never via a personal-app command.
+        guild = bot.get_guild(interaction.guild_id) if interaction.guild_id else None
+        if mode == "global_ban" and guild is not None:
             try:
-                await interaction.guild.ban(
+                await guild.ban(
                     interaction.user,
                     reason=f"Global Ban: {reason}",
                 )
             except Exception:
                 pass
-        source = entry.get("source", "api")
-        source_label = "本地黑名單" if source == "local" else "CatHome API"
-        embed = discord.Embed(
-            title="[拒絕] 禁止使用",
-            description=(
-                f"您已被加入黑名單。\n\n" f"原因: {reason}\n" f"來源: {source_label}"
-            ),
-            color=discord.Color.red(),
-        )
+        embed = blacklist_embed(await interaction_lang(interaction), entry)
         # 動態載入申訴按鈕 (避免循環 import)
         from src.cogs.core.blacklist import Blacklist
         from src.cogs.core.blacklist import BlockedNoticeView
@@ -79,6 +96,12 @@ class Bot(commands.Bot):
             intents=intents,
             help_command=None,
             tree_cls=BlacklistCheckTree,
+            # Commands are server-only unless one opts in to the personal app
+            # (user install) with @app_commands.allowed_installs.
+            allowed_installs=app_commands.AppInstallationType(guild=True, user=False),
+            allowed_contexts=app_commands.AppCommandContext(
+                guild=True, dm_channel=False, private_channel=False
+            ),
         )
         self.api_key = os.getenv("BLACKLIST_API_KEY")
         self.api_base = "https://api.cathome.shop/v1/blacklist"
@@ -88,6 +111,7 @@ class Bot(commands.Bot):
         await initialize_optimizations()
         await self.blacklist_manager.setup()
         await self.load_cogs()
+        await self.tree.set_translator(CommandTranslator())
         await self.tree.sync()
 
     async def close(self) -> None:
@@ -128,7 +152,7 @@ class Bot(commands.Bot):
         entry = await self.blacklist_manager.check(message.author.id)
         if entry:
             mode = entry.get("mode")
-            reason = entry.get("reason", "未提供原因")
+            reason = entry.get("reason") or "No reason given"
             if mode == "global_ban" and message.guild:
                 try:
                     await message.guild.ban(
@@ -137,16 +161,8 @@ class Bot(commands.Bot):
                     )
                 except Exception:
                     pass
-            source = entry.get("source", "api")
-            source_label = "本地黑名單" if source == "local" else "CatHome API"
-            embed = discord.Embed(
-                title="[拒絕] 禁止使用",
-                description=(
-                    f"您已被加入黑名單。\n\n"
-                    f"原因: {reason}\n"
-                    f"來源: {source_label}"
-                ),
-                color=discord.Color.red(),
+            embed = blacklist_embed(
+                await message_lang(message.guild, message.author.id), entry
             )
             from src.cogs.core.blacklist import Blacklist
             from src.cogs.core.blacklist import BlockedNoticeView
@@ -165,7 +181,7 @@ class Bot(commands.Bot):
         entry = await self.blacklist_manager.check(member.id)
         if entry:
             mode = entry.get("mode")
-            reason = entry.get("reason", "未提供原因")
+            reason = entry.get("reason") or "No reason given"
             if mode == "global_ban":
                 try:
                     await member.guild.ban(

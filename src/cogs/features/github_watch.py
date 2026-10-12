@@ -15,6 +15,8 @@ from src.services.github_watch_service import GithubWatchService
 from src.utils.github_manager import get_github_manager
 from src.utils.github_manager import GitHubAPIManager
 from src.utils.github_manager import init_github_manager
+from src.utils.i18n import text as tx
+from src.utils.lang_context import localized
 from src.utils.storage_worker import run_storage
 
 # UTC+8 時區
@@ -31,7 +33,7 @@ class GithubWatch(commands.Cog):
     """GitHub 推送通知"""
 
     repo_watch = app_commands.Group(
-        name="repo_watch", description="GitHub 檔案庫更新通知"
+        name="repo_watch", description="GitHub repository updates"
     )
 
     def __init__(self, bot: commands.Bot) -> None:
@@ -72,7 +74,7 @@ class GithubWatch(commands.Cog):
                 return None
 
             if not commits:
-                raise RuntimeError("GitHub API 回傳空資料")
+                raise RuntimeError(tx("github_watch.github_api_returned_no_data"))
 
             c = commits[0]
             sha = c.get("sha")
@@ -103,8 +105,9 @@ class GithubWatch(commands.Cog):
             }
         except Exception as e:
             print(f"[GitHub Watch] Error fetching commit: {e}")
-            raise RuntimeError(f"GitHub API 失敗: {e}")
+            raise RuntimeError(tx("github_watch.github_api_failed", v0=(e)))
 
+    @localized("channel")
     async def _send_update_message(
         self,
         guild_id: int,
@@ -129,7 +132,7 @@ class GithubWatch(commands.Cog):
         dt = commit.get("date")
 
         embed = discord.Embed(
-            title="檔案庫更新",
+            title=tx("github_watch.repository_update"),
             color=discord.Color.from_rgb(52, 152, 219),
             timestamp=datetime.now(TZ_OFFSET),
         )
@@ -151,7 +154,9 @@ class GithubWatch(commands.Cog):
             lines.append(f"Link: {url}")
 
         if lines:
-            embed.add_field(name="資訊", value="\n".join(lines), inline=False)
+            embed.add_field(
+                name=tx("github_watch.info"), value="\n".join(lines), inline=False
+            )
 
         await channel.send(embed=embed)
 
@@ -209,14 +214,15 @@ class GithubWatch(commands.Cog):
         except RuntimeError:
             self._poll_task.cancel()
 
-    @repo_watch.command(name="set", description="設定 GitHub 檔案庫更新通知")
+    @repo_watch.command(name="set", description="Post updates from a GitHub repository")
     @app_commands.describe(
-        owner="repo 擁有者 (例如 Finn0)",
-        repo="repo 名稱 (例如 new_bot)",
-        channel="要發通知的頻道",
-        interval_minutes="檢查間隔 (分鐘，最小 2)",
+        owner="Repository owner (for example Finn0)",
+        repo="Repository name (for example new_bot)",
+        channel="The channel for updates",
+        interval_minutes="How often to check, in minutes (at least 2)",
     )
     @app_commands.checks.has_permissions(manage_guild=True)
+    @localized("interaction")
     async def repo_watch_set(
         self,
         interaction: discord.Interaction,
@@ -241,11 +247,18 @@ class GithubWatch(commands.Cog):
         self.reset_poll(interaction.guild_id)
 
         await interaction.followup.send(
-            f"已啟用 repo 通知\nRepo: {owner}/{repo}\nChannel: {channel.mention}\nInterval: {interval_minutes} 分鐘",
+            tx(
+                "github_watch.repository_notifications_enabled_repository_channel_interval",
+                v0=(owner),
+                v1=(repo),
+                v2=(channel.mention),
+                v3=(interval_minutes),
+            ),
             ephemeral=True,
         )
 
-    @repo_watch.command(name="status", description="查看 GitHub 檔案庫通知狀態")
+    @repo_watch.command(name="status", description="Show the GitHub update settings")
+    @localized("interaction")
     async def repo_watch_status(self, interaction: discord.Interaction) -> None:
         if (
             interaction.guild is None
@@ -253,7 +266,7 @@ class GithubWatch(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.response.send_message(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         await interaction.response.defer(ephemeral=True)
@@ -261,7 +274,8 @@ class GithubWatch(commands.Cog):
         cfg = self._get_guild_cfg(interaction.guild_id)
         if not cfg or not cfg.get("enabled"):
             await interaction.followup.send(
-                "此伺服器尚未啟用 repo 通知", ephemeral=True
+                tx("github_watch.repository_notifications_are_not_enabled_for"),
+                ephemeral=True,
             )
             return
 
@@ -272,12 +286,20 @@ class GithubWatch(commands.Cog):
         last_sha = cfg.get("last_sha")
 
         await interaction.followup.send(
-            f"已啟用\nRepo: {owner}/{repo}\nChannel ID: {channel_id}\nInterval: {interval} 分鐘\nLast SHA: {last_sha[:7] if last_sha else '無'}",
+            tx(
+                "github_watch.enabled_repository_channel_id_interval_minutes",
+                v0=(owner),
+                v1=(repo),
+                v2=(channel_id),
+                v3=(interval),
+                v4=(last_sha[:7] if last_sha else tx("audit_log.none")),
+            ),
             ephemeral=True,
         )
 
-    @repo_watch.command(name="disable", description="停用 GitHub 檔案庫更新通知")
+    @repo_watch.command(name="disable", description="Stop GitHub repository updates")
     @app_commands.checks.has_permissions(manage_guild=True)
+    @localized("interaction")
     async def repo_watch_disable(self, interaction: discord.Interaction) -> None:
         if (
             interaction.guild is None
@@ -285,7 +307,7 @@ class GithubWatch(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.response.send_message(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         await interaction.response.defer(ephemeral=True)
@@ -293,7 +315,8 @@ class GithubWatch(commands.Cog):
         cfg = self._get_guild_cfg(interaction.guild_id)
         if not cfg:
             await interaction.followup.send(
-                "此伺服器尚未啟用 repo 通知", ephemeral=True
+                tx("github_watch.repository_notifications_are_not_enabled_for"),
+                ephemeral=True,
             )
             return
 
@@ -301,7 +324,9 @@ class GithubWatch(commands.Cog):
             self.service.update_config, interaction.guild_id, {"enabled": False}
         )
         self.reset_poll(interaction.guild_id)
-        await interaction.followup.send("已停用 repo 通知", ephemeral=True)
+        await interaction.followup.send(
+            tx("github_watch.repository_notifications_disabled"), ephemeral=True
+        )
 
 
 async def setup(bot: commands.Bot) -> None:

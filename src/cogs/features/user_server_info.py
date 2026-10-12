@@ -18,6 +18,10 @@ from discord.ui import Thumbnail
 
 from src.services.achievement_service import AchievementService
 from src.services.osu_service import OsuService
+from src.utils.i18n import from_locale
+from src.utils.i18n import Lang
+from src.utils.i18n import t
+from src.utils.lang_context import interaction_lang
 from src.utils.storage_worker import run_storage
 
 log = logging.getLogger(__name__)
@@ -76,15 +80,20 @@ class UserServerInfo(commands.Cog):
             return None
 
     def format_text_block(
-        self, title: str, lines: Sequence[str], limit: int = 4000
+        self, title: str, lines: Sequence[str], limit: int = 4000, *, lang: Lang
     ) -> str:
         """將多行內容整理成TextDisplay可用的markdown區塊。"""
         content_lines = [line for line in lines if line]
-        body = "\n".join(content_lines) if content_lines else "無"
+        body = "\n".join(content_lines) if content_lines else t(lang, "info.none")
         return self.truncate_text(f"### {title}\n{body}", limit)
 
     def format_field_block(
-        self, title: str, fields: Sequence[Tuple[str, str]], limit: int = 4000
+        self,
+        title: str,
+        fields: Sequence[Tuple[str, str]],
+        limit: int = 4000,
+        *,
+        lang: Lang,
     ) -> str:
         lines = []
         for label, value in fields:
@@ -93,7 +102,7 @@ class UserServerInfo(commands.Cog):
                 lines.append(value)
             else:
                 lines.append(f"**{label}**: {value}")
-        return self.format_text_block(title, lines, limit)
+        return self.format_text_block(title, lines, limit, lang=lang)
 
     def add_separator(
         self,
@@ -114,6 +123,7 @@ class UserServerInfo(commands.Cog):
         achievement_text: Optional[str],
         osu_text: Optional[str],
         queried_at: str,
+        lang: Lang,
     ) -> LayoutView:
         """建立戶資訊畫面。"""
         view = LayoutView(timeout=None)
@@ -121,21 +131,21 @@ class UserServerInfo(commands.Cog):
 
         container.add_item(
             Section(
-                TextDisplay("## 用戶資訊"),
+                TextDisplay(f"## {t(lang, 'info.user.title')}"),
                 TextDisplay(
                     self.truncate_text(
                         "\n".join(
                             (
-                                f"目標：{user.mention}",
-                                f"狀態：{status}",
-                                f"查詢時間：{queried_at}",
+                                t(lang, "info.user.target", mention=user.mention),
+                                t(lang, "info.user.status_line", status=status),
+                                t(lang, "info.queried", time=queried_at),
                             )
                         )
                     )
                 ),
                 accessory=Thumbnail(
                     user.display_avatar.url,
-                    description="用戶頭像",
+                    description=t(lang, "info.user.avatar"),
                 ),
             )
         )
@@ -144,15 +154,16 @@ class UserServerInfo(commands.Cog):
         container.add_item(
             TextDisplay(
                 self.format_field_block(
-                    "基本資料",
+                    t(lang, "info.user.basic"),
                     (
-                        ("用戶ID", f"`{user.id}`"),
-                        ("用戶名", f"@{user.name}"),
-                        ("顯示名稱", display_name),
-                        ("帳號創立時間", created_time),
-                        ("加入伺服器時間", joined_time),
-                        ("帳號狀態", status),
+                        (t(lang, "info.user.id"), f"`{user.id}`"),
+                        (t(lang, "info.user.username"), f"@{user.name}"),
+                        (t(lang, "info.user.display_name"), display_name),
+                        (t(lang, "info.user.created"), created_time),
+                        (t(lang, "info.user.joined"), joined_time),
+                        (t(lang, "info.user.account_status"), status),
                     ),
+                    lang=lang,
                 )
             )
         )
@@ -160,28 +171,41 @@ class UserServerInfo(commands.Cog):
         if roles_text is not None:
             self.add_separator(container)
             container.add_item(
-                TextDisplay(self.format_text_block("角色", (roles_text,), 3500))
+                TextDisplay(
+                    self.format_text_block(
+                        t(lang, "info.user.roles"), (roles_text,), 3500, lang=lang
+                    )
+                )
             )
 
         if achievement_text:
             self.add_separator(container)
             container.add_item(
                 TextDisplay(
-                    self.format_text_block("成就進度", (achievement_text,), 3500)
+                    self.format_text_block(
+                        t(lang, "info.user.achievements"),
+                        (achievement_text,),
+                        3500,
+                        lang=lang,
+                    )
                 )
             )
 
         if osu_text:
             self.add_separator(container)
             container.add_item(
-                TextDisplay(self.format_text_block("osu! 資訊", (osu_text,), 3500))
+                TextDisplay(
+                    self.format_text_block(
+                        t(lang, "info.user.osu"), (osu_text,), 3500, lang=lang
+                    )
+                )
             )
 
         banner = getattr(user, "banner", None)
         if banner:
             self.add_separator(container, discord.SeparatorSpacing.large)
             gallery = MediaGallery[Any]()
-            gallery.add_item(media=banner.url, description="用戶橫幅")
+            gallery.add_item(media=banner.url, description=t(lang, "info.user.banner"))
             container.add_item(gallery)
 
         view.add_item(container)
@@ -199,44 +223,50 @@ class UserServerInfo(commands.Cog):
         boost_text: str,
         description_text: Optional[str],
         queried_at: str,
+        lang: Lang,
     ) -> LayoutView:
         """建立伺服器資訊畫面。"""
         view = LayoutView(timeout=None)
         container = Container[Any](accent_color=discord.Color.from_rgb(46, 204, 113))
 
         summary_lines = (
-            f"伺服器：**{self.truncate_text(guild.name, 200)}**",
-            f"成員總數：{guild.member_count or 0}",
-            f"查詢時間：{queried_at}",
+            t(lang, "info.server.name_line", name=self.truncate_text(guild.name, 200)),
+            t(lang, "info.server.member_total_line", count=guild.member_count or 0),
+            t(lang, "info.queried", time=queried_at),
         )
 
         if guild.icon:
             container.add_item(
                 Section(
-                    TextDisplay("## 伺服器資訊"),
+                    TextDisplay(f"## {t(lang, 'info.server.title')}"),
                     TextDisplay(self.truncate_text("\n".join(summary_lines))),
                     accessory=Thumbnail(
                         guild.icon.url,
-                        description="伺服器圖標",
+                        description=t(lang, "info.server.icon"),
                     ),
                 )
             )
         else:
             container.add_item(
-                TextDisplay(self.format_text_block("伺服器資訊", summary_lines))
+                TextDisplay(
+                    self.format_text_block(
+                        t(lang, "info.server.title"), summary_lines, lang=lang
+                    )
+                )
             )
 
         self.add_separator(container)
         container.add_item(
             TextDisplay(
                 self.format_field_block(
-                    "基本資料",
+                    t(lang, "info.server.basic"),
                     (
-                        ("伺服器名稱", guild.name),
-                        ("伺服器ID", f"`{guild.id}`"),
-                        ("創建時間", created_time),
-                        ("擁有者", owner_text),
+                        (t(lang, "info.server.name"), guild.name),
+                        (t(lang, "info.server.id"), f"`{guild.id}`"),
+                        (t(lang, "info.server.created"), created_time),
+                        (t(lang, "info.server.owner"), owner_text),
                     ),
+                    lang=lang,
                 )
             )
         )
@@ -244,14 +274,22 @@ class UserServerInfo(commands.Cog):
         self.add_separator(container)
         container.add_item(
             TextDisplay(
-                self.format_text_block("成員統計", member_stats_text.split("\n"))
+                self.format_text_block(
+                    t(lang, "info.server.members"),
+                    member_stats_text.split("\n"),
+                    lang=lang,
+                )
             )
         )
 
         self.add_separator(container)
         container.add_item(
             TextDisplay(
-                self.format_text_block("頻道統計", channel_stats_text.split("\n"))
+                self.format_text_block(
+                    t(lang, "info.server.channels"),
+                    channel_stats_text.split("\n"),
+                    lang=lang,
+                )
             )
         )
 
@@ -259,12 +297,13 @@ class UserServerInfo(commands.Cog):
         container.add_item(
             TextDisplay(
                 self.format_field_block(
-                    "伺服器設定",
+                    t(lang, "info.server.settings"),
                     (
-                        ("角色數量", str(role_count)),
-                        ("驗證等級", verification_level),
-                        ("Boost 資訊", boost_text),
+                        (t(lang, "info.server.role_count"), str(role_count)),
+                        (t(lang, "info.server.verification"), verification_level),
+                        (t(lang, "info.server.boost"), boost_text),
                     ),
+                    lang=lang,
                 )
             )
         )
@@ -272,26 +311,37 @@ class UserServerInfo(commands.Cog):
         if description_text:
             self.add_separator(container)
             container.add_item(
-                TextDisplay(self.format_text_block("描述", (description_text,), 3500))
+                TextDisplay(
+                    self.format_text_block(
+                        t(lang, "info.server.description"),
+                        (description_text,),
+                        3500,
+                        lang=lang,
+                    )
+                )
             )
 
         if guild.banner:
             self.add_separator(container, discord.SeparatorSpacing.large)
             gallery = MediaGallery[Any]()
-            gallery.add_item(media=guild.banner.url, description="伺服器橫幅")
+            gallery.add_item(
+                media=guild.banner.url, description=t(lang, "info.server.banner")
+            )
             container.add_item(gallery)
 
         view.add_item(container)
         return view
 
-    @app_commands.command(name="user_info", description="顯示用戶資訊")
-    @app_commands.describe(user="要查詢的用戶 (不填默認為自己)")
+    @app_commands.command(name="user_info", description="Look up a member")
+    @app_commands.describe(user="The user to look up (defaults to you)")
     async def user_info(
         self, interaction: discord.Interaction, user: Optional[discord.User] = None
     ) -> None:
         """顯示用戶資訊"""
+        lang: Lang = from_locale(interaction.locale)  # until the lookup below
         try:
             await interaction.response.defer(thinking=True)
+            lang = await interaction_lang(interaction)
             target_user = user or interaction.user
             member = await self.get_member(interaction.guild, target_user.id)
 
@@ -303,16 +353,18 @@ class UserServerInfo(commands.Cog):
             joined_time = (
                 self.format_time(member.joined_at)
                 if member and member.joined_at
-                else "無法獲取或不在伺服器內"
+                else t(lang, "info.user.joined_unknown")
             )
-            status = "機器人" if target_user.bot else "普通用戶"
+            status = t(
+                lang, "info.user.bot" if target_user.bot else "info.user.regular"
+            )
             queried_at = self.format_time(datetime.now(TZ_OFFSET))
 
             roles_text = None
             if member:
                 default_role = member.guild.default_role
                 roles = [role.mention for role in member.roles if role != default_role]
-                roles_text = " ".join(roles) if roles else "無"
+                roles_text = " ".join(roles) if roles else t(lang, "info.none")
                 roles_text = self.truncate_text(roles_text, 3500)
 
             achievement_text = None
@@ -356,7 +408,9 @@ class UserServerInfo(commands.Cog):
                         service = osu_cog.service
                         bound_username = service.get_bound_username(target_user.id)
                         if bound_username:
-                            osu_text = f"已綁定: {bound_username}\n即時資料暫時無法取得，綁定仍保留。"
+                            osu_text = t(
+                                lang, "info.user.osu_linked", name=bound_username
+                            )
                             service.ensure_api()
                             osu_user = await asyncio.wait_for(
                                 asyncio.to_thread(service.api.user, bound_username),
@@ -369,29 +423,55 @@ class UserServerInfo(commands.Cog):
                             pp = getattr(stats, "pp", None)
                             accuracy = getattr(stats, "hit_accuracy", None)
 
+                            unranked = t(lang, "info.user.osu_unranked")
+                            unknown = t(lang, "info.user.osu_unknown")
                             osu_lines = [
-                                f"用戶名: {osu_user.username}",
-                                (
-                                    f"全球排名: #{global_rank:,}"
-                                    if isinstance(global_rank, int)
-                                    else "全球排名: 未排名"
+                                t(
+                                    lang,
+                                    "info.user.osu_username",
+                                    value=osu_user.username,
                                 ),
-                                (
-                                    f"國家排名: #{country_rank:,}"
-                                    if isinstance(country_rank, int)
-                                    else "國家排名: 未排名"
+                                t(
+                                    lang,
+                                    "info.user.osu_global_rank",
+                                    value=(
+                                        f"#{global_rank:,}"
+                                        if isinstance(global_rank, int)
+                                        else unranked
+                                    ),
                                 ),
-                                (
-                                    f"PP: {pp:,.2f}"
-                                    if isinstance(pp, (int, float))
-                                    else "PP: 未知"
+                                t(
+                                    lang,
+                                    "info.user.osu_country_rank",
+                                    value=(
+                                        f"#{country_rank:,}"
+                                        if isinstance(country_rank, int)
+                                        else unranked
+                                    ),
                                 ),
-                                (
-                                    f"準確度: {accuracy:.2f}%"
-                                    if isinstance(accuracy, (int, float))
-                                    else "準確度: 未知"
+                                t(
+                                    lang,
+                                    "info.user.osu_pp",
+                                    value=(
+                                        f"{pp:,.2f}"
+                                        if isinstance(pp, (int, float))
+                                        else unknown
+                                    ),
                                 ),
-                                f"連結: https://osu.ppy.sh/users/{osu_user.id}",
+                                t(
+                                    lang,
+                                    "info.user.osu_accuracy",
+                                    value=(
+                                        f"{accuracy:.2f}%"
+                                        if isinstance(accuracy, (int, float))
+                                        else unknown
+                                    ),
+                                ),
+                                t(
+                                    lang,
+                                    "info.user.osu_link",
+                                    value=f"https://osu.ppy.sh/users/{osu_user.id}",
+                                ),
                             ]
                             osu_text = self.truncate_text("\n".join(osu_lines), 3500)
                 except Exception as e:
@@ -407,6 +487,7 @@ class UserServerInfo(commands.Cog):
                 achievement_text,
                 osu_text,
                 queried_at,
+                lang,
             )
             await interaction.followup.send(
                 view=view,
@@ -422,24 +503,25 @@ class UserServerInfo(commands.Cog):
             try:
                 if interaction.response.is_done():
                     await interaction.followup.send(
-                        "[錯誤] 無法獲取用戶資訊，請稍後重試。", ephemeral=True
+                        t(lang, "info.user.error"), ephemeral=True
                     )
                 else:
                     await interaction.response.send_message(
-                        "[錯誤] 無法獲取用戶資訊，請稍後重試。", ephemeral=True
+                        t(lang, "info.user.error"), ephemeral=True
                     )
             except discord.HTTPException:
                 log.warning("[user_info] 無法傳送錯誤回覆")
 
-    @app_commands.command(name="server_info", description="顯示伺服器資訊")
+    @app_commands.command(name="server_info", description="Look up this server")
     async def server_info(self, interaction: discord.Interaction) -> None:
         """顯示伺服器資訊"""
         await interaction.response.defer(thinking=True, ephemeral=False)
+        lang = await interaction_lang(interaction)
         try:
             guild = interaction.guild
             if not guild:
                 await interaction.followup.send(
-                    "[失敗] 此命令只能在伺服器中使用", ephemeral=True
+                    t(lang, "info.server.only_in_server"), ephemeral=True
                 )
                 return
 
@@ -447,13 +529,21 @@ class UserServerInfo(commands.Cog):
             queried_at = self.format_time(datetime.now(TZ_OFFSET))
 
             owner = guild.owner
-            owner_text = f"{owner.mention} ({owner.name})" if owner else "無法獲取"
+            owner_text = (
+                f"{owner.mention} ({owner.name})"
+                if owner
+                else t(lang, "info.unavailable")
+            )
 
             total_members = guild.member_count or 0
             bot_count = sum(1 for member in guild.members if member.bot)
             human_count = total_members - bot_count
-            member_stats_text = (
-                f"總計: {total_members}\n" f"人類: {human_count}\n" f"Bot: {bot_count}"
+            member_stats_text = "\n".join(
+                (
+                    t(lang, "info.server.members_total", count=total_members),
+                    t(lang, "info.server.members_humans", count=human_count),
+                    t(lang, "info.server.members_bots", count=bot_count),
+                )
             )
 
             text_channels = len(
@@ -477,17 +567,25 @@ class UserServerInfo(commands.Cog):
                     if isinstance(channel, discord.CategoryChannel)
                 ]
             )
-            channel_stats_text = (
-                f"文字: {text_channels}\n"
-                f"語音: {voice_channels}\n"
-                f"分類: {categories}"
+            channel_stats_text = "\n".join(
+                (
+                    t(lang, "info.server.channels_text", count=text_channels),
+                    t(lang, "info.server.channels_voice", count=voice_channels),
+                    t(lang, "info.server.channels_categories", count=categories),
+                )
             )
 
             role_count = len(guild.roles)
             verification_level = str(guild.verification_level).capitalize()
-            boost_text = (
-                f"等級: {guild.premium_tier}\n"
-                f"Boosts: {guild.premium_subscription_count}"
+            boost_text = "\n".join(
+                (
+                    t(lang, "info.server.boost_tier", tier=guild.premium_tier),
+                    t(
+                        lang,
+                        "info.server.boost_count",
+                        count=guild.premium_subscription_count,
+                    ),
+                )
             )
             description_text = (
                 self.truncate_text(guild.description, 3500)
@@ -506,6 +604,7 @@ class UserServerInfo(commands.Cog):
                 boost_text,
                 description_text,
                 queried_at,
+                lang,
             )
             await interaction.followup.send(
                 view=view,
@@ -530,7 +629,7 @@ class UserServerInfo(commands.Cog):
         except Exception as e:
             print(f"[server_info] 錯誤: {e}")
             await interaction.followup.send(
-                f"[錯誤] 無法獲取伺服器資訊: {str(e)}", ephemeral=True
+                t(lang, "info.server.error", error=str(e)), ephemeral=True
             )
 
 

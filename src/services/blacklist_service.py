@@ -5,6 +5,7 @@ from typing import Any
 
 import discord
 
+from src.utils.i18n import text as tx
 from src.utils.storage_worker import run_storage
 from src.utils.time_utils import TZ_OFFSET
 
@@ -36,7 +37,7 @@ class BlacklistService:
             return "already_pending"
 
         source = entry.get("source", "local")
-        reason = entry.get("reason", "未提供原因")
+        reason = entry.get("reason", tx("blacklist_service.no_reason_given"))
         await run_storage(manager.add_appeal, user.id, reason, source=source)
         return "ok"
 
@@ -47,22 +48,34 @@ class BlacklistService:
     ) -> discord.Embed:
         """建立供開發者審核的申訴 Embed"""
         source = entry.get("source", "local")
-        source_label = "本地黑名單" if source == "local" else "CatHome API"
-        reason = entry.get("reason", "未提供原因")
+        source_label = (
+            tx("blacklist.local_blacklist") if source == "local" else "CatHome API"
+        )
+        reason = entry.get("reason", tx("blacklist_service.no_reason_given"))
 
         embed = discord.Embed(
-            title="[審核] 黑名單申訴",
+            title=tx("blacklist_service.review_blacklist_appeal"),
             color=discord.Color.from_rgb(241, 196, 15),
             timestamp=datetime.now(TZ_OFFSET),
         )
         embed.add_field(
-            name="申訴者",
+            name=tx("blacklist_service.appellant"),
             value=f"{user} ({user.id})",
             inline=False,
         )
-        embed.add_field(name="黑名單來源", value=source_label, inline=True)
-        embed.add_field(name="封鎖原因", value=reason, inline=True)
-        embed.add_field(name="封鎖模式", value=entry.get("mode", "未知"), inline=True)
+        embed.add_field(
+            name=tx("blacklist_service.blacklist_source"),
+            value=source_label,
+            inline=True,
+        )
+        embed.add_field(
+            name=tx("blacklist_service.block_reason"), value=reason, inline=True
+        )
+        embed.add_field(
+            name=tx("blacklist_service.block_mode"),
+            value=entry.get("mode", tx("audit_log.unknown")),
+            inline=True,
+        )
         return embed
 
     # ========== 接受申訴 ==========
@@ -91,9 +104,13 @@ class BlacklistService:
         self, reviewer: discord.User | discord.Member, reason_text: str = ""
     ) -> str:
         """建立接受申訴的 footer 文字"""
-        footer = f"由 {reviewer} 於 {datetime.now(TZ_OFFSET).strftime('%Y/%m/%d %H:%M')} 接受"
+        footer = tx(
+            "blacklist_service.accepted_by_at",
+            v0=(reviewer),
+            v1=(datetime.now(TZ_OFFSET).strftime("%Y/%m/%d %H:%M")),
+        )
         if reason_text:
-            footer += f" | 原因: {reason_text}"
+            footer += tx("blacklist_service.reason", v0=(reason_text))
         return footer
 
     def build_notify_embed(
@@ -102,23 +119,24 @@ class BlacklistService:
         """建立通知用戶申訴結果的 Embed"""
         if accepted:
             description = (
-                "申訴已被 **接受**，本地黑名單紀錄已移除。"
+                tx("blacklist_service.the_appeal_was_accepted_the_local")
                 if source == "local"
-                else "申訴已被 **接受**。CatHome API 的封鎖尚未解除，"
-                "需由外部黑名單管理者處理。"
+                else tx("blacklist_service.the_appeal_was_accepted_the_cathome")
             )
             embed = discord.Embed(
-                title="[通知] 申訴結果",
+                title=tx("blacklist_service.notice_appeal_result"),
                 description=description,
                 color=discord.Color.from_rgb(46, 204, 113),
                 timestamp=datetime.now(TZ_OFFSET),
             )
             if reason_text:
-                embed.add_field(name="審核備註", value=reason_text, inline=False)
+                embed.add_field(
+                    name=tx("blacklist.review_notes"), value=reason_text, inline=False
+                )
         else:
             embed = discord.Embed(
-                title="[通知] 申訴結果",
-                description="您的申訴已被 **駁回**。",
+                title=tx("blacklist_service.notice_appeal_result"),
+                description=tx("blacklist_service.the_appeal_was_rejected"),
                 color=discord.Color.from_rgb(231, 76, 60),
                 timestamp=datetime.now(TZ_OFFSET),
             )
@@ -141,4 +159,8 @@ class BlacklistService:
 
     def build_reject_footer(self, reviewer: discord.User | discord.Member) -> str:
         """建立駁回申訴的 footer 文字"""
-        return f"由 {reviewer} 於 {datetime.now(TZ_OFFSET).strftime('%Y/%m/%d %H:%M')} 駁回"
+        return tx(
+            "blacklist_service.rejected_by_at",
+            v0=(reviewer),
+            v1=(datetime.now(TZ_OFFSET).strftime("%Y/%m/%d %H:%M")),
+        )

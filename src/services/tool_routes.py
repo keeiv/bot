@@ -8,13 +8,14 @@ from aiohttp import web
 
 from src.services.tool_quota import MAX_TOTAL_BYTES
 from src.services.tool_quota import valid_id
+from src.utils.i18n import text as tx
 from src.utils.storage_worker import run_blocking
 
 
 def engine(bot):
     cog = bot.get_cog("FileToolsCog")
     if cog is None or cog.engine.quota is None:
-        raise ValueError("檔案服務尚未就緒")
+        raise ValueError(tx("file_tools.the_file_service_is_not_ready"))
     return cog.engine
 
 
@@ -53,15 +54,15 @@ def install_routes(app, bot):
                         item["available"] = False
                 data = {"items": items}
             else:
-                raise ValueError("未知檔案工具操作")
+                raise ValueError(tx("tool_routes.unknown_file_tool_operation"))
         else:
             body = await request.json()
             if not isinstance(body, dict):
-                raise ValueError("無效的處理設定")
+                raise ValueError(tx("tool_routes.invalid_processing_settings"))
             if route == "quote":
                 sizes = body.get("sizes")
                 if not isinstance(sizes, list) or len(sizes) > 16:
-                    raise ValueError("無效的檔案清單")
+                    raise ValueError(tx("tool_routes.invalid_file_manifest"))
                 operation = body.get("format")
                 quality = body.get("quality", 78)
                 edge = body.get("maxEdge", 4096)
@@ -71,7 +72,9 @@ def install_routes(app, bot):
                     or type(edge) is not int
                     or not 256 <= edge <= 8192
                 ):
-                    raise ValueError("輸出品質或尺寸不符合要求")
+                    raise ValueError(
+                        tx("file_tools.output_quality_or_dimensions_are_outside")
+                    )
                 data = await run_blocking(service.quota.quote, uid, sizes, operation)
                 data["ticket"] = service.tokens.issue(
                     uid,
@@ -84,10 +87,10 @@ def install_routes(app, bot):
             elif route == "redeem":
                 coupon = body.get("couponId")
                 if not isinstance(coupon, str) or len(coupon) > 128:
-                    raise ValueError("無效的重置券")
+                    raise ValueError(tx("tool_routes.invalid_reset_voucher"))
                 data = await run_blocking(service.quota.redeem, uid, coupon)
             else:
-                raise ValueError("未知檔案工具操作")
+                raise ValueError(tx("tool_routes.unknown_file_tool_operation"))
         return web.json_response(data, headers={"Cache-Control": "no-store"})
 
     app.router.add_get("/tools/{operation:usage|coupons|job|jobs}", metadata)
@@ -111,7 +114,9 @@ async def public_transfer(bot, request):
     if origin:
         if origin != allowed:
             return web.json_response(
-                {"error": "來源驗證失敗"}, status=403, headers=headers
+                {"error": tx("tool_routes.origin_verification_failed")},
+                status=403,
+                headers=headers,
             )
         headers.update(
             {
@@ -128,7 +133,9 @@ async def public_transfer(bot, request):
         download = request.path == "/tools/download"
         if request.method != ("GET" if download else "POST"):
             return web.json_response(
-                {"error": "不支援此方法"}, status=405, headers=headers
+                {"error": tx("tool_routes.unsupported_method")},
+                status=405,
+                headers=headers,
             )
         ticket = service.tokens.read(
             request.headers.get("X-Tool-Token") or request.query.get("ticket", ""),
@@ -146,7 +153,9 @@ async def public_transfer(bot, request):
             await asyncio.wait_for(service.uploads.acquire(), timeout=0.1)
         except asyncio.TimeoutError:
             return web.json_response(
-                {"error": "上傳佇列已滿"}, status=429, headers=headers
+                {"error": tx("tool_routes.the_upload_queue_is_full")},
+                status=429,
+                headers=headers,
             )
         try:
             files = await asyncio.wait_for(
@@ -165,11 +174,15 @@ async def public_transfer(bot, request):
         return web.json_response({"id": job_id}, status=202, headers=headers)
     except (ValueError, KeyError, TypeError, asyncio.TimeoutError):
         return web.json_response(
-            {"error": "檔案授權、額度或內容不符合處理要求"}, status=400, headers=headers
+            {"error": tx("tool_routes.file_authorization_allowance_or_content_does")},
+            status=400,
+            headers=headers,
         )
     except Exception:
         return web.json_response(
-            {"error": "檔案服務暫時無法使用"}, status=503, headers=headers
+            {"error": tx("tool_routes.the_file_service_is_temporarily_unavailable")},
+            status=503,
+            headers=headers,
         )
 
 
@@ -182,7 +195,7 @@ async def read_upload(request, sizes):
         if part is None:
             break
         if part.name != "files" or not part.filename or len(files) >= len(sizes):
-            raise ValueError("檔案清單不符")
+            raise ValueError(tx("tool_routes.file_manifest_mismatch"))
         data = bytearray()
         while True:
             chunk = await part.read_chunk(65536)
@@ -191,10 +204,10 @@ async def read_upload(request, sizes):
             data.extend(chunk)
             total += len(chunk)
             if len(data) > sizes[len(files)] or total > MAX_TOTAL_BYTES:
-                raise ValueError("檔案過大")
+                raise ValueError(tx("tool_routes.file_too_large"))
         if len(data) != sizes[len(files)]:
-            raise ValueError("檔案大小不符")
+            raise ValueError(tx("tool_routes.file_size_mismatch"))
         files.append((part.filename, bytes(data)))
     if len(files) != len(sizes):
-        raise ValueError("檔案數量不符")
+        raise ValueError(tx("tool_routes.file_count_mismatch"))
     return files

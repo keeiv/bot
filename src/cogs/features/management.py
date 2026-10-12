@@ -6,6 +6,8 @@ from discord.ext import commands
 from discord.ext import tasks
 
 from src.services.management_service import ManagementService
+from src.utils.i18n import text as tx
+from src.utils.lang_context import localized
 from src.utils.storage_worker import run_storage
 
 
@@ -23,11 +25,12 @@ class Management(commands.Cog):
 
     # Repository tracking commands
     repo_track = app_commands.Group(
-        name="repo_track", description="追蹤倉庫更新與拉取請求"
+        name="repo_track", description="Follow repository updates and pull requests"
     )
 
-    @repo_track.command(name="add", description="新增 keeiv/bot 倉庫追蹤")
-    @app_commands.describe(channel="發送通知的頻道")
+    @repo_track.command(name="add", description="Follow keeiv/bot")
+    @app_commands.describe(channel="The channel for notifications")
+    @localized("interaction")
     async def repo_track_add(
         self, interaction: discord.Interaction, channel: discord.TextChannel
     ) -> None:
@@ -38,12 +41,12 @@ class Management(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.followup.send(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.followup.send(
-                "[失敗] 你需要「管理頻道」權限",
+                tx("management.failed_the_manage_channels_permission_is"),
                 ephemeral=True,
             )
             return
@@ -57,10 +60,15 @@ class Management(commands.Cog):
             self.service.add_tracked_repo, guild_id, owner, repo, channel.id
         )
         await interaction.followup.send(
-            f"[成功] 已開始在 {channel.mention} 追蹤 {repo_key} 的更新"
+            tx(
+                "management.success_tracking_updates_for_in",
+                v0=(channel.mention),
+                v1=(repo_key),
+            )
         )
 
-    @repo_track.command(name="remove", description="移除 keeiv/bot 倉庫追蹤")
+    @repo_track.command(name="remove", description="Stop following keeiv/bot")
+    @localized("interaction")
     async def repo_track_remove(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(thinking=True, ephemeral=False)
         if (
@@ -69,12 +77,12 @@ class Management(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.followup.send(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.followup.send(
-                "[失敗] 你需要「管理頻道」權限",
+                tx("management.failed_the_manage_channels_permission_is"),
                 ephemeral=True,
             )
             return
@@ -83,13 +91,17 @@ class Management(commands.Cog):
         repo_key = "keeiv/bot"
 
         if await run_storage(self.service.remove_tracked_repo, guild_id, repo_key):
-            await interaction.followup.send(f"[成功] 已停止追蹤 {repo_key}")
+            await interaction.followup.send(
+                tx("management.success_stopped_tracking", v0=(repo_key))
+            )
         else:
             await interaction.followup.send(
-                f"[提示] {repo_key} 目前未被追蹤", ephemeral=True
+                tx("management.info_is_not_being_tracked", v0=(repo_key)),
+                ephemeral=True,
             )
 
-    @repo_track.command(name="status", description="顯示追蹤狀態")
+    @repo_track.command(name="status", description="Show what is being followed")
+    @localized("interaction")
     async def repo_track_status(self, interaction: discord.Interaction) -> None:
         if (
             interaction.guild is None
@@ -97,7 +109,7 @@ class Management(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.response.send_message(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         guild_id = str(interaction.guild.id)
@@ -105,12 +117,13 @@ class Management(commands.Cog):
         repos = self.service.get_tracked_repos(guild_id)
         if not repos:
             await interaction.response.send_message(
-                "[提示] 目前沒有追蹤任何倉庫", ephemeral=True
+                tx("management.info_no_repositories_are_being_tracked"), ephemeral=True
             )
             return
 
         embed = discord.Embed(
-            title="keeiv/bot 倉庫追蹤狀態", color=discord.Color.from_rgb(52, 152, 219)
+            title=tx("management.keeiv_bot_tracking_status"),
+            color=discord.Color.from_rgb(52, 152, 219),
         )
 
         repo_key = "keeiv/bot"
@@ -118,16 +131,23 @@ class Management(commands.Cog):
             data = repos[repo_key]
             channel = self.bot.get_channel(data["channel_id"])
             channel_name = (
-                channel.mention if channel else f"未知頻道 ({data['channel_id']})"
+                channel.mention
+                if channel
+                else tx("management.unknown_channel", v0=(data["channel_id"]))
             )
 
             embed.add_field(
                 name=repo_key,
-                value=f"頻道: {channel_name}\n最後 Commit: {data.get('last_commit', '尚無')}\n最後 PR: {data.get('last_pr', '尚無')}",
+                value=tx(
+                    "management.channel_last_commit_last_pr",
+                    v0=(channel_name),
+                    v1=(data.get("last_commit", tx("management.none_yet"))),
+                    v2=(data.get("last_pr", tx("management.none_yet"))),
+                ),
                 inline=False,
             )
         else:
-            embed.description = "keeiv/bot 倉庫目前未被追蹤"
+            embed.description = tx("management.the_keeiv_bot_repository_is_not")
 
         await interaction.response.send_message(embed=embed)
 
@@ -140,69 +160,76 @@ class Management(commands.Cog):
                 continue
 
             for repo_key, repo_data in list(guild_config["tracked_repos"].items()):
-                try:
-                    events = await self.service.check_repo_updates(
-                        guild_id, repo_key, repo_data
-                    )
-                    for event in events:
-                        channel = self.bot.get_channel(event["channel_id"])
-                        if not isinstance(
-                            channel,
-                            (
-                                discord.TextChannel,
-                                discord.Thread,
-                                discord.VoiceChannel,
-                                discord.StageChannel,
-                            ),
-                        ):
-                            continue
-                        if event["type"] == "commit":
-                            embed = discord.Embed(
-                                title=event["title"],
-                                description=event["description"],
-                                url=event["url"],
-                                color=discord.Color.from_rgb(46, 204, 113),
-                            )
-                            embed.set_author(
-                                name=event["author_name"],
-                                url=event["author_url"],
-                                icon_url=event["author_avatar"],
-                            )
-                            embed.add_field(
-                                name="[SHA]", value=event["sha"], inline=True
-                            )
-                            embed.add_field(
-                                name="[日期]", value=event["date"], inline=True
-                            )
-                            await channel.send(embed=embed)
-                        elif event["type"] == "pr":
-                            embed = discord.Embed(
-                                title=event["title"],
-                                description=event["description"],
-                                url=event["url"],
-                                color=discord.Color.from_rgb(230, 126, 34),
-                            )
-                            embed.set_author(
-                                name=event["author_name"],
-                                url=event["author_url"],
-                                icon_url=event["author_avatar"],
-                            )
-                            embed.add_field(
-                                name="[PR 編號]", value=event["pr_number"], inline=True
-                            )
-                            embed.add_field(
-                                name="[狀態]", value=event["state"], inline=True
-                            )
-                            await channel.send(embed=embed)
-                except Exception as e:
-                    print(f"Error checking {repo_key}: {e}")
+                await self._poll_repository(guild_id, repo_key, repo_data)
+
+    @localized("guild_id")
+    async def _poll_repository(self, guild_id, repo_key, repo_data) -> None:
+        try:
+            events = await self.service.check_repo_updates(
+                guild_id, repo_key, repo_data
+            )
+            for event in events:
+                channel = self.bot.get_channel(event["channel_id"])
+                if not isinstance(
+                    channel,
+                    (
+                        discord.TextChannel,
+                        discord.Thread,
+                        discord.VoiceChannel,
+                        discord.StageChannel,
+                    ),
+                ):
                     continue
+                if event["type"] == "commit":
+                    embed = discord.Embed(
+                        title=event["title"],
+                        description=event["description"],
+                        url=event["url"],
+                        color=discord.Color.from_rgb(46, 204, 113),
+                    )
+                    embed.set_author(
+                        name=event["author_name"],
+                        url=event["author_url"],
+                        icon_url=event["author_avatar"],
+                    )
+                    embed.add_field(name="[SHA]", value=event["sha"], inline=True)
+                    embed.add_field(
+                        name=tx("management.date"), value=event["date"], inline=True
+                    )
+                    await channel.send(embed=embed)
+                elif event["type"] == "pr":
+                    embed = discord.Embed(
+                        title=event["title"],
+                        description=event["description"],
+                        url=event["url"],
+                        color=discord.Color.from_rgb(230, 126, 34),
+                    )
+                    embed.set_author(
+                        name=event["author_name"],
+                        url=event["author_url"],
+                        icon_url=event["author_avatar"],
+                    )
+                    embed.add_field(
+                        name=tx("management.pr_number"),
+                        value=event["pr_number"],
+                        inline=True,
+                    )
+                    embed.add_field(
+                        name=tx("management.status"), value=event["state"], inline=True
+                    )
+                    await channel.send(embed=embed)
+        except Exception as e:
+            print(f"Error checking {repo_key}: {e}")
+            return
 
     # Role management commands
-    role = app_commands.Group(name="role", description="身份組管理指令")
+    role = app_commands.Group(name="role", description="Role commands")
 
-    @role.command(name="assign", description="為用戶分配身份組")
-    @app_commands.describe(user="要分配身份組的用戶", role="要分配的身份組")
+    @role.command(name="assign", description="Give a member a role")
+    @app_commands.describe(
+        user="The member to give the role to", role="The role to give"
+    )
+    @localized("interaction")
     async def role_assign(
         self, interaction: discord.Interaction, user: discord.Member, role: discord.Role
     ) -> None:
@@ -212,33 +239,33 @@ class Management(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.response.send_message(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.manage_roles:
             await interaction.response.send_message(
-                "[失敗] 你需要「管理身份組」權限",
+                tx("management.failed_the_manage_roles_permission_is"),
                 ephemeral=True,
             )
             return
 
         if role.is_default():
             await interaction.response.send_message(
-                "[失敗] 無法操作 @everyone 身份組",
+                tx("management.failed_the_everyone_role_cannot_be"),
                 ephemeral=True,
             )
             return
 
         if role.managed:
             await interaction.response.send_message(
-                "[失敗] 無法操作由機器人/整合管理的身份組",
+                tx("management.failed_roles_managed_by_bots_or"),
                 ephemeral=True,
             )
             return
 
         if role.position >= interaction.user.top_role.position:
             await interaction.response.send_message(
-                "[失敗] 你無法分配高於或等於你最高身份組的角色",
+                tx("management.failed_roles_at_or_above_the"),
                 ephemeral=True,
             )
             return
@@ -247,15 +274,22 @@ class Management(commands.Cog):
         try:
             await user.add_roles(role)
             await interaction.followup.send(
-                f"[成功] 已將 {role.mention} 分配給 {user.mention}",
+                tx(
+                    "management.success_assigned_to",
+                    v0=(role.mention),
+                    v1=(user.mention),
+                ),
             )
         except discord.Forbidden:
             await interaction.followup.send(
-                "[失敗] 機器人沒有權限分配該身份組",
+                tx("management.failed_the_bot_cannot_assign_this"),
             )
 
-    @role.command(name="remove", description="從用戶移除身份組")
-    @app_commands.describe(user="要移除身份組的用戶", role="要移除的身份組")
+    @role.command(name="remove", description="Take a role from a member")
+    @app_commands.describe(
+        user="The member to take the role from", role="The role to take away"
+    )
+    @localized("interaction")
     async def role_remove(
         self, interaction: discord.Interaction, user: discord.Member, role: discord.Role
     ) -> None:
@@ -265,33 +299,33 @@ class Management(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.response.send_message(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.manage_roles:
             await interaction.response.send_message(
-                "[失敗] 你需要「管理身份組」權限",
+                tx("management.failed_the_manage_roles_permission_is"),
                 ephemeral=True,
             )
             return
 
         if role.is_default():
             await interaction.response.send_message(
-                "[失敗] 無法操作 @everyone 身份組",
+                tx("management.failed_the_everyone_role_cannot_be"),
                 ephemeral=True,
             )
             return
 
         if role.managed:
             await interaction.response.send_message(
-                "[失敗] 無法操作由機器人/整合管理的身份組",
+                tx("management.failed_roles_managed_by_bots_or"),
                 ephemeral=True,
             )
             return
 
         if role.position >= interaction.user.top_role.position:
             await interaction.response.send_message(
-                "[失敗] 你無法移除高於或等於你最高身份組的角色",
+                tx("management.failed_roles_at_or_above_the_5af74a"),
                 ephemeral=True,
             )
             return
@@ -300,18 +334,23 @@ class Management(commands.Cog):
         try:
             await user.remove_roles(role)
             await interaction.followup.send(
-                f"[成功] 已從 {user.mention} 移除 {role.mention}",
+                tx(
+                    "management.success_removed_from",
+                    v0=(user.mention),
+                    v1=(role.mention),
+                ),
             )
         except discord.Forbidden:
             await interaction.followup.send(
-                "[失敗] 機器人沒有權限移除該身份組",
+                tx("management.failed_the_bot_cannot_remove_this"),
             )
 
     # Emoji management commands
-    emoji = app_commands.Group(name="emoji", description="表情符號管理指令")
+    emoji = app_commands.Group(name="emoji", description="Emoji commands")
 
-    @emoji.command(name="get", description="獲取表情符號大圖")
-    @app_commands.describe(emoji="要獲取的表情符號")
+    @emoji.command(name="get", description="Get an emoji at full size")
+    @app_commands.describe(emoji="The emoji")
+    @localized("interaction")
     async def emoji_get(self, interaction: discord.Interaction, emoji: str) -> None:
         try:
             # Parse emoji
@@ -323,7 +362,7 @@ class Management(commands.Cog):
                     url = f"https://cdn.discordapp.com/emojis/{emoji_id}.png"
                 else:
                     await interaction.response.send_message(
-                        "[失敗] 無效的表情符號格式", ephemeral=True
+                        tx("management.failed_invalid_emoji_format"), ephemeral=True
                     )
                     return
             elif emoji.startswith("<a:") and emoji.endswith(">"):
@@ -334,28 +373,30 @@ class Management(commands.Cog):
                     url = f"https://cdn.discordapp.com/emojis/{emoji_id}.gif"
                 else:
                     await interaction.response.send_message(
-                        "[失敗] 無效的表情符號格式", ephemeral=True
+                        tx("management.failed_invalid_emoji_format"), ephemeral=True
                     )
                     return
             else:
                 await interaction.response.send_message(
-                    "[失敗] 請使用自訂表情符號", ephemeral=True
+                    tx("management.failed_a_custom_emoji_is_required"), ephemeral=True
                 )
                 return
 
             embed = discord.Embed(
-                title="[表情符號] 大圖", color=discord.Color.from_rgb(52, 152, 219)
+                title=tx("management.emoji_full_size_image"),
+                color=discord.Color.from_rgb(52, 152, 219),
             )
             embed.set_image(url=url)
             await interaction.response.send_message(embed=embed)
 
         except Exception as e:
             await interaction.response.send_message(
-                f"[失敗] 取得表情符號失敗: {e}", ephemeral=True
+                tx("management.failed_could_not_retrieve_emoji", v0=(e)), ephemeral=True
             )
 
-    @emoji.command(name="upload", description="上傳表情符號到伺服器")
-    @app_commands.describe(name="表情符號名稱", image="要上傳為表情符號的圖片檔案")
+    @emoji.command(name="upload", description="Upload an emoji to this server")
+    @app_commands.describe(name="Emoji name", image="The image to upload")
+    @localized("interaction")
     async def emoji_upload(
         self, interaction: discord.Interaction, name: str, image: discord.Attachment
     ) -> None:
@@ -365,19 +406,19 @@ class Management(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.response.send_message(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.manage_emojis:
             await interaction.response.send_message(
-                "[失敗] 你需要「管理表情符號」權限",
+                tx("management.failed_the_manage_expressions_permission_is"),
                 ephemeral=True,
             )
             return
 
         if not (image.content_type or "").startswith("image/"):
             await interaction.response.send_message(
-                "[失敗] 請上傳圖片檔案", ephemeral=True
+                tx("management.failed_upload_an_image_file"), ephemeral=True
             )
             return
 
@@ -385,35 +426,40 @@ class Management(commands.Cog):
         try:
             image_data = await image.read()
             emoji = await interaction.guild.create_custom_emoji(
-                name=name, image=image_data, reason=f"由 {interaction.user} 上傳"
+                name=name,
+                image=image_data,
+                reason=tx("management.uploaded_by", v0=(interaction.user)),
             )
-            await interaction.followup.send(f"[成功] 已上傳表情符號: {emoji}")
+            await interaction.followup.send(
+                tx("management.success_emoji_uploaded", v0=(emoji))
+            )
         except discord.Forbidden:
             await interaction.followup.send(
-                "[失敗] 機器人沒有權限上傳表情符號", ephemeral=True
+                tx("management.failed_the_bot_cannot_upload_emoji"), ephemeral=True
             )
         except Exception as e:
             await interaction.followup.send(
-                f"[失敗] 上傳表情符號失敗: {e}", ephemeral=True
+                tx("management.failed_could_not_upload_emoji", v0=(e)), ephemeral=True
             )
 
     # Welcome message commands
-    welcome = app_commands.Group(name="welcome", description="歡迎訊息管理")
+    welcome = app_commands.Group(name="welcome", description="Welcome messages")
 
-    @welcome.command(name="setup", description="設定新成員歡迎訊息")
+    @welcome.command(name="setup", description="Set up the welcome message")
     @app_commands.describe(
-        channel="發送歡迎訊息的頻道",
-        message="歡迎訊息範本",
-        embed_title="嵌入訊息標題",
-        embed_color="嵌入訊息顏色 (hex 格式)",
-        auto_role="自動分配的角色",
-        send_dm="同時發送私訊",
+        channel="The channel for welcome messages",
+        message="The welcome message",
+        embed_title="Embed title",
+        embed_color="Embed colour (hex)",
+        auto_role="Role to give new members",
+        send_dm="Also send it as a DM",
     )
+    @localized("interaction")
     async def welcome_setup(
         self,
         interaction: discord.Interaction,
         channel: discord.TextChannel,
-        message: str = "歡迎 {user} 來到 {server}！",
+        message: str | None = None,
         embed_title: str | None = None,
         embed_color: str | None = None,
         auto_role: discord.Role | None = None,
@@ -425,12 +471,12 @@ class Management(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.response.send_message(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message(
-                "[失敗] 你需要「管理頻道」權限",
+                tx("management.failed_the_manage_channels_permission_is"),
                 ephemeral=True,
             )
             return
@@ -441,7 +487,7 @@ class Management(commands.Cog):
 
         welcome_config = {
             "channel_id": channel.id,
-            "message": message,
+            "message": message or tx("management.welcome_to"),
             "send_dm": send_dm,
         }
 
@@ -453,7 +499,7 @@ class Management(commands.Cog):
                 welcome_config["embed_color"] = int(embed_color.lstrip("#"), 16)
             except ValueError:
                 await interaction.followup.send(
-                    "[失敗] 無效的顏色格式，請使用十六進位格式，例如 #FF5733",
+                    tx("management.failed_invalid_color_use_a_hexadecimal"),
                     ephemeral=True,
                 )
                 return
@@ -461,7 +507,7 @@ class Management(commands.Cog):
         if auto_role:
             if auto_role.is_default():
                 await interaction.followup.send(
-                    "[失敗] 無法將 @everyone 設為自動角色",
+                    tx("management.failed_the_everyone_role_cannot_be_9e2c5a"),
                     ephemeral=True,
                 )
                 return
@@ -469,42 +515,45 @@ class Management(commands.Cog):
 
         await run_storage(self.service.set_welcome_config, guild_id, welcome_config)
 
-        response_msg = f"[成功] 歡迎訊息將發送至 {channel.mention}"
+        response_msg = tx(
+            "management.success_welcome_messages_will_be_sent", v0=(channel.mention)
+        )
         if auto_role:
-            response_msg += f"\n自動角色: {auto_role.mention}"
+            response_msg += tx("management.automatic_role", v0=(auto_role.mention))
         if send_dm:
-            response_msg += "\n已啟用私訊通知"
+            response_msg += tx("management.dm_notifications_enabled")
 
         await interaction.followup.send(response_msg)
 
-    @welcome.command(name="templates", description="預設歡迎訊息模板")
+    @welcome.command(name="templates", description="Show welcome message templates")
+    @localized("interaction")
     async def welcome_templates(self, interaction: discord.Interaction) -> None:
         templates = [
             {
-                "name": "基本",
-                "message": "歡迎 {user} 來到 {server}！我們現在有 {count} 位成員！",
+                "name": tx("management.basic"),
+                "message": tx("management.welcome_to_there_are_now_members"),
             },
             {
-                "name": "友善",
-                "message": "你好 {user}！歡迎來到 {server}！請隨意介紹你自己。",
+                "name": tx("management.friendly"),
+                "message": tx("management.hello_welcome_to_introductions_are_welcome"),
             },
             {
-                "name": "正式",
-                "message": "{user} 您好，歡迎來到 {server}。請先閱讀規則，祝您在此愚快。",
+                "name": tx("management.formal"),
+                "message": tx("management.welcome_to_please_read_the_rules"),
             },
             {
-                "name": "遊戲",
-                "message": "{user} 加入了遊戲！歡迎來到 {server}！準備好了嗎？",
+                "name": tx("management.gaming"),
+                "message": tx("management.joined_the_game_welcome_to_ready"),
             },
             {
-                "name": "社群",
-                "message": "歡迎 {user} 加入我們的社群 {server}！你是第 {count} 位成員！",
+                "name": tx("management.community"),
+                "message": tx("management.welcome_to_the_community_member_number"),
             },
         ]
 
         embed = discord.Embed(
-            title="[歡迎訊息] 預設模板",
-            description="可使用變數: {user}, {server}, {count}, {created_at}",
+            title=tx("management.welcome_messages_default_templates"),
+            description=tx("management.available_variables"),
             color=discord.Color.from_rgb(52, 152, 219),
         )
 
@@ -515,8 +564,11 @@ class Management(commands.Cog):
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @welcome.command(name="preview", description="預覽歡迎訊息")
-    @app_commands.describe(test_user="測試用戶名稱", test_server="測試伺服器名稱")
+    @welcome.command(name="preview", description="Preview the welcome message")
+    @app_commands.describe(
+        test_user="Sample user name", test_server="Sample server name"
+    )
+    @localized("interaction")
     async def welcome_preview(
         self,
         interaction: discord.Interaction,
@@ -529,7 +581,7 @@ class Management(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.response.send_message(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         guild_id = str(interaction.guild.id)
@@ -537,7 +589,8 @@ class Management(commands.Cog):
         welcome_config = self.service.get_welcome_config(guild_id)
         if not welcome_config:
             await interaction.response.send_message(
-                "[失敗] 尚未設定歡迎訊息", ephemeral=True
+                tx("management.failed_welcome_messages_are_not_configured"),
+                ephemeral=True,
             )
             return
 
@@ -563,12 +616,17 @@ class Management(commands.Cog):
             embed.set_thumbnail(
                 url=interaction.guild.icon.url if interaction.guild.icon else None
             )
-            embed.set_footer(text=f"第 {interaction.guild.member_count} 位成員")
+            embed.set_footer(
+                text=tx("management.member_number", v0=(interaction.guild.member_count))
+            )
             await interaction.response.send_message(embed=embed, ephemeral=True)
         else:
-            await interaction.response.send_message(f"[預覽] {message}", ephemeral=True)
+            await interaction.response.send_message(
+                tx("management.preview", v0=(message)), ephemeral=True
+            )
 
-    @welcome.command(name="disable", description="停用歡迎訊息")
+    @welcome.command(name="disable", description="Turn off welcome messages")
+    @localized("interaction")
     async def welcome_disable(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(thinking=True, ephemeral=False)
         if (
@@ -577,12 +635,12 @@ class Management(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.followup.send(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.followup.send(
-                "[失敗] 你需要「管理頻道」權限",
+                tx("management.failed_the_manage_channels_permission_is"),
                 ephemeral=True,
             )
             return
@@ -590,20 +648,25 @@ class Management(commands.Cog):
         guild_id = str(interaction.guild.id)
 
         if await run_storage(self.service.clear_welcome_config, guild_id):
-            await interaction.followup.send("[成功] 已停用歡迎訊息")
+            await interaction.followup.send(
+                tx("management.success_welcome_messages_disabled")
+            )
         else:
-            await interaction.followup.send("[失敗] 歡迎訊息尚未啟用", ephemeral=True)
+            await interaction.followup.send(
+                tx("management.failed_welcome_messages_are_not_enabled"), ephemeral=True
+            )
 
     # Auto role commands
-    auto_role = app_commands.Group(name="auto_role", description="自動角色分配管理")
+    auto_role = app_commands.Group(name="auto_role", description="Automatic roles")
 
-    @auto_role.command(name="setup", description="設定自動角色分配規則")
+    @auto_role.command(name="setup", description="Add an automatic role rule")
     @app_commands.describe(
-        role="要分配的角色",
-        delay="延遲分配時間（秒）",
-        min_members="最小成員數要求",
-        require_verification="需要通過驗證",
+        role="The role new members get",
+        delay="Delay before giving it, in seconds",
+        min_members="Minimum member count",
+        require_verification="Require verification",
     )
+    @localized("interaction")
     async def auto_role_setup(
         self,
         interaction: discord.Interaction,
@@ -619,33 +682,33 @@ class Management(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.followup.send(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.manage_roles:
             await interaction.followup.send(
-                "[失敗] 你需要「管理身份組」權限",
+                tx("management.failed_the_manage_roles_permission_is"),
                 ephemeral=True,
             )
             return
 
         if role.is_default():
             await interaction.followup.send(
-                "[失敗] 無法將 @everyone 設為自動角色",
+                tx("management.failed_the_everyone_role_cannot_be_9e2c5a"),
                 ephemeral=True,
             )
             return
 
         if role.managed:
             await interaction.followup.send(
-                "[失敗] 無法設定由機器人/整合管理的身份組為自動角色",
+                tx("management.failed_managed_roles_cannot_be_used"),
                 ephemeral=True,
             )
             return
 
         if role.position >= interaction.user.top_role.position:
             await interaction.followup.send(
-                "[失敗] 你無法設定高於或等於你最高身份組的角色",
+                tx("management.failed_roles_at_or_above_the_7790b2"),
                 ephemeral=True,
             )
             return
@@ -662,21 +725,30 @@ class Management(commands.Cog):
         await run_storage(self.service.add_auto_role, guild_id, role_config)
 
         embed = discord.Embed(
-            title="[成功] 自動角色已設定",
-            description=f"角色 {role.mention} 將自動分配給新成員",
+            title=tx("management.success_automatic_role_saved"),
+            description=tx(
+                "management.role_will_be_assigned_to_new", v0=(role.mention)
+            ),
             color=discord.Color.from_rgb(46, 204, 113),
         )
-        embed.add_field(name="[延遲]", value=f"{delay} 秒", inline=True)
-        embed.add_field(name="[最少成員數]", value=str(min_members), inline=True)
         embed.add_field(
-            name="[需要驗證]",
-            value="是" if require_verification else "否",
+            name=tx("management.delay"),
+            value=tx("audit_log.seconds", v0=(delay)),
+            inline=True,
+        )
+        embed.add_field(
+            name=tx("management.minimum_members"), value=str(min_members), inline=True
+        )
+        embed.add_field(
+            name=tx("management.verification_required"),
+            value=tx("anti_spam.yes") if require_verification else tx("anti_spam.no"),
             inline=True,
         )
 
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @auto_role.command(name="list", description="列出自動角色分配規則")
+    @auto_role.command(name="list", description="List automatic role rules")
+    @localized("interaction")
     async def auto_role_list(self, interaction: discord.Interaction) -> None:
         if (
             interaction.guild is None
@@ -684,7 +756,7 @@ class Management(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.response.send_message(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         guild_id = str(interaction.guild.id)
@@ -692,37 +764,50 @@ class Management(commands.Cog):
         auto_roles = self.service.get_auto_roles(guild_id)
         if not auto_roles:
             await interaction.response.send_message(
-                "[失敗] 尚未設定自動角色規則", ephemeral=True
+                tx("management.failed_no_automatic_role_rules_are"), ephemeral=True
             )
             return
 
         embed = discord.Embed(
-            title="[自動角色] 規則列表", color=discord.Color.from_rgb(52, 152, 219)
+            title=tx("management.automatic_roles_rules"),
+            color=discord.Color.from_rgb(52, 152, 219),
         )
 
         for i, role_config in enumerate(auto_roles, 1):
             role = interaction.guild.get_role(role_config["role_id"])
             role_name = (
-                role.name if role else f"已刪除的角色 ({role_config['role_id']})"
+                role.name
+                if role
+                else tx("management.deleted_role", v0=(role_config["role_id"]))
             )
 
             rules = []
             if role_config.get("delay", 0) > 0:
-                rules.append(f"延遲: {role_config['delay']} 秒")
+                rules.append(tx("management.delay_seconds", v0=(role_config["delay"])))
             if role_config.get("min_members", 0) > 0:
-                rules.append(f"最少成員: {role_config['min_members']}")
+                rules.append(
+                    tx(
+                        "management.minimum_members_1e794c",
+                        v0=(role_config["min_members"]),
+                    )
+                )
             if role_config.get("require_verification", False):
-                rules.append("需要驗證")
+                rules.append(tx("management.verification_required_686d9b"))
 
-            rule_text = " | ".join(rules) if rules else "立即分配"
+            rule_text = (
+                " | ".join(rules) if rules else tx("management.assigned_immediately")
+            )
             embed.add_field(
-                name=f"規則 {i}: {role_name}", value=rule_text, inline=False
+                name=tx("management.rule", v0=(i), v1=(role_name)),
+                value=rule_text,
+                inline=False,
             )
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @auto_role.command(name="remove", description="移除自動角色分配規則")
-    @app_commands.describe(rule_index="規則編號")
+    @auto_role.command(name="remove", description="Remove an automatic role rule")
+    @app_commands.describe(rule_index="Rule number")
+    @localized("interaction")
     async def auto_role_remove(
         self, interaction: discord.Interaction, rule_index: int
     ) -> None:
@@ -733,12 +818,12 @@ class Management(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.followup.send(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.manage_roles:
             await interaction.followup.send(
-                "[失敗] 你需要「管理身份組」權限",
+                tx("management.failed_the_manage_roles_permission_is"),
                 ephemeral=True,
             )
             return
@@ -749,17 +834,25 @@ class Management(commands.Cog):
             self.service.remove_auto_role, guild_id, rule_index
         )
         if removed_role is None:
-            await interaction.followup.send("[失敗] 無效的規則編號", ephemeral=True)
+            await interaction.followup.send(
+                tx("management.failed_invalid_rule_number"), ephemeral=True
+            )
             return
 
         role = interaction.guild.get_role(removed_role["role_id"])
-        role_name = role.name if role else f"已刪除的角色 ({removed_role['role_id']})"
+        role_name = (
+            role.name
+            if role
+            else tx("management.deleted_role", v0=(removed_role["role_id"]))
+        )
 
         await interaction.followup.send(
-            f"[成功] 已移除自動角色規則: {role_name}", ephemeral=True
+            tx("management.success_removed_automatic_role_rule", v0=(role_name)),
+            ephemeral=True,
         )
 
     @commands.Cog.listener()
+    @localized("member")
     async def on_member_join(self, member: discord.Member) -> None:
         guild_id = str(member.guild.id)
 
@@ -796,7 +889,11 @@ class Management(commands.Cog):
                     embed.set_thumbnail(
                         url=member.guild.icon.url if member.guild.icon else None
                     )
-                    embed.set_footer(text=f"第 {member.guild.member_count} 位成員")
+                    embed.set_footer(
+                        text=tx(
+                            "management.member_number", v0=(member.guild.member_count)
+                        )
+                    )
                     embed.set_author(
                         name=member.name, icon_url=member.display_avatar.url
                     )
@@ -824,7 +921,9 @@ class Management(commands.Cog):
                     if auto_role_id:
                         role = member.guild.get_role(auto_role_id)
                         if role and not role.is_default() and not role.managed:
-                            await member.add_roles(role, reason="歡迎自動分配")
+                            await member.add_roles(
+                                role, reason=tx("management.automatic_welcome_role")
+                            )
                 except (discord.Forbidden, discord.HTTPException):
                     # 忽略權限或 API 錯誤，避免中斷歡迎流程
                     pass
@@ -832,6 +931,7 @@ class Management(commands.Cog):
         await self._apply_auto_roles(member)
 
     @commands.Cog.listener()
+    @localized("after")
     async def on_member_update(
         self, before: discord.Member, after: discord.Member
     ) -> None:
@@ -872,7 +972,9 @@ class Management(commands.Cog):
                     if role in member.roles:
                         continue
 
-                    await member.add_roles(role, reason="自動角色分配")
+                    await member.add_roles(
+                        role, reason=tx("management.automatic_role_assignment")
+                    )
 
                 except (discord.Forbidden, discord.HTTPException):
                     continue

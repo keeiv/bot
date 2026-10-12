@@ -7,6 +7,11 @@ from discord import ui
 from discord.ext import commands
 
 from src.services.game_service import RouletteGame
+from src.utils.domain_text import item_name
+from src.utils.domain_text import items_text
+from src.utils.i18n import text as tx
+from src.utils.lang_context import localized
+from src.utils.localized_ui import LocalizedView
 
 
 class RussianRoulette(commands.Cog):
@@ -17,38 +22,49 @@ class RussianRoulette(commands.Cog):
         self.active_games: Dict[int, "RouletteGame"] = {}  # channel_id -> game
         self.player_data: Dict[int, Dict[Any, Any]] = {}  # user_id -> player stats
 
-    class GameView(ui.View):
+    class GameView(LocalizedView):
         """遊戲主視圖"""
+
+        i18n = {
+            "pull_trigger.label": "russian_roulette.pull_trigger",
+            "use_item.label": "deep_sea_oxygen.use_item",
+        }
 
         def __init__(self, game: "RouletteGame", cog: "RussianRoulette") -> None:
             super().__init__(timeout=180)  # 3分鐘超時
             self.game = game
             self.cog = cog
 
+        @localized()
         async def on_timeout(self) -> None:
             """超時處理"""
             if self.game.game_active:
                 self.game.game_active = False
                 embed = discord.Embed(
-                    title="[遊戲結束] 超時",
-                    description="遊戲因超時而結束",
+                    title=tx("deep_sea_oxygen.game_ended_timed_out"),
+                    description=tx("deep_sea_oxygen.the_game_ended_due_to_inactivity"),
                     color=discord.Color.from_rgb(231, 76, 60),
                 )
                 await self.game.channel.send(embed=embed)
                 if self.game.channel.id in self.cog.active_games:
                     del self.cog.active_games[self.game.channel.id]
 
-        @ui.button(label="扣動扳機", style=discord.ButtonStyle.danger)
+        @ui.button(label="Pull trigger", style=discord.ButtonStyle.danger)
+        @localized("interaction")
         async def pull_trigger(
             self, interaction: discord.Interaction, button: ui.Button[Any]
         ) -> None:
             """扣動扳機"""
             if not self.game.game_active:
-                await interaction.response.send_message("遊戲已結束", ephemeral=True)
+                await interaction.response.send_message(
+                    tx("deep_sea_oxygen.the_game_has_ended"), ephemeral=True
+                )
                 return
 
             if interaction.user != self.game.current_player:
-                await interaction.response.send_message("不是你的回合", ephemeral=True)
+                await interaction.response.send_message(
+                    tx("russian_roulette.it_is_another_player_s_turn"), ephemeral=True
+                )
                 return
 
             # 執行開槍
@@ -74,8 +90,12 @@ class RussianRoulette(commands.Cog):
                     self.game.player2_chips -= damage
 
                 embed = discord.Embed(
-                    title="[中彈] 遊戲結束",
-                    description=f"{interaction.user.mention} 扣動扳機...砰！\n扣除 {damage} CT",
+                    title=tx("russian_roulette.hit_round_result"),
+                    description=tx(
+                        "russian_roulette.pulls_the_trigger_bang_ct_lost",
+                        v0=(interaction.user.mention),
+                        v1=(damage),
+                    ),
                     color=discord.Color.from_rgb(231, 76, 60),
                 )
                 await interaction.response.send_message(embed=embed)
@@ -96,8 +116,11 @@ class RussianRoulette(commands.Cog):
                 self.game.current_chamber += 1
 
                 embed = discord.Embed(
-                    title="[空槍] 安全通過",
-                    description=f"{interaction.user.mention} 扣動扳機...咔嚓！\n安全通過",
+                    title=tx("russian_roulette.empty_shot_safe"),
+                    description=tx(
+                        "russian_roulette.pulls_the_trigger_click_safe_this",
+                        v0=(interaction.user.mention),
+                    ),
                     color=discord.Color.from_rgb(46, 204, 113),
                 )
                 await interaction.response.send_message(embed=embed)
@@ -106,37 +129,42 @@ class RussianRoulette(commands.Cog):
                 self.game.switch_player()
                 await self._show_game_status()
 
-        @ui.button(label="使用道具", style=discord.ButtonStyle.primary)
+        @ui.button(label="Use item", style=discord.ButtonStyle.primary)
+        @localized("interaction")
         async def use_item(
             self, interaction: discord.Interaction, button: ui.Button[Any]
         ) -> None:
             """使用道具"""
             if not self.game.game_active:
-                await interaction.response.send_message("遊戲已結束", ephemeral=True)
+                await interaction.response.send_message(
+                    tx("deep_sea_oxygen.the_game_has_ended"), ephemeral=True
+                )
                 return
 
             if interaction.user != self.game.current_player:
-                await interaction.response.send_message("不是你的回合", ephemeral=True)
+                await interaction.response.send_message(
+                    tx("russian_roulette.it_is_another_player_s_turn"), ephemeral=True
+                )
                 return
 
             player, chips, items = self.game.get_current_player_data()
 
             if not items:
                 await interaction.response.send_message(
-                    "你沒有道具可用", ephemeral=True
+                    tx("deep_sea_oxygen.no_items_are_available"), ephemeral=True
                 )
                 return
 
             # 創建道具選擇視圖
             view = self.cog.ItemSelectView(self.game, self.cog, items)
             embed = discord.Embed(
-                title="[道具] 選擇要使用的道具",
-                description="選擇一個道具來使用",
+                title=tx("russian_roulette.items_choose_an_item"),
+                description=tx("russian_roulette.choose_an_item_to_use"),
                 color=discord.Color.from_rgb(52, 152, 219),
             )
             for i, item in enumerate(items, 1):
                 embed.add_field(
-                    name=f"{i}. {item}",
+                    name=f"{i}. {item_name(item)}",
                     value=self._get_item_description(item),
                     inline=False,
                 )
@@ -148,42 +176,66 @@ class RussianRoulette(commands.Cog):
         def _get_item_description(self, item: str) -> str:
             """獲取道具描述"""
             descriptions = {
-                "透視眼鏡": "偷看彈巢中的下一發是否為子彈",
-                "命運洗牌": "強制重新旋轉彈巢，改變子彈位置",
-                "空包彈": "若下一發是子彈，傷害減半",
-                "強制轉向": "強制對手替你開這一槍",
-                "加倍賭注": "這局擊中金額翻倍",
+                "透視眼鏡": tx(
+                    "russian_roulette.check_whether_the_next_chamber_contains"
+                ),
+                "命運洗牌": tx("russian_roulette.spin_the_cylinder_again_to_move"),
+                "空包彈": tx("russian_roulette.halve_the_damage_if_the_next"),
+                "強制轉向": tx("russian_roulette.force_the_opponent_to_take_this"),
+                "加倍賭注": tx("russian_roulette.double_the_damage_for_this_round"),
             }
-            return descriptions.get(item, "未知道具")
+            return descriptions.get(item, tx("russian_roulette.unknown_item"))
 
         async def _show_game_status(self) -> None:
             """顯示遊戲狀態"""
             embed = discord.Embed(
-                title=f"[第 {self.game.round} 局] 極限籌碼：紅黑左輪",
-                description=f"當前玩家：{self.game.current_player.mention}",
+                title=tx(
+                    "russian_roulette.round_red_and_black_roulette",
+                    v0=(self.game.round),
+                ),
+                description=tx(
+                    "russian_roulette.current_player",
+                    v0=(self.game.current_player.mention),
+                ),
                 color=discord.Color.from_rgb(155, 89, 182),
             )
 
             embed.add_field(
                 name=f"{self.game.player1.display_name}",
-                value=f"CT: {self.game.player1_chips}\n道具: {', '.join(self.game.player1_items)}",
+                value=tx(
+                    "deep_sea_oxygen.ct_items",
+                    v0=(self.game.player1_chips),
+                    v1=(items_text(self.game.player1_items)),
+                ),
                 inline=True,
             )
 
             embed.add_field(
                 name=f"{self.game.player2.display_name}",
-                value=f"CT: {self.game.player2_chips}\n道具: {', '.join(self.game.player2_items)}",
+                value=tx(
+                    "deep_sea_oxygen.ct_items",
+                    v0=(self.game.player2_chips),
+                    v1=(items_text(self.game.player2_items)),
+                ),
                 inline=True,
             )
 
             embed.add_field(
-                name="彈巢狀態",
-                value=f"當前位置: {self.game.current_chamber}/6\n空槍次數: {self.game.empty_shots_this_round}",
+                name=tx("russian_roulette.cylinder_status"),
+                value=tx(
+                    "russian_roulette.current_chamber_6_empty_shots",
+                    v0=(self.game.current_chamber),
+                    v1=(self.game.empty_shots_this_round),
+                ),
                 inline=False,
             )
 
             if self.game.double_bet_active:
-                embed.add_field(name="特殊狀態", value="加倍賭注已啟動", inline=False)
+                embed.add_field(
+                    name=tx("russian_roulette.special_status"),
+                    value=tx("russian_roulette.double_stakes_active"),
+                    inline=False,
+                )
 
             await self.game.channel.send(embed=embed, view=self)
 
@@ -199,24 +251,25 @@ class RussianRoulette(commands.Cog):
             winner_chips = max(self.game.player1_chips, self.game.player2_chips)
 
             embed = discord.Embed(
-                title="[遊戲結束] 最終結果", color=discord.Color.from_rgb(241, 196, 15)
+                title=tx("deep_sea_oxygen.game_ended_final_results"),
+                color=discord.Color.from_rgb(241, 196, 15),
             )
 
             embed.add_field(
-                name="勝利者",
+                name=tx("russian_roulette.winner"),
                 value=f"{winner.mention} ({winner_chips} CT)",
                 inline=False,
             )
 
             embed.add_field(
                 name=f"{self.game.player1.display_name}",
-                value=f"最終 CT: {self.game.player1_chips}",
+                value=tx("russian_roulette.final_ct", v0=(self.game.player1_chips)),
                 inline=True,
             )
 
             embed.add_field(
                 name=f"{self.game.player2.display_name}",
-                value=f"最終 CT: {self.game.player2_chips}",
+                value=tx("russian_roulette.final_ct", v0=(self.game.player2_chips)),
                 inline=True,
             )
 
@@ -225,7 +278,7 @@ class RussianRoulette(commands.Cog):
             if self.game.channel.id in self.cog.active_games:
                 del self.cog.active_games[self.game.channel.id]
 
-    class ItemSelectView(ui.View):
+    class ItemSelectView(LocalizedView):
         """道具選擇視圖"""
 
         def __init__(
@@ -238,17 +291,21 @@ class RussianRoulette(commands.Cog):
 
             # 為每個道具創建按鈕
             for item in items:
-                button = ui.Button[Any](label=item, style=discord.ButtonStyle.secondary)
+                button = ui.Button[Any](
+                    label=item_name(item), style=discord.ButtonStyle.secondary
+                )
                 button.callback = self._create_item_callback(item)  # type: ignore[method-assign]  # discord.py supports callback assignment
                 self.add_item(button)
 
         def _create_item_callback(self, item: str) -> Any:
             """創建道具回調函數"""
 
+            @localized("interaction")
             async def callback(interaction: discord.Interaction) -> None:
                 if interaction.user != self.game.current_player:
                     await interaction.response.send_message(
-                        "不是你的回合", ephemeral=True
+                        tx("russian_roulette.it_is_another_player_s_turn"),
+                        ephemeral=True,
                     )
                     return
 
@@ -262,7 +319,7 @@ class RussianRoulette(commands.Cog):
 
             if item not in items:
                 await interaction.response.send_message(
-                    "你沒有這個道具", ephemeral=True
+                    tx("russian_roulette.this_item_is_not_in_the"), ephemeral=True
                 )
                 return
 
@@ -274,10 +331,14 @@ class RussianRoulette(commands.Cog):
                 next_chamber = self.game.current_chamber
                 is_bullet = next_chamber == self.game.bullet_position
 
-                result = "子彈" if is_bullet else "空槍"
+                result = (
+                    tx("russian_roulette.bullet")
+                    if is_bullet
+                    else tx("russian_roulette.empty_chamber")
+                )
                 embed = discord.Embed(
-                    title="[透視眼鏡] 偷看結果",
-                    description=f"下一發是：{result}",
+                    title=tx("russian_roulette.x_ray_glasses_peek_result"),
+                    description=tx("russian_roulette.next_chamber", v0=(result)),
                     color=discord.Color.from_rgb(52, 152, 219),
                 )
                 await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -286,8 +347,8 @@ class RussianRoulette(commands.Cog):
                 # 重新洗牌
                 self.game.bullet_position = random.randint(1, 6)
                 embed = discord.Embed(
-                    title="[命運洗牌] 重新洗牌",
-                    description="彈巢已重新洗牌，子彈位置改變",
+                    title=tx("russian_roulette.fate_shuffle_cylinder_spun"),
+                    description=tx("russian_roulette.the_cylinder_was_spun_again_and"),
                     color=discord.Color.from_rgb(52, 152, 219),
                 )
                 await interaction.response.send_message(embed=embed)
@@ -296,13 +357,13 @@ class RussianRoulette(commands.Cog):
                 if player.id in self.game.blank_round_players:
                     items.append(item)
                     await interaction.response.send_message(
-                        "空包彈已啟用", ephemeral=True
+                        tx("russian_roulette.blank_round_active"), ephemeral=True
                     )
                     return
                 self.game.blank_round_players.add(player.id)
                 embed = discord.Embed(
-                    title="[空包彈] 已準備",
-                    description="若下一發是子彈，傷害將減半",
+                    title=tx("russian_roulette.blank_round_ready"),
+                    description=tx("russian_roulette.damage_is_halved_if_the_next"),
                     color=discord.Color.from_rgb(52, 152, 219),
                 )
                 await interaction.response.send_message(embed=embed)
@@ -311,7 +372,8 @@ class RussianRoulette(commands.Cog):
                 # 強制對手開槍
                 if self.game.used_force_redirect[interaction.user.id]:
                     await interaction.response.send_message(
-                        "此道具每場遊戲限用一次", ephemeral=True
+                        tx("russian_roulette.this_item_can_only_be_used"),
+                        ephemeral=True,
                     )
                     items.append(item)  # 歸還道具
                     return
@@ -321,8 +383,11 @@ class RussianRoulette(commands.Cog):
                 self.game.current_player = opponent
 
                 embed = discord.Embed(
-                    title="[強制轉向] 轉移開槍",
-                    description=f"強制 {opponent.mention} 替你開這一槍",
+                    title=tx("russian_roulette.redirect_shot_transferred"),
+                    description=tx(
+                        "russian_roulette.must_take_this_shot_instead",
+                        v0=(opponent.mention),
+                    ),
                     color=discord.Color.from_rgb(52, 152, 219),
                 )
                 await interaction.response.send_message(embed=embed)
@@ -331,8 +396,8 @@ class RussianRoulette(commands.Cog):
                 # 加倍賭注
                 self.game.double_bet_active = True
                 embed = discord.Embed(
-                    title="[加倍賭注] 已啟動",
-                    description="這局擊中金額將翻倍",
+                    title=tx("russian_roulette.double_stakes_active_36fac1"),
+                    description=tx("russian_roulette.a_hit_this_round_costs_double"),
                     color=discord.Color.from_rgb(231, 76, 60),
                 )
                 await interaction.response.send_message(embed=embed)
@@ -340,8 +405,11 @@ class RussianRoulette(commands.Cog):
             # 關閉道具選擇視圖
             self.stop()
 
-    @app_commands.command(name="russian-roulette", description="開始俄羅斯輪盤遊戲")
-    @app_commands.describe(opponent="選擇一個對手")
+    @app_commands.command(
+        name="russian-roulette", description="Start a game of Russian roulette"
+    )
+    @app_commands.describe(opponent="Your opponent")
+    @localized("interaction")
     async def start_roulette(
         self, interaction: discord.Interaction, opponent: discord.Member
     ) -> None:
@@ -350,26 +418,27 @@ class RussianRoulette(commands.Cog):
             interaction.user, discord.Member
         ):
             await interaction.response.send_message(
-                "請在伺服器文字頻道內開始遊戲。", ephemeral=True
+                tx("deep_sea_oxygen.start_the_game_in_a_server"), ephemeral=True
             )
             return
         # 檢查是否已在遊戲中
         if interaction.channel.id in self.active_games:
             await interaction.response.send_message(
-                "此頻道已有遊戲進行中", ephemeral=True
+                tx("deep_sea_oxygen.a_game_is_already_running_in"), ephemeral=True
             )
             return
 
         # 檢查對手
         if opponent == interaction.user:
             await interaction.response.send_message(
-                "不能選擇自己作為對手", ephemeral=True
+                tx("deep_sea_oxygen.the_opponent_must_be_another_member"),
+                ephemeral=True,
             )
             return
 
         if opponent.bot:
             await interaction.response.send_message(
-                "不能選擇機器人作為對手", ephemeral=True
+                tx("deep_sea_oxygen.bots_cannot_be_opponents"), ephemeral=True
             )
             return
 
@@ -380,22 +449,25 @@ class RussianRoulette(commands.Cog):
         # 發送邀請
         view = GameInviteView(game, self, opponent)
         embed = discord.Embed(
-            title="[遊戲邀請] 極限籌碼：紅黑左輪",
-            description=f"{interaction.user.mention} 邀請 {opponent.mention} 進行俄羅斯輪盤遊戲\n\n"
-            f"遊戲規則：\n"
-            f"• 初始資產：5,000 CT\n"
-            f"• 總局數：5 局\n"
-            f"• 每局隨機放入 1 顆子彈\n"
-            f"• 中彈扣除 1,500 CT（連續空槍3次後增至 2,000 CT）\n"
-            f"• 每人隨機獲得 3 個道具",
+            title=tx("russian_roulette.game_invite_red_and_black_roulette"),
+            description=tx(
+                "russian_roulette.invites_to_russian_roulette_rules_starting",
+                v0=(interaction.user.mention),
+                v1=(opponent.mention),
+            ),
             color=discord.Color.from_rgb(155, 89, 182),
         )
 
         await interaction.response.send_message(embed=embed, view=view)
 
 
-class GameInviteView(ui.View):
+class GameInviteView(LocalizedView):
     """遊戲邀請視圖"""
+
+    i18n = {
+        "accept.label": "blacklist.accept",
+        "decline.label": "bot_appearance.reject",
+    }
 
     def __init__(
         self,
@@ -408,26 +480,28 @@ class GameInviteView(ui.View):
         self.cog = cog
         self.opponent = opponent
 
+    @localized()
     async def on_timeout(self) -> None:
         """超時處理"""
         if self.game.channel.id in self.cog.active_games:
             del self.cog.active_games[self.game.channel.id]
 
         embed = discord.Embed(
-            title="[邀請過期] 遊戲取消",
-            description="遊戲邀請已過期",
+            title=tx("deep_sea_oxygen.invite_expired_game_cancelled"),
+            description=tx("deep_sea_oxygen.the_game_invitation_expired"),
             color=discord.Color.from_rgb(231, 76, 60),
         )
         await self.game.channel.send(embed=embed)
 
-    @ui.button(label="接受", style=discord.ButtonStyle.success)
+    @ui.button(label="Accept", style=discord.ButtonStyle.success)
+    @localized("interaction")
     async def accept(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
         """接受邀請"""
         if interaction.user != self.opponent:
             await interaction.response.send_message(
-                "只有被邀請者可以接受", ephemeral=True
+                tx("deep_sea_oxygen.only_the_invited_player_can_accept"), ephemeral=True
             )
             return
 
@@ -435,34 +509,47 @@ class GameInviteView(ui.View):
         view = RussianRoulette.GameView(self.game, self.cog)
 
         embed = discord.Embed(
-            title="[遊戲開始] 極限籌碼：紅黑左輪",
-            description=f"遊戲開始！{self.game.current_player.mention} 先手",
+            title=tx("russian_roulette.game_started_red_and_black_roulette"),
+            description=tx(
+                "russian_roulette.game_started_takes_the_first_turn",
+                v0=(self.game.current_player.mention),
+            ),
             color=discord.Color.from_rgb(46, 204, 113),
         )
 
         embed.add_field(
             name=f"{self.game.player1.display_name}",
-            value=f"CT: {self.game.player1_chips}\n道具: {', '.join(self.game.player1_items)}",
+            value=tx(
+                "deep_sea_oxygen.ct_items",
+                v0=(self.game.player1_chips),
+                v1=(items_text(self.game.player1_items)),
+            ),
             inline=True,
         )
 
         embed.add_field(
             name=f"{self.game.player2.display_name}",
-            value=f"CT: {self.game.player2_chips}\n道具: {', '.join(self.game.player2_items)}",
+            value=tx(
+                "deep_sea_oxygen.ct_items",
+                v0=(self.game.player2_chips),
+                v1=(items_text(self.game.player2_items)),
+            ),
             inline=True,
         )
 
         await interaction.response.send_message(embed=embed, view=view)
         self.stop()
 
-    @ui.button(label="拒絕", style=discord.ButtonStyle.danger)
+    @ui.button(label="Reject", style=discord.ButtonStyle.danger)
+    @localized("interaction")
     async def decline(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
         """拒絕邀請"""
         if interaction.user != self.opponent:
             await interaction.response.send_message(
-                "只有被邀請者可以拒絕", ephemeral=True
+                tx("deep_sea_oxygen.only_the_invited_player_can_decline"),
+                ephemeral=True,
             )
             return
 
@@ -470,8 +557,10 @@ class GameInviteView(ui.View):
             del self.cog.active_games[self.game.channel.id]
 
         embed = discord.Embed(
-            title="[邀請拒絕] 遊戲取消",
-            description=f"{self.opponent.mention} 拒絕了遊戲邀請",
+            title=tx("deep_sea_oxygen.invite_declined_game_cancelled"),
+            description=tx(
+                "deep_sea_oxygen.declined_the_invitation", v0=(self.opponent.mention)
+            ),
             color=discord.Color.from_rgb(231, 76, 60),
         )
 

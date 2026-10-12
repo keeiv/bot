@@ -15,6 +15,9 @@ import genshin
 from src.utils.document_store import open_document
 from src.utils.document_store import read_document
 from src.utils.document_store import write_document
+from src.utils.i18n import current_lang
+from src.utils.i18n import text as tx
+from src.utils.lang_context import localized
 from src.utils.storage_worker import run_storage
 from src.utils.text_converter import to_traditional_chinese
 
@@ -61,13 +64,11 @@ class GenshinService:
                 accounts = {}
             except (OSError, ValueError) as exc:
                 raise RuntimeError(
-                    "無法確認既有帳號資料；缺少 GENSHIN_ENCRYPTION_KEY，"
-                    "帳號服務初始化已中止。"
+                    tx("genshin_service.could_not_verify_existing_account_data")
                 ) from exc
             if accounts != {}:
                 raise RuntimeError(
-                    "已有帳號資料但缺少 GENSHIN_ENCRYPTION_KEY，"
-                    "帳號服務初始化已中止，需恢復原加密金鑰。"
+                    tx("genshin_service.existing_account_data_found_but_genshin")
                 )
             key_str = Fernet.generate_key().decode()
             self._write_key_to_env(env_path, key_str)
@@ -85,7 +86,7 @@ class GenshinService:
                 raise OSError("Key persistence was not confirmed")
         except OSError as exc:
             raise RuntimeError(
-                "無法保存 GENSHIN_ENCRYPTION_KEY；帳號服務初始化已中止。"
+                tx("genshin_service.could_not_save_genshin_encryption_key")
             ) from exc
 
     def _load_accounts(self) -> dict[Any, Any]:
@@ -158,7 +159,7 @@ class GenshinService:
         user_data = self._accounts.get(str(discord_user_id))
         if not user_data:
             raise ValueError(
-                "您尚未綁定 HoYoLAB/米游社 帳號，請使用 `/mhy bind` 指令進行綁定。"
+                tx("genshin_service.no_hoyolab_miyoushe_account_is_linked")
             )
 
         cookie = self.decrypt_cookie(user_data["encrypted_cookie"])
@@ -167,7 +168,11 @@ class GenshinService:
             genshin.Region.CHINESE if region_str == "cn" else genshin.Region.OVERSEAS
         )
 
-        client = genshin.Client(cookies=cookie, region=region, lang="zh-tw")
+        client = genshin.Client(
+            cookies=cookie,
+            region=region,
+            lang="en-us" if current_lang() == "en" else "zh-tw",
+        )
         return client
 
     def get_bound_user(self, discord_user_id: int) -> Optional[dict[Any, Any]]:
@@ -185,15 +190,21 @@ class GenshinService:
         region = (
             genshin.Region.CHINESE if region_str == "cn" else genshin.Region.OVERSEAS
         )
-        client = genshin.Client(cookies=cookie, region=region, lang="zh-tw")
+        client = genshin.Client(
+            cookies=cookie,
+            region=region,
+            lang="en-us" if current_lang() == "en" else "zh-tw",
+        )
 
         try:
             # 獲取綁定的遊戲帳號列表以驗證 Cookie
             accounts = await client.get_game_accounts()
         except genshin.errors.InvalidCookies:
-            raise ValueError("提供的 Cookie 無效或已過期，請重新獲取並輸入。")
+            raise ValueError(tx("genshin_service.the_supplied_cookie_is_invalid_or"))
         except Exception as e:
-            raise ValueError(f"驗證 Cookie 時發生錯誤: {str(e)}")
+            raise ValueError(
+                tx("genshin_service.cookie_verification_failed", v0=(str(e)))
+            )
 
         game_accounts = []
         for acc in accounts:
@@ -257,7 +268,9 @@ class GenshinService:
         uid = int(uids[0]) if uids else None
 
         if uid is None:
-            raise ValueError(f"沒有找到已綁定的 {game_str} 帳號。")
+            raise ValueError(
+                tx("genshin_service.no_linked_account_was_found", v0=(game_str))
+            )
 
         if game_str == "genshin":
             notes = await client.get_genshin_notes(uid)
@@ -325,14 +338,14 @@ class GenshinService:
             # battery_charge is BatteryCharge object with (current, max, seconds_till_full)
             battery = getattr(zzz_notes, "battery_charge", None)
             video = getattr(zzz_notes, "video_store_state", None)
-            video_str = "未知"
+            video_str = tx("audit_log.unknown")
             if video:
                 if video.name == "REVENUE_AVAILABLE":
-                    video_str = "營業中 (有營業額待整理)"
+                    video_str = tx("genshin_service.open_revenue_pending_collection")
                 elif video.name == "CURRENTLY_OPEN":
-                    video_str = "營業中"
+                    video_str = tx("genshin_service.open")
                 elif video.name == "WAITING_TO_OPEN":
-                    video_str = "休息中 (等待開店)"
+                    video_str = tx("genshin_service.closed_waiting_to_open")
 
             return {
                 "type": "zzz",
@@ -357,7 +370,7 @@ class GenshinService:
                 "train_score": honkai_notes.current_train_score,
             }
         else:
-            raise ValueError("不支援的遊戲類型。")
+            raise ValueError(tx("genshin_service.unsupported_game_type"))
 
     async def redeem_code(
         self, discord_user_id: int, game_str: str, code: str
@@ -374,7 +387,9 @@ class GenshinService:
         ]
 
         if not game_accs:
-            raise ValueError(f"您在此 Bot 中尚未綁定任何 {game_str} 遊戲帳號。")
+            raise ValueError(
+                tx("genshin_service.no_game_account_is_linked_to", v0=(game_str))
+            )
 
         results = []
         game_enum = self._get_game_enum(game_str)
@@ -388,7 +403,7 @@ class GenshinService:
                         "uid": uid,
                         "nickname": acc["nickname"],
                         "success": True,
-                        "message": "兌換成功！",
+                        "message": tx("genshin_service.code_redeemed"),
                     }
                 )
             except genshin.errors.RedemptionClaimed:
@@ -397,7 +412,9 @@ class GenshinService:
                         "uid": uid,
                         "nickname": acc["nickname"],
                         "success": False,
-                        "message": "該兌換碼已被領取過。",
+                        "message": tx(
+                            "genshin_service.this_code_has_already_been_redeemed"
+                        ),
                     }
                 )
             except genshin.errors.RedemptionCooldown:
@@ -406,7 +423,9 @@ class GenshinService:
                         "uid": uid,
                         "nickname": acc["nickname"],
                         "success": False,
-                        "message": "兌換頻率太快，請稍後再試。",
+                        "message": tx(
+                            "genshin_service.redemption_requests_are_too_frequent_retry"
+                        ),
                     }
                 )
             except genshin.errors.RedemptionInvalid:
@@ -415,7 +434,7 @@ class GenshinService:
                         "uid": uid,
                         "nickname": acc["nickname"],
                         "success": False,
-                        "message": "無效的兌換碼或不適用於此伺服器。",
+                        "message": tx("genshin_service.invalid_code_or_the_code_is"),
                     }
                 )
             except Exception as e:
@@ -424,7 +443,7 @@ class GenshinService:
                         "uid": uid,
                         "nickname": acc["nickname"],
                         "success": False,
-                        "message": f"錯誤: {str(e)}",
+                        "message": tx("genshin_service.error", v0=(str(e))),
                     }
                 )
 
@@ -442,7 +461,9 @@ class GenshinService:
         ]
         uid = int(uids[0]) if uids else None
         if not uid:
-            raise ValueError(f"沒有找到已綁定的 {game_str} 帳號。")
+            raise ValueError(
+                tx("genshin_service.no_linked_account_was_found", v0=(game_str))
+            )
 
         if game_str == "genshin":
             data = await client.get_genshin_user(uid)
@@ -481,7 +502,7 @@ class GenshinService:
                 ),
                 None,
             )
-            nickname = acc_info["nickname"] if acc_info else "未知"
+            nickname = acc_info["nickname"] if acc_info else tx("audit_log.unknown")
             level = acc_info["level"] if acc_info else 0
             return {
                 "nickname": nickname,
@@ -500,7 +521,7 @@ class GenshinService:
                 "characters": honkai_data.stats.battlesuits,
             }
         else:
-            raise ValueError("不支援的遊戲類型")
+            raise ValueError(tx("genshin_service.unsupported_game_type_fdbb37"))
 
     async def get_abyss_stats(
         self, discord_user_id: int, game_str: str
@@ -516,7 +537,9 @@ class GenshinService:
         ]
         uid = int(uids[0]) if uids else None
         if not uid:
-            raise ValueError(f"沒有找到已綁定的 {game_str} 帳號。")
+            raise ValueError(
+                tx("genshin_service.no_linked_account_was_found", v0=(game_str))
+            )
 
         if game_str == "genshin":
             abyss = await client.get_spiral_abyss(uid, previous=False)
@@ -552,14 +575,14 @@ class GenshinService:
                 and challenge is not None
                 and getattr(challenge, "has_data", False)
                 and challenge.max_floor
-                else "無數據"
+                else tx("genshin_service.no_data")
             )
             moc_name = (
                 challenge.name
                 if not isinstance(challenge, BaseException)
                 and challenge is not None
                 and getattr(challenge, "has_data", False)
-                else "混沌回憶"
+                else tx("genshin_service.memory_of_chaos")
             )
 
             pf_stars = (
@@ -575,14 +598,14 @@ class GenshinService:
                 and pf is not None
                 and getattr(pf, "has_data", False)
                 and pf.max_floor
-                else "無數據"
+                else tx("genshin_service.no_data")
             )
             pf_name = (
                 pf.name
                 if not isinstance(pf, BaseException)
                 and pf is not None
                 and getattr(pf, "has_data", False)
-                else "虛構敘事"
+                else tx("genshin_service.pure_fiction")
             )
 
             shadow_stars = (
@@ -598,10 +621,10 @@ class GenshinService:
                 and shadow is not None
                 and getattr(shadow, "has_data", False)
                 and shadow.max_floor
-                else "無數據"
+                else tx("genshin_service.no_data")
             )
 
-            shadow_name = "末日幻影"
+            shadow_name = tx("genshin_service.apocalyptic_shadow")
             if (
                 not isinstance(shadow, BaseException)
                 and shadow is not None
@@ -612,8 +635,8 @@ class GenshinService:
 
             # Anomaly Arbitration (異相仲裁)
             anomaly_stars_val: int | str = 0
-            anomaly_max = "無數據"
-            anomaly_name = "異相仲裁"
+            anomaly_max = tx("genshin_service.no_data")
+            anomaly_name = tx("genshin_service.anomaly_arbitration")
 
             anomaly_record = None
             if (
@@ -634,21 +657,29 @@ class GenshinService:
                 mini_boss_stars = getattr(anomaly_record, "mini_boss_stars", 0)
                 total_stars = boss_stars + mini_boss_stars
 
-                anomaly_stars_val = (
-                    f"{total_stars} (騎士 {mini_boss_stars} / 首領 {boss_stars})"
+                anomaly_stars_val = tx(
+                    "genshin_service.knight_boss",
+                    v0=(total_stars),
+                    v1=(mini_boss_stars),
+                    v2=(boss_stars),
                 )
 
                 boss_rec = getattr(anomaly_record, "boss_record", None)
                 if boss_rec and getattr(boss_rec, "has_data", False):
-                    boss_name = getattr(anomaly_record.boss, "name", "首領")
-                    anomaly_max = f"首領 {boss_name} 已擊敗"
+                    boss_name = getattr(
+                        anomaly_record.boss, "name", tx("genshin_service.boss")
+                    )
+                    anomaly_max = tx("genshin_service.boss_defeated", v0=(boss_name))
                 else:
                     cleared_minis = sum(
                         1
                         for m in getattr(anomaly_record, "mini_boss_records", [])
                         if getattr(m, "has_data", False)
                     )
-                    anomaly_max = f"騎士挑戰中 ({cleared_minis}/3)"
+                    anomaly_max = tx(
+                        "genshin_service.knight_challenge_in_progress_3",
+                        v0=(cleared_minis),
+                    )
 
                 if (
                     hasattr(anomaly_record.season, "name")
@@ -674,11 +705,13 @@ class GenshinService:
             zzz_data = await client.get_zzz_user(uid)
             return {
                 "shiyu_defense": (
-                    zzz_data.stats.shiyu_defense_frontiers if zzz_data.stats else "未知"
+                    zzz_data.stats.shiyu_defense_frontiers
+                    if zzz_data.stats
+                    else tx("audit_log.unknown")
                 ),
             }
         else:
-            raise ValueError("該遊戲不支援或暫無深淵數據統計接口。")
+            raise ValueError(tx("genshin_service.this_game_is_unsupported_or_abyss"))
 
     async def claim_daily_signin_for_user(
         self, discord_user_id: int
@@ -704,9 +737,13 @@ class GenshinService:
                         "nickname": acc["nickname"],
                         "success": True,
                         "message": (
-                            f"簽到成功！獲得: {reward.name} x{reward.amount}"
+                            tx(
+                                "genshin_service.check_in_successful_reward",
+                                v0=(reward.name),
+                                v1=(reward.amount),
+                            )
                             if reward
-                            else "簽到成功！"
+                            else tx("genshin_service.check_in_successful")
                         ),
                     }
                 )
@@ -716,7 +753,7 @@ class GenshinService:
                         "game": game_str,
                         "nickname": acc["nickname"],
                         "success": True,
-                        "message": "今日已簽到過。",
+                        "message": tx("genshin_service.already_checked_in_today"),
                     }
                 )
             except Exception as e:
@@ -725,7 +762,7 @@ class GenshinService:
                         "game": game_str,
                         "nickname": acc["nickname"],
                         "success": False,
-                        "message": f"簽到失敗: {str(e)}",
+                        "message": tx("genshin_service.check_in_failed", v0=(str(e))),
                     }
                 )
             completed_games.add(game_str)
@@ -738,20 +775,24 @@ class GenshinService:
         for user_id, info in self._accounts.items():
             if not info.get("auto_sign_in", True):
                 continue
-            try:
-                user_results = await self.claim_daily_signin_for_user(int(user_id))
-                results[int(user_id)] = user_results
-            except Exception as e:
-                results[int(user_id)] = [
-                    {
-                        "game": "all",
-                        "nickname": "N/A",
-                        "success": False,
-                        "message": f"初始化失敗: {str(e)}",
-                    }
-                ]
+            results[int(user_id)] = await self._background_sign_in(int(user_id))
             await asyncio.sleep(10)
         return results
+
+    @localized("user_id")
+    async def _background_sign_in(self, user_id: int) -> list[dict[Any, Any]]:
+        try:
+            user_results = await self.claim_daily_signin_for_user(int(user_id))
+            return user_results
+        except Exception as e:
+            return [
+                {
+                    "game": "all",
+                    "nickname": "N/A",
+                    "success": False,
+                    "message": tx("genshin_service.initialization_failed", v0=(str(e))),
+                }
+            ]
 
     # ─────────────── 輔助工具 ───────────────
 
@@ -784,7 +825,7 @@ class GenshinService:
     def _format_transformer_time(self, recovery_time: Any) -> str:
         """格式化參量質變儀的時間"""
         if not recovery_time:
-            return "已就緒"
+            return tx("genshin_service.ready")
 
         if hasattr(recovery_time, "total_seconds"):
             seconds = int(recovery_time.total_seconds())
@@ -797,7 +838,7 @@ class GenshinService:
                 return str(recovery_time)
 
         if seconds <= 0:
-            return "已就緒"
+            return tx("genshin_service.ready")
 
         days = seconds // 86400
         hours = (seconds % 86400) // 3600
@@ -805,13 +846,13 @@ class GenshinService:
 
         parts = []
         if days > 0:
-            parts.append(f"{days}天")
+            parts.append(tx("genshin_service.d", v0=(days)))
         if hours > 0:
-            parts.append(f"{hours}小時")
+            parts.append(tx("genshin_service.h", v0=(hours)))
         if minutes > 0:
-            parts.append(f"{minutes}分鐘")
+            parts.append(tx("genshin_service.m", v0=(minutes)))
 
-        return "".join(parts) + "後就緒"
+        return "".join(parts) + tx("genshin_service.until_ready")
 
     def _timedelta_to_seconds(self, td: Any) -> int:
         """將 timedelta 或整數時間安全轉換為秒數"""

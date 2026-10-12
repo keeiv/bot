@@ -22,6 +22,9 @@ from src.services.dashboard_service import DashboardService
 from src.services.dashboard_service import revision
 from src.services.tool_routes import install_routes
 from src.services.tool_routes import public_transfer
+from src.utils.i18n import language_scope
+from src.utils.i18n import text as tx
+from src.utils.lang_context import guild_lang
 from src.utils.storage_worker import run_storage
 
 log = logging.getLogger(__name__)
@@ -46,7 +49,7 @@ class DashboardAPI(commands.Cog):
             return
         secret = os.getenv("BOT_API_SECRET", "")
         if len(secret) < 32:
-            raise RuntimeError("BOT_API_SECRET 至少需要 32 字元")
+            raise RuntimeError(tx("dashboard_api.bot_api_secret_must_contain_at"))
         app = self.create_app(secret)
         self.runner = web.AppRunner(app, access_log=None)
         try:
@@ -90,17 +93,27 @@ class DashboardAPI(commands.Cog):
                 "/status",
                 "/status/history",
             ):
-                return web.json_response({"error": "機器人尚未就緒"}, status=503)
+                return web.json_response(
+                    {"error": tx("dashboard_api.the_bot_is_not_ready")}, status=503
+                )
             try:
                 response = await handler(request)
             except ValueError as exc:
                 response = web.json_response({"error": str(exc)}, status=400)
             except discord.Forbidden:
-                response = web.json_response({"error": "機器人權限不足"}, status=403)
+                response = web.json_response(
+                    {
+                        "error": tx(
+                            "dashboard_api.the_bot_lacks_the_required_permissions"
+                        )
+                    },
+                    status=403,
+                )
             except (OSError, RuntimeError, discord.HTTPException):
                 log.exception("Dashboard operation failed")
                 response = web.json_response(
-                    {"error": "機器人操作失敗，請查看本機日誌"}, status=503
+                    {"error": tx("dashboard_api.the_bot_operation_failed_check_the")},
+                    status=503,
                 )
             response.headers["Cache-Control"] = "no-store"
             return response
@@ -248,12 +261,19 @@ class DashboardAPI(commands.Cog):
         guild = await self.authorized_guild(request)
         body = await request.json()
         if not isinstance(body, dict) or set(body) != {"section", "values", "revision"}:
-            raise ValueError("請提供 section、values、revision")
+            raise ValueError(
+                tx("dashboard_api.section_values_and_revision_are_required")
+            )
         async with self.lock:
             current = await run_storage(self.service.read, guild.id)
             if body["revision"] != revision(current):
                 return web.json_response(
-                    {"error": "設定已被其他人修改，請重新載入後再儲存"}, status=409
+                    {
+                        "error": tx(
+                            "dashboard_api.these_settings_have_changed_reload_before"
+                        )
+                    },
+                    status=409,
                 )
             await run_storage(
                 self.service.write, guild, body["section"], body["values"]
@@ -271,36 +291,42 @@ class DashboardAPI(commands.Cog):
         from src.cogs.features.ticket import TicketOpenView
 
         guild = await self.authorized_guild(request)
-        async with self.lock:
-            cfg = await run_storage(self.service.get_section_config, "ticket", guild.id)
-            if not cfg or not cfg.get("enabled", True):
-                raise ValueError("請先儲存並啟用工單設定")
-            self.service.validate(
-                guild,
-                "ticket",
-                (await run_storage(self.service.read, guild.id))["ticket"],
-            )
-            channel = guild.get_channel(cfg["channel_id"])
-            if cfg.get("panel_message_id"):
-                try:
-                    message = await channel.fetch_message(cfg["panel_message_id"])
-                    await message.edit(view=TicketOpenView())
-                    return web.json_response({"ok": True})
-                except discord.NotFound:
-                    pass
-            message = await channel.send(
-                embed=discord.Embed(
-                    title="支援工單", description="點擊下方按鈕建立私人工單。"
-                ),
-                view=TicketOpenView(),
-            )
-            try:
-                await run_storage(
-                    self.service.set_ticket_panel, guild.id, message.id, cfg
+        with language_scope(await guild_lang(guild)):
+            async with self.lock:
+                cfg = await run_storage(
+                    self.service.get_section_config, "ticket", guild.id
                 )
-            except Exception:
-                await message.delete()
-                raise
+                if not cfg or not cfg.get("enabled", True):
+                    raise ValueError(
+                        tx("dashboard_api.save_and_enable_the_ticket_settings")
+                    )
+                self.service.validate(
+                    guild,
+                    "ticket",
+                    (await run_storage(self.service.read, guild.id))["ticket"],
+                )
+                channel = guild.get_channel(cfg["channel_id"])
+                if cfg.get("panel_message_id"):
+                    try:
+                        message = await channel.fetch_message(cfg["panel_message_id"])
+                        await message.edit(view=TicketOpenView())
+                        return web.json_response({"ok": True})
+                    except discord.NotFound:
+                        pass
+                message = await channel.send(
+                    embed=discord.Embed(
+                        title=tx("dashboard_api.support_tickets"),
+                        description=tx("dashboard_api.use_the_button_below_to_create"),
+                    ),
+                    view=TicketOpenView(),
+                )
+                try:
+                    await run_storage(
+                        self.service.set_ticket_panel, guild.id, message.id, cfg
+                    )
+                except Exception:
+                    await message.delete()
+                    raise
         return web.json_response({"ok": True})
 
 

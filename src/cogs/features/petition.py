@@ -7,6 +7,8 @@ import discord
 from discord.ext import commands
 
 from src.services.petition_service import PetitionService
+from src.utils.i18n import text as tx
+from src.utils.lang_context import localized
 from src.utils.storage_worker import run_storage
 
 _TARGET_USER_ID = 865537073607606293
@@ -21,19 +23,26 @@ class Petition(commands.Cog):
         self.service = PetitionService()
 
     @commands.command(name="請求zas女裝")
+    @localized("context")
     async def sign_petition(self, context: commands.Context[Any]) -> None:
         """副署請願書並顯示連續副署天數。"""
         streak = await run_storage(self.service.sign, context.author.id)
         embed = discord.Embed(
             description=(
-                f"# {context.author.name} 副署了 <@{_TARGET_USER_ID}> 女裝請願書"
+                tx(
+                    "petition.signed_the_petition_for_to_cross",
+                    v0=(context.author.name),
+                    v1=(_TARGET_USER_ID),
+                )
             ),
             color=discord.Color.from_rgb(255, 192, 203),
         )
-        embed.set_footer(text=f"已連續 [{streak}] 天")
+        embed.set_footer(text=tx("petition.consecutive_days", v0=(streak)))
 
         if not os.path.exists(_IMAGE_FILE):
-            embed.set_footer(text=f"已連續 [{streak}] 天 (圖片遺失)")
+            embed.set_footer(
+                text=tx("petition.consecutive_days_image_missing", v0=(streak))
+            )
             await context.send(
                 embed=embed,
                 allowed_mentions=discord.AllowedMentions.none(),

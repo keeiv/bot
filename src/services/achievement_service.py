@@ -10,6 +10,7 @@ from typing import Any, Optional
 
 from src.utils.document_store import read_document
 from src.utils.document_store import write_document
+from src.utils.i18n import text as tx
 
 TZ_OFFSET = timezone(timedelta(hours=8))
 _DATA_FILE = "data/storage/achievements.json"
@@ -245,9 +246,17 @@ class AchievementService:
     # ─────────────── 顯示工具 ───────────────
 
     @staticmethod
+    def describe(achievement_id: str) -> dict[Any, Any]:
+        """Return translated copy without modifying the achievement definitions."""
+        data = copy.deepcopy(ACHIEVEMENTS[achievement_id])
+        data["name"] = tx(f"achievement.{achievement_id}.name")
+        data["description"] = tx(f"achievement.{achievement_id}.description")
+        return data
+
+    @staticmethod
     def get_rarity_label(rarity: str) -> str:
         """取得稀有度標籤"""
-        return RARITY_LABELS.get(rarity, f"[{rarity}]")
+        return tx(f"rarity.{rarity}") if rarity in RARITY_LABELS else f"[{rarity}]"
 
     @staticmethod
     def get_progress_bar(percentage: float, length: int = 20) -> str:

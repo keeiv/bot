@@ -3,6 +3,7 @@
 import discord
 
 from src.services.dashboard_service import MAPPINGS
+from src.utils.i18n import text as tx
 
 
 def resources(guild):
@@ -47,7 +48,9 @@ def inspect_settings(service, guild, settings):
                     "section": section,
                     "ok": False,
                     "code": "invalid_settings",
-                    "detail": f"{section} 模組未載入",
+                    "detail": tx(
+                        "dashboard_checks.the_module_is_not_loaded", v0=(section)
+                    ),
                 }
             )
             continue

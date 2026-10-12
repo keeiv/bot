@@ -6,20 +6,33 @@ from discord import app_commands
 from discord.ext import commands
 
 from src.services.osu_service import OsuService
+from src.utils.i18n import text as tx
+from src.utils.lang_context import localized
 from src.utils.storage_worker import run_storage
 
 
 class OsuInfo(commands.Cog):
     """OSU! 用戶資訊查詢"""
 
-    osu = app_commands.Group(name="osu", description="osu! 查詢")
+    # Personal tool: also usable in DMs and servers without the bot.
+    osu = app_commands.Group(
+        name="osu",
+        description="osu!",
+        allowed_installs=app_commands.AppInstallationType(guild=True, user=True),
+        allowed_contexts=app_commands.AppCommandContext(
+            guild=True, dm_channel=True, private_channel=True
+        ),
+    )
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.service = OsuService()
 
-    @app_commands.command(name="user_info_osu", description="查詢 osu! 用戶資訊")
-    @app_commands.describe(username="osu! 用戶名")
+    @app_commands.command(name="user_info_osu", description="Look up an osu! player")
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    @app_commands.describe(username="osu! username")
+    @localized("interaction")
     async def user_info_osu(
         self, interaction: discord.Interaction, username: str
     ) -> None:
@@ -36,7 +49,7 @@ class OsuInfo(commands.Cog):
 
             # 創建嵌入消息
             embed = discord.Embed(
-                title=f"osu! 用戶資訊 - {user.username}",
+                title=tx("osu_info.osu_user_info", v0=(user.username)),
                 color=discord.Color.from_rgb(255, 105, 180),
                 url=f"https://osu.ppy.sh/users/{user.id}",
             )
@@ -46,34 +59,44 @@ class OsuInfo(commands.Cog):
                 embed.set_thumbnail(url=user.avatar_url)
 
             # 基本資訊欄位
-            basic_info = f"**用戶名**: {user.username}\n"
-            basic_info += f"**等級**: {user.statistics.level.current}\n"
+            basic_info = tx("osu_info.username", v0=(user.username))
+            basic_info += tx("osu_info.level", v0=(user.statistics.level.current))
             basic_info += (
-                f"**全球排名**: #{user.statistics.global_rank:,}\n"
+                tx("osu_info.global_rank", v0=(user.statistics.global_rank))
                 if user.statistics.global_rank
-                else "**全球排名**: 未排名\n"
+                else tx("osu_info.global_rank_unranked")
             )
             basic_info += (
-                f"**國家排名**: #{user.statistics.country_rank:,}\n"
+                tx("osu_info.country_rank", v0=(user.statistics.country_rank))
                 if user.statistics.country_rank
-                else "**國家排名**: 未排名\n"
+                else tx("osu_info.country_rank_unranked")
             )
             basic_info += f"**PP**: {user.statistics.pp:,.2f}\n"
-            basic_info += f"**準確度**: {user.statistics.hit_accuracy:.2f}%\n"
-            basic_info += f"**遇戲時間**: {OsuService.format_playtime(user.statistics.play_time)}\n"
-            basic_info += f"**是否為 Supporter**: {'是' if user.is_supporter else '否'}"
+            basic_info += tx("osu_info.accuracy", v0=(user.statistics.hit_accuracy))
+            basic_info += tx(
+                "osu_info.play_time",
+                v0=(OsuService.format_playtime(user.statistics.play_time)),
+            )
+            basic_info += tx(
+                "osu_info.supporter",
+                v0=(tx("anti_spam.yes") if user.is_supporter else tx("anti_spam.no")),
+            )
 
-            embed.add_field(name="基本資訊", value=basic_info, inline=False)
+            embed.add_field(
+                name=tx("osu_info.basic_info"), value=basic_info, inline=False
+            )
 
             # 成績統計
             counts = user.statistics.grade_counts
-            grades_info = f"**SS (金)**: {counts.ss}\n"
-            grades_info += f"**SS (銀/白金)**: {counts.ssh}\n"
-            grades_info += f"**S (金)**: {counts.s}\n"
-            grades_info += f"**S (銀/白金)**: {counts.sh}\n"
-            grades_info += f"**A 等級**: {counts.a}"
+            grades_info = tx("osu_info.ss_gold", v0=(counts.ss))
+            grades_info += tx("osu_info.ss_silver_platinum", v0=(counts.ssh))
+            grades_info += tx("osu_info.s_gold", v0=(counts.s))
+            grades_info += tx("osu_info.s_silver_platinum", v0=(counts.sh))
+            grades_info += tx("osu_info.a_ranks", v0=(counts.a))
 
-            embed.add_field(name="成績統計", value=grades_info, inline=True)
+            embed.add_field(
+                name=tx("osu_info.rank_statistics"), value=grades_info, inline=True
+            )
 
             # 遊戲統計
             stats = user.statistics
@@ -83,30 +106,49 @@ class OsuInfo(commands.Cog):
             maximum_combo = self._get_first_attr(stats, "maximum_combo", "max_combo")
             total_hits = self._get_first_attr(stats, "total_hits")
 
-            playcount_info = f"**遊戲次數**: {self._fmt_int(play_count)}\n"
-            playcount_info += f"**總分**: {self._fmt_int(total_score)}\n"
-            playcount_info += f"**排名後總分**: {self._fmt_int(ranked_score)}\n"
-            playcount_info += f"**最高連擊**: {self._fmt_int(maximum_combo)}\n"
-            playcount_info += f"**總命中**: {self._fmt_int(total_hits)}"
+            playcount_info = tx("osu_info.play_count", v0=(self._fmt_int(play_count)))
+            playcount_info += tx(
+                "osu_info.total_score", v0=(self._fmt_int(total_score))
+            )
+            playcount_info += tx(
+                "osu_info.ranked_score", v0=(self._fmt_int(ranked_score))
+            )
+            playcount_info += tx(
+                "osu_info.maximum_combo", v0=(self._fmt_int(maximum_combo))
+            )
+            playcount_info += tx("osu_info.total_hits", v0=(self._fmt_int(total_hits)))
 
-            embed.add_field(name="遊戲統計", value=playcount_info, inline=True)
+            embed.add_field(
+                name=tx("osu_info.play_statistics"), value=playcount_info, inline=True
+            )
 
             # 附加資訊
             if user.cover_url:
                 embed.set_image(url=user.cover_url)
 
             embed.set_footer(
-                text=f"用戶 ID: {user.id} | 加入時間: {user.join_date.strftime('%Y-%m-%d') if user.join_date else '未知'}"
+                text=tx(
+                    "osu_info.user_id_joined",
+                    v0=(user.id),
+                    v1=(
+                        user.join_date.strftime("%Y-%m-%d")
+                        if user.join_date
+                        else tx("audit_log.unknown")
+                    ),
+                )
             )
 
             await interaction.followup.send(embed=embed)
 
         except Exception as e:
-            error_msg = f"無法找到用戶 '{username}' 或發生錯誤: {str(e)}"
+            error_msg = tx(
+                "osu_info.user_was_not_found_or_an", v0=(username), v1=(str(e))
+            )
             await interaction.followup.send(error_msg, ephemeral=True)
 
-    @osu.command(name="bind", description="綁定你的 osu! 帳號")
-    @app_commands.describe(username="osu! 用戶名")
+    @osu.command(name="bind", description="Link your osu! account")
+    @app_commands.describe(username="osu! username")
+    @localized("interaction")
     async def osu_bind(self, interaction: discord.Interaction, username: str) -> None:
         try:
             await interaction.response.defer(ephemeral=True)
@@ -119,28 +161,40 @@ class OsuInfo(commands.Cog):
             await run_storage(self.service.bind, interaction.user.id, osu_user.username)
 
             await interaction.followup.send(
-                f"已綁定 osu! 帳號: {osu_user.username}", ephemeral=True
+                tx("osu_info.osu_account_linked", v0=(osu_user.username)),
+                ephemeral=True,
             )
         except Exception as e:
-            await interaction.followup.send(f"綁定失敗: {str(e)}", ephemeral=True)
+            await interaction.followup.send(
+                tx("osu_info.linking_failed", v0=(str(e))), ephemeral=True
+            )
 
-    @osu.command(name="unbind", description="解除綁定你的 osu! 帳號")
+    @osu.command(name="unbind", description="Unlink your osu! account")
+    @localized("interaction")
     async def osu_unbind(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
 
         unbound_username = self.service.get_bound_username(interaction.user.id)
         if not (await run_storage(self.service.unbind, interaction.user.id)):
-            await interaction.followup.send("你尚未綁定 osu! 帳號", ephemeral=True)
+            await interaction.followup.send(
+                tx("osu_info.no_osu_account_is_linked"), ephemeral=True
+            )
             return
 
         await interaction.followup.send(
-            f"已解除綁定 osu! 帳號: {unbound_username or '未知'}", ephemeral=True
+            tx(
+                "osu_info.osu_account_unlinked",
+                v0=(unbound_username or tx("audit_log.unknown")),
+            ),
+            ephemeral=True,
         )
 
-    @osu.command(name="best", description="查看 osu! BP")
+    @osu.command(name="best", description="Show best osu! plays")
     @app_commands.describe(
-        username="osu! 用戶名 (不填則使用你已綁定的帳號)", limit="顯示筆數 (1~10)"
+        username="osu! username (defaults to your linked account)",
+        limit="How many to show (1-10)",
     )
+    @localized("interaction")
     async def osu_best(
         self,
         interaction: discord.Interaction,
@@ -179,16 +233,22 @@ class OsuInfo(commands.Cog):
                 lines.append(self._format_score_line(i, s))
 
             embed.add_field(
-                name="成績", value="\n".join(lines) if lines else "無資料", inline=False
+                name=tx("osu_info.scores"),
+                value="\n".join(lines) if lines else tx("osu_info.no_data"),
+                inline=False,
             )
             await interaction.followup.send(embed=embed)
         except Exception as e:
-            await interaction.followup.send(f"查詢失敗: {str(e)}", ephemeral=True)
+            await interaction.followup.send(
+                tx("osu_info.query_failed", v0=(str(e))), ephemeral=True
+            )
 
-    @osu.command(name="recent", description="查看 osu! 最近遊玩")
+    @osu.command(name="recent", description="Show recent osu! plays")
     @app_commands.describe(
-        username="osu! 用戶名 (不填則使用你已綁定的帳號)", limit="顯示筆數 (1~10)"
+        username="osu! username (defaults to your linked account)",
+        limit="How many to show (1-10)",
     )
+    @localized("interaction")
     async def osu_recent(
         self,
         interaction: discord.Interaction,
@@ -217,7 +277,7 @@ class OsuInfo(commands.Cog):
             )
 
             embed = discord.Embed(
-                title=f"osu! 最近遊玩 - {osu_user.username}",
+                title=tx("osu_info.osu_recent_plays", v0=(osu_user.username)),
                 color=discord.Color.from_rgb(46, 204, 113),
                 url=f"https://osu.ppy.sh/users/{osu_user.id}",
             )
@@ -230,11 +290,15 @@ class OsuInfo(commands.Cog):
                 lines.append(self._format_score_line(i, s))
 
             embed.add_field(
-                name="成績", value="\n".join(lines) if lines else "無資料", inline=False
+                name=tx("osu_info.scores"),
+                value="\n".join(lines) if lines else tx("osu_info.no_data"),
+                inline=False,
             )
             await interaction.followup.send(embed=embed)
         except Exception as e:
-            await interaction.followup.send(f"查詢失敗: {str(e)}", ephemeral=True)
+            await interaction.followup.send(
+                tx("osu_info.query_failed", v0=(str(e))), ephemeral=True
+            )
 
     def _get_first_attr(self, obj: Any, *names: Any) -> Any:
         """按順序嘗試多個屬性名，取到第一個存在且不為 None 的值。"""
@@ -248,7 +312,7 @@ class OsuInfo(commands.Cog):
     def _fmt_int(self, value: Any) -> str:
         """安全格式化整數（含千分位），空值顯示為未知。"""
         if value is None:
-            return "未知"
+            return tx("audit_log.unknown")
         try:
             return f"{int(value):,}"
         except Exception:
@@ -259,7 +323,7 @@ class OsuInfo(commands.Cog):
             return username
         bound = self.service.get_bound_username(discord_user_id)
         if not bound:
-            raise ValueError("你尚未綁定 osu! 帳號，請先使用 /osu bind <username>")
+            raise ValueError(tx("osu_info.no_osu_account_is_linked_use"))
         return bound
 
     def _format_score_line(self, index: int, score: Any) -> str:
@@ -275,22 +339,24 @@ class OsuInfo(commands.Cog):
         elif beatmap and hasattr(beatmap, "id"):
             title = f"Beatmap {beatmap.id}"
         else:
-            title = "未知圖譜"
+            title = tx("osu_info.unknown_beatmap")
 
         version = getattr(beatmap, "version", None)
         version_text = f"[{version}]" if version else ""
 
         rank = getattr(score, "rank", None)
-        rank_text = str(rank) if rank else "未知"
+        rank_text = str(rank) if rank else tx("audit_log.unknown")
 
         pp = getattr(score, "pp", None)
-        pp_text = f"{pp:.2f}pp" if isinstance(pp, (int, float)) else "未知pp"
+        pp_text = (
+            f"{pp:.2f}pp" if isinstance(pp, (int, float)) else tx("osu_info.unknown_pp")
+        )
 
         acc = getattr(score, "accuracy", None)
         if isinstance(acc, (int, float)):
             acc_text = f"{acc * 100:.2f}%" if acc <= 1 else f"{acc:.2f}%"
         else:
-            acc_text = "未知%"
+            acc_text = tx("osu_info.unknown")
 
         miss = getattr(score, "statistics", None)
         miss_count = None

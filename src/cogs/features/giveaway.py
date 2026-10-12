@@ -12,6 +12,12 @@ from discord.ext import commands
 from discord.ext import tasks
 
 from src.services.giveaway_service import GiveawayService
+from src.utils.i18n import language_scope
+from src.utils.i18n import t
+from src.utils.i18n import text as tx
+from src.utils.lang_context import guild_language
+from src.utils.lang_context import localized
+from src.utils.localized_ui import LocalizedView
 from src.utils.storage_worker import run_storage
 
 TZ_OFFSET = timezone(timedelta(hours=8))
@@ -21,19 +27,22 @@ GIVEAWAY_EMOJI = "\U0001f389"
 _service = GiveawayService()
 
 
-class GiveawayView(ui.View):
+class GiveawayView(LocalizedView):
     """抽獎按鈕視圖 (持久化)"""
+
+    i18n = {"enter_button.label": "giveaway.enter_giveaway"}
 
     def __init__(self, giveaway_id: str) -> None:
         super().__init__(timeout=None)
         self.giveaway_id = giveaway_id
 
     @ui.button(
-        label="參加抽獎",
+        label="Enter giveaway",
         style=discord.ButtonStyle.primary,
         emoji=GIVEAWAY_EMOJI,
         custom_id="giveaway_enter",
     )
+    @localized("interaction")
     async def enter_button(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
@@ -45,14 +54,19 @@ class GiveawayView(ui.View):
             )
 
         if action is None:
-            await interaction.followup.send("[提示] 此抽獎已結束", ephemeral=True)
+            await interaction.followup.send(
+                tx("giveaway.info_this_giveaway_has_ended"), ephemeral=True
+            )
             return
 
         if action == "left":
-            await interaction.followup.send("[提示] 你已退出抽獎", ephemeral=True)
+            await interaction.followup.send(
+                tx("giveaway.info_entry_withdrawn"), ephemeral=True
+            )
         else:
             await interaction.followup.send(
-                f"[成功] 你已參加抽獎！目前共 {count} 位參與者", ephemeral=True
+                tx("giveaway.success_giveaway_entered_participants", v0=(count)),
+                ephemeral=True,
             )
 
         try:
@@ -77,9 +91,13 @@ class GiveawayView(ui.View):
             timestamp=embed.timestamp,
         )
         for field in embed.fields:
-            if field.name == "參與人數":
+            if field.name in {
+                t(lang, "giveaway.participants") for lang in ("en", "zh")
+            }:
                 new_embed.add_field(
-                    name="參與人數", value=f"{count} 人", inline=field.inline
+                    name=tx("giveaway.participants"),
+                    value=tx("anti_spam.members", v0=(count)),
+                    inline=field.inline,
                 )
             else:
                 new_embed.add_field(
@@ -122,18 +140,19 @@ class Giveaway(commands.Cog):
 
     giveaway_group = app_commands.Group(
         name="giveaway",
-        description="抽獎系統",
+        description="Giveaways",
         default_permissions=discord.Permissions(administrator=True),
     )
 
-    @giveaway_group.command(name="start", description="建立新的抽獎活動")
+    @giveaway_group.command(name="start", description="Start a giveaway")
     @app_commands.describe(
-        prize="獎品名稱",
-        duration="持續時間 (例: 1h, 30m, 1d, 1d12h)",
-        winners="得獎人數",
-        channel="抽獎頻道 (預設為當前頻道)",
-        description="獎品描述 (選填)",
+        prize="The prize",
+        duration="How long it runs (for example 1h, 30m, 1d, 1d12h)",
+        winners="Number of winners",
+        channel="The giveaway channel (defaults to this one)",
+        description="Prize description (optional)",
     )
+    @localized("interaction")
     async def start_cmd(
         self,
         interaction: discord.Interaction,
@@ -150,27 +169,27 @@ class Giveaway(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.response.send_message(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         total_seconds = self.service.parse_duration(duration)
         if total_seconds is None or total_seconds < 60:
             await interaction.response.send_message(
-                "[失敗] 無效時長格式 (例: 1h, 30m, 1d, 2d6h)，最短 1 分鐘",
+                tx("giveaway.failed_invalid_duration_examples_1h_30m"),
                 ephemeral=True,
             )
             return
 
         if winners < 1 or winners > 50:
             await interaction.response.send_message(
-                "[失敗] 得獎人數必須在 1~50 之間", ephemeral=True
+                tx("giveaway.failed_winner_count_must_be_between"), ephemeral=True
             )
             return
 
         target_channel = channel or interaction.channel
         if not isinstance(target_channel, (discord.TextChannel, discord.Thread)):
             await interaction.response.send_message(
-                "請選擇文字頻道或討論串。", ephemeral=True
+                tx("giveaway.select_a_text_channel_or_thread"), ephemeral=True
             )
             return
         now = datetime.now(TZ_OFFSET)
@@ -178,20 +197,34 @@ class Giveaway(commands.Cog):
         giveaway_id = f"{interaction.guild_id}_{int(now.timestamp())}"
 
         embed = discord.Embed(
-            title=f"{GIVEAWAY_EMOJI} 抽獎活動",
+            title=tx("giveaway.giveaway", v0=(GIVEAWAY_EMOJI)),
             description=f"**{prize}**",
             color=discord.Color.from_rgb(255, 215, 0),
             timestamp=end_dt,
         )
         if description:
-            embed.add_field(name="獎品說明", value=description, inline=False)
-        embed.add_field(name="得獎人數", value=f"{winners} 人", inline=True)
+            embed.add_field(
+                name=tx("giveaway.prize_details"), value=description, inline=False
+            )
         embed.add_field(
-            name="結束時間", value=f"<t:{int(end_dt.timestamp())}:R>", inline=True
+            name=tx("giveaway.winner_count"),
+            value=tx("anti_spam.members", v0=(winners)),
+            inline=True,
         )
-        embed.add_field(name="參與人數", value="0 人", inline=True)
-        embed.add_field(name="主辦者", value=interaction.user.mention, inline=True)
-        embed.set_footer(text=f"ID: {giveaway_id} | 結束於")
+        embed.add_field(
+            name=tx("giveaway.ends_at"),
+            value=f"<t:{int(end_dt.timestamp())}:R>",
+            inline=True,
+        )
+        embed.add_field(
+            name=tx("giveaway.participants"),
+            value=tx("giveaway.0_members"),
+            inline=True,
+        )
+        embed.add_field(
+            name=tx("giveaway.hosted_by"), value=interaction.user.mention, inline=True
+        )
+        embed.set_footer(text=tx("giveaway.id_ends_at", v0=(giveaway_id)))
 
         view = GiveawayView(giveaway_id)
         await interaction.response.defer()
@@ -217,39 +250,46 @@ class Giveaway(commands.Cog):
         self.bot.add_view(view, message_id=msg.id)
 
         confirm = discord.Embed(
-            title="[成功] 抽獎已建立",
-            description=f"獎品: **{prize}**\n頻道: {target_channel.mention}\n結束: <t:{int(end_dt.timestamp())}:R>",
+            title=tx("giveaway.success_giveaway_created"),
+            description=tx(
+                "giveaway.prize_channel_ends_t_r",
+                v0=(prize),
+                v1=(target_channel.mention),
+                v2=(int(end_dt.timestamp())),
+            ),
             color=discord.Color.from_rgb(46, 204, 113),
         )
         await interaction.followup.send(embed=confirm, ephemeral=True)
 
-    @giveaway_group.command(name="end", description="提前結束抽獎")
-    @app_commands.describe(giveaway_id="抽獎 ID (可從 Embed footer 查看)")
+    @giveaway_group.command(name="end", description="End a giveaway early")
+    @app_commands.describe(giveaway_id="Giveaway ID (shown in the embed footer)")
+    @localized("interaction")
     async def end_cmd(self, interaction: discord.Interaction, giveaway_id: str) -> None:
         """提前結束抽獎"""
         ga = await run_storage(self.service.get, giveaway_id)
         if not ga:
             await interaction.response.send_message(
-                "[失敗] 找不到此抽獎", ephemeral=True
+                tx("giveaway.failed_giveaway_not_found"), ephemeral=True
             )
             return
         if ga.get("ended"):
             await interaction.response.send_message(
-                "[失敗] 此抽獎已結束", ephemeral=True
+                tx("giveaway.failed_this_giveaway_has_ended"), ephemeral=True
             )
             return
 
         await interaction.response.defer()
         await self._end_giveaway(giveaway_id, ga)
         await interaction.followup.send(
-            "[成功] 抽獎已提前結束並抽出得獎者", ephemeral=True
+            tx("giveaway.success_giveaway_ended_early_and_winners"), ephemeral=True
         )
 
-    @giveaway_group.command(name="reroll", description="重新抽取得獎者")
+    @giveaway_group.command(name="reroll", description="Draw new winners")
     @app_commands.describe(
-        giveaway_id="抽獎 ID",
-        winners="重新抽取的人數 (預設為原始設定)",
+        giveaway_id="Giveaway ID",
+        winners="How many to draw (defaults to the original number)",
     )
+    @localized("interaction")
     async def reroll_cmd(
         self,
         interaction: discord.Interaction,
@@ -260,7 +300,7 @@ class Giveaway(commands.Cog):
         ga = await run_storage(self.service.get, giveaway_id)
         if not ga or not ga.get("ended"):
             await interaction.response.send_message(
-                "[失敗] 找不到已結束的抽獎", ephemeral=True
+                tx("giveaway.failed_finished_giveaway_not_found"), ephemeral=True
             )
             return
 
@@ -268,7 +308,9 @@ class Giveaway(commands.Cog):
         winner_ids = await run_storage(self.service.reroll, giveaway_id, num_winners)
 
         if not winner_ids:
-            await interaction.response.send_message("[失敗] 沒有參與者", ephemeral=True)
+            await interaction.response.send_message(
+                tx("giveaway.failed_no_participants"), ephemeral=True
+            )
             return
 
         await interaction.response.defer(ephemeral=True)
@@ -277,8 +319,10 @@ class Giveaway(commands.Cog):
             ch = self.bot.get_channel(ga["channel_id"])
             if isinstance(ch, discord.abc.Messageable):
                 reroll_embed = discord.Embed(
-                    title=f"{GIVEAWAY_EMOJI} 重新抽獎結果",
-                    description=f"獎品: **{ga['prize']}**\n新得獎者: {mentions}",
+                    title=tx("giveaway.redraw_results", v0=(GIVEAWAY_EMOJI)),
+                    description=tx(
+                        "giveaway.prize_new_winners", v0=(ga["prize"]), v1=(mentions)
+                    ),
                     color=discord.Color.from_rgb(255, 215, 0),
                 )
                 await ch.send(embed=reroll_embed)
@@ -286,10 +330,11 @@ class Giveaway(commands.Cog):
             pass
 
         await interaction.followup.send(
-            f"[成功] 重新抽取完成！得獎者: {mentions}", ephemeral=True
+            tx("giveaway.success_winners_redrawn", v0=(mentions)), ephemeral=True
         )
 
-    @giveaway_group.command(name="list", description="查看進行中的抽獎")
+    @giveaway_group.command(name="list", description="Show running giveaways")
+    @localized("interaction")
     async def list_cmd(self, interaction: discord.Interaction) -> None:
         """列出伺服器所有進行中的抽獎"""
         if (
@@ -298,7 +343,7 @@ class Giveaway(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.response.send_message(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         await interaction.response.defer()
@@ -306,12 +351,12 @@ class Giveaway(commands.Cog):
 
         if not active:
             await interaction.followup.send(
-                "[提示] 目前沒有進行中的抽獎", ephemeral=True
+                tx("giveaway.info_no_active_giveaways"), ephemeral=True
             )
             return
 
         embed = discord.Embed(
-            title=f"{GIVEAWAY_EMOJI} 進行中的抽獎",
+            title=tx("giveaway.active_giveaways", v0=(GIVEAWAY_EMOJI)),
             color=discord.Color.from_rgb(255, 215, 0),
         )
         for gid, ga in active[:10]:
@@ -320,9 +365,13 @@ class Giveaway(commands.Cog):
             embed.add_field(
                 name=ga["prize"],
                 value=(
-                    f"ID: `{gid}`\n"
-                    f"得獎人數: {ga['winners']} | 參與: {participants} 人\n"
-                    f"結束: <t:{end_ts}:R>"
+                    tx(
+                        "giveaway.id_winners_participants_ends_t_r",
+                        v0=(gid),
+                        v1=(ga["winners"]),
+                        v2=(participants),
+                        v3=(end_ts),
+                    )
                 ),
                 inline=False,
             )
@@ -333,73 +382,91 @@ class Giveaway(commands.Cog):
 
     async def _end_giveaway(self, giveaway_id: str, ga: dict[Any, Any]) -> None:
         """結算抽獎並發送結果"""
-        winner_ids = await run_storage(self.service.pick_winners, giveaway_id)
-        await run_storage(self.service.mark_ended, giveaway_id, winner_ids)
+        lang = await guild_language(ga["guild_id"])
+        with language_scope(lang):
+            winner_ids = await run_storage(self.service.pick_winners, giveaway_id)
+            await run_storage(self.service.mark_ended, giveaway_id, winner_ids)
 
-        participants_count = len(ga.get("participants", []))
-        if winner_ids:
-            mentions = ", ".join(f"<@{uid}>" for uid in winner_ids)
-            result_embed = discord.Embed(
-                title=f"{GIVEAWAY_EMOJI} 抽獎結束！",
-                description=f"獎品: **{ga['prize']}**\n\n得獎者: {mentions}",
-                color=discord.Color.from_rgb(46, 204, 113),
-                timestamp=datetime.now(TZ_OFFSET),
+            participants_count = len(ga.get("participants", []))
+            if winner_ids:
+                mentions = ", ".join(f"<@{uid}>" for uid in winner_ids)
+                result_embed = discord.Embed(
+                    title=tx("giveaway.giveaway_ended", v0=(GIVEAWAY_EMOJI)),
+                    description=tx(
+                        "giveaway.prize_winners", v0=(ga["prize"]), v1=(mentions)
+                    ),
+                    color=discord.Color.from_rgb(46, 204, 113),
+                    timestamp=datetime.now(TZ_OFFSET),
+                )
+            else:
+                mentions = None
+                result_embed = discord.Embed(
+                    title=tx("giveaway.giveaway_ended_9e59c1", v0=(GIVEAWAY_EMOJI)),
+                    description=tx(
+                        "giveaway.prize_not_enough_participants", v0=(ga["prize"])
+                    ),
+                    color=discord.Color.from_rgb(231, 76, 60),
+                    timestamp=datetime.now(TZ_OFFSET),
+                )
+            result_embed.add_field(
+                name=tx("giveaway.participants"),
+                value=tx("anti_spam.members", v0=(participants_count)),
+                inline=True,
             )
-        else:
-            mentions = None
-            result_embed = discord.Embed(
-                title=f"{GIVEAWAY_EMOJI} 抽獎結束",
-                description=f"獎品: **{ga['prize']}**\n\n沒有足夠的參與者",
-                color=discord.Color.from_rgb(231, 76, 60),
-                timestamp=datetime.now(TZ_OFFSET),
-            )
-        result_embed.add_field(
-            name="參與人數", value=f"{participants_count} 人", inline=True
-        )
-        result_embed.set_footer(text=f"ID: {giveaway_id}")
-
-        try:
-            ch = self.bot.get_channel(ga["channel_id"])
-            if not isinstance(
-                ch,
-                (
-                    discord.TextChannel,
-                    discord.Thread,
-                    discord.VoiceChannel,
-                    discord.StageChannel,
-                ),
-            ):
-                ch = await self.bot.fetch_channel(ga["channel_id"])
+            result_embed.set_footer(text=f"ID: {giveaway_id}")
 
             try:
-                msg = await ch.fetch_message(ga["message_id"])
-                ended_embed = discord.Embed(
-                    title=f"{GIVEAWAY_EMOJI} 抽獎已結束",
-                    description=f"**{ga['prize']}**",
-                    color=discord.Color.from_rgb(128, 128, 128),
-                )
-                ended_embed.add_field(
-                    name="得獎者",
-                    value=mentions if winner_ids else "無人參與",
-                    inline=False,
-                )
-                ended_embed.add_field(
-                    name="參與人數", value=f"{participants_count} 人", inline=True
-                )
-                ended_embed.set_footer(text=f"ID: {giveaway_id} | 已結束")
-                await msg.edit(embed=ended_embed, view=None)
+                ch = self.bot.get_channel(ga["channel_id"])
+                if not isinstance(
+                    ch,
+                    (
+                        discord.TextChannel,
+                        discord.Thread,
+                        discord.VoiceChannel,
+                        discord.StageChannel,
+                    ),
+                ):
+                    ch = await self.bot.fetch_channel(ga["channel_id"])
+
+                try:
+                    msg = await ch.fetch_message(ga["message_id"])
+                    ended_embed = discord.Embed(
+                        title=tx("giveaway.giveaway_has_ended", v0=(GIVEAWAY_EMOJI)),
+                        description=f"**{ga['prize']}**",
+                        color=discord.Color.from_rgb(128, 128, 128),
+                    )
+                    ended_embed.add_field(
+                        name=tx("giveaway.winners"),
+                        value=(
+                            mentions if winner_ids else tx("giveaway.no_participants")
+                        ),
+                        inline=False,
+                    )
+                    ended_embed.add_field(
+                        name=tx("giveaway.participants"),
+                        value=tx("anti_spam.members", v0=(participants_count)),
+                        inline=True,
+                    )
+                    ended_embed.set_footer(
+                        text=tx("giveaway.id_ended", v0=(giveaway_id))
+                    )
+                    await msg.edit(embed=ended_embed, view=None)
+                except Exception:
+                    pass
+
+                await ch.send(embed=result_embed)
+
+                if winner_ids:
+                    await ch.send(
+                        tx(
+                            "giveaway.congratulations_on_winning_contact_to_claim",
+                            v0=(mentions),
+                            v1=(ga["prize"]),
+                            v2=(ga["host_id"]),
+                        )
+                    )
             except Exception:
                 pass
-
-            await ch.send(embed=result_embed)
-
-            if winner_ids:
-                await ch.send(
-                    f"恭喜 {mentions} 獲得 **{ga['prize']}**！"
-                    f"請聯繫 <@{ga['host_id']}> 領取獎品"
-                )
-        except Exception:
-            pass
 
 
 async def setup(bot: commands.Bot) -> None:

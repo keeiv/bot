@@ -83,7 +83,11 @@ def make_game():
     p2 = SimpleNamespace(id=2, mention="p2", display_name="p2")
     game = RouletteGame(SimpleNamespace(id=3, send=AsyncMock()), p1, p2)
     interaction = SimpleNamespace(
-        user=p1, response=SimpleNamespace(send_message=AsyncMock())
+        guild_id=None,
+        locale=discord.Locale.taiwan_chinese,
+        client=SimpleNamespace(get_guild=lambda _: None),
+        user=p1,
+        response=SimpleNamespace(send_message=AsyncMock()),
     )
     return game, interaction
 

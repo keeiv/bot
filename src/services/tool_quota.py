@@ -14,6 +14,7 @@ from src.services.tool_protocol import FORMATS
 from src.services.tool_protocol import MAX_TOTAL_BYTES
 from src.utils.document_store import read_document
 from src.utils.document_store import using_mysql
+from src.utils.i18n import text as tx
 from src.utils.mysql_compat import MySQLConnection
 
 MIB = 1024 * 1024
@@ -91,7 +92,7 @@ def valid_id(value):
         or not 1 <= len(value) <= 20
         or int(value) == 0
     ):
-        raise ValueError("無效的 Discord ID")
+        raise ValueError(tx("tool_quota.invalid_discord_id"))
     return value
 
 
@@ -291,7 +292,7 @@ class ToolQuota:
             "coupons": coupons,
             "tiers": [dict(t) for t in TIERS],
             "formats": list(FORMATS),
-            "pricing": "點數＝向上取整（輸入 MiB＋實際處理秒數×2）；失敗或壓縮未縮小不扣點。",
+            "pricing": tx("tool_quota.points_ceil_input_mib_processing_seconds"),
         }
 
     def snapshot(self, user_id):
@@ -304,14 +305,14 @@ class ToolQuota:
             or not sizes
             or any(type(s) is not int or s <= 0 for s in sizes)
         ):
-            raise ValueError("檔案或輸出格式無效")
+            raise ValueError(tx("tool_quota.invalid_files_or_output_format"))
         with self.connection(locked=True) as db:
             data = self._snapshot(db, self._user(db, user_id))
             tier = data["tier"]
             if len(sizes) > tier["batch"]:
-                raise ValueError("超過目前等級的批次上限")
+                raise ValueError(tx("tool_quota.the_batch_exceeds_this_tier_s"))
             if max(sizes) > tier["max_mb"] * MIB or sum(sizes) > MAX_TOTAL_BYTES:
-                raise ValueError("檔案大小超過目前上限")
+                raise ValueError(tx("tool_quota.the_file_exceeds_the_current_size"))
             timeout = min(tier["seconds"], job_seconds(len(sizes)))
             ceiling = points(sum(sizes), timeout)
             if any(
@@ -319,7 +320,9 @@ class ToolQuota:
                 > data[period]["limit"]
                 for period in ("weekly", "rolling")
             ):
-                raise ValueError("剩餘額度不足以預留本次處理上限")
+                raise ValueError(
+                    tx("tool_quota.insufficient_allowance_to_reserve_the_maximum")
+                )
             return {
                 "maximumPoints": ceiling,
                 "inputBytes": sum(sizes),
@@ -335,22 +338,26 @@ class ToolQuota:
             user = self._user(db, user_id)
             data = self._snapshot(db, user)
             if data["tier"]["name"] != quote["tierName"]:
-                raise ValueError("等級已更新，需重新估算本次用量")
+                raise ValueError(tx("tool_quota.the_tier_has_changed_request_a"))
             if db.execute(
                 "SELECT 1 FROM tool_jobs WHERE job_id=?", (job_id,)
             ).fetchone():
-                raise ValueError("此處理請求已提交")
+                raise ValueError(
+                    tx("tool_quota.this_processing_request_has_already_been")
+                )
             if db.execute(
                 "SELECT 1 FROM tool_jobs WHERE user_id=? AND state='pending' AND expires_at>?",
                 (user[0], self.clock()),
             ).fetchone():
-                raise ValueError("已有處理中的檔案工作")
+                raise ValueError(tx("tool_quota.a_file_job_is_already_in"))
             cost = quote["maximumPoints"]
             if any(
                 data[period]["used"] + data["reserved"] + cost > data[period]["limit"]
                 for period in ("weekly", "rolling")
             ):
-                raise ValueError("剩餘額度不足以預留本次處理上限")
+                raise ValueError(
+                    tx("tool_quota.insufficient_allowance_to_reserve_the_maximum")
+                )
             db.execute(
                 "INSERT INTO tool_jobs(job_id,user_id,epoch,created_at,expires_at,state,reserved,input_bytes) VALUES (?,?,?,?,?,'pending',?,?)",
                 (
@@ -373,7 +380,7 @@ class ToolQuota:
                 (job_id, user[0]),
             ).fetchone()
             if row is None:
-                raise ValueError("找不到處理紀錄")
+                raise ValueError(tx("tool_quota.processing_record_not_found"))
             if row[0] != "pending":
                 return row[3]
             success = success and row[4] > self.clock()
@@ -418,10 +425,10 @@ class ToolQuota:
                 (coupon_id, user[0]),
             ).fetchone()
             if coupon is None or coupon[0] is not None:
-                raise ValueError("重置券不存在或已使用")
+                raise ValueError(tx("tool_quota.the_reset_voucher_does_not_exist"))
             state = self._snapshot(db, user)
             if state["weekly"]["used"] == 0 and state["rolling"]["used"] == 0:
-                raise ValueError("目前沒有需要重置的已用額度")
+                raise ValueError(tx("tool_quota.there_is_no_recorded_usage_to"))
             db.execute(
                 "UPDATE tool_coupons SET used_at=? WHERE coupon_id=?",
                 (self.clock(), coupon_id),
@@ -436,9 +443,9 @@ class ToolQuota:
         from src.config.constants import DEVELOPER_IDS
 
         if int(valid_id(actor_id)) not in DEVELOPER_IDS:
-            raise PermissionError("僅限開發者使用")
+            raise PermissionError(tx("file_tools.developers_only"))
         if action not in ("reset", "issue"):
-            raise ValueError("未知管理操作")
+            raise ValueError(tx("tool_quota.unknown_administration_operation"))
         with self.connection(locked=True) as db:
             prior = db.execute(
                 "SELECT affected FROM tool_actions WHERE action_id=?", (str(event_id),)
@@ -488,14 +495,14 @@ class ToolQuota:
 
         actor, uid = valid_id(actor_id), valid_id(user_id)
         if int(actor) not in DEVELOPER_IDS:
-            raise PermissionError("僅限開發者授予或撤銷隱藏等級")
+            raise PermissionError(tx("tool_quota.only_developers_can_grant_or_revoke"))
         if not isinstance(enabled, bool):
-            raise ValueError("無效的授權操作")
+            raise ValueError(tx("tool_quota.invalid_authorization_operation"))
         if int(uid) in DEVELOPER_IDS:
-            raise ValueError("開發者預設為 Nova 20x.，不需要額外授權")
+            raise ValueError(tx("tool_quota.developers_receive_nova_20x_by_default"))
         event = str(event_id) if event_id is not None else uuid.uuid4().hex
         if not 1 <= len(event) <= 64:
-            raise ValueError("無效的操作識別碼")
+            raise ValueError(tx("tool_quota.invalid_operation_id"))
         action = "nova_grant" if enabled else "nova_revoke"
         with self.connection(locked=True) as db:
             prior = db.execute(
@@ -503,7 +510,7 @@ class ToolQuota:
                 (event,),
             ).fetchone()
             if prior and tuple(prior) != (actor, action, uid):
-                raise ValueError("操作識別碼已用於其他操作")
+                raise ValueError(tx("tool_quota.this_operation_id_was_used_for"))
             if not prior:
                 self._user(db, uid)
                 db.execute("DELETE FROM tool_tier_grants WHERE user_id=?", (uid,))
@@ -524,14 +531,14 @@ class ToolQuota:
 
         uid = valid_id(actor_id)
         if int(uid) not in DEVELOPER_IDS:
-            raise PermissionError("僅限開發者帳號使用測試等級")
+            raise PermissionError(tx("tool_quota.only_developer_accounts_can_use_test"))
         normalized = str(tier_name).lower().rstrip(".")
         tier = next(
             (t for t in TIERS if t["name"].lower().rstrip(".") == normalized), None
         )
         restore = normalized in {"auto", "nova", "nova 20x"}
         if tier is None and not restore:
-            raise ValueError("等級：Free.／Run.／Dash.／Grow.／Ultra.／Nova／auto")
+            raise ValueError(tx("tool_quota.tier_free_run_dash_grow_ultra"))
         with self.connection(locked=True) as db:
             self._user(db, uid)
             db.execute("DELETE FROM tool_tier_overrides WHERE user_id=?", (uid,))

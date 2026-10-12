@@ -10,40 +10,52 @@ from discord.ext import commands
 
 from src.config.constants import DEVELOPER_IDS
 from src.services.appearance_service import AppearanceService
+from src.utils.i18n import text as tx
+from src.utils.lang_context import localized
+from src.utils.localized_ui import LocalizedView
 from src.utils.time_utils import TZ_OFFSET
 
 # 圖片大小限制 8MB
 MAX_IMAGE_SIZE = 8 * 1024 * 1024
 
 
-class AppearanceApprovalView(ui.View):
+class AppearanceApprovalView(LocalizedView):
     """外觀變更審核視圖"""
+
+    i18n = {
+        "approve_button.label": "bot_appearance.approve",
+        "reject_button.label": "bot_appearance.reject",
+    }
 
     def __init__(self, request_id: str, cog: "BotAppearance") -> None:
         super().__init__(timeout=None)
         self.request_id = request_id
         self.cog = cog
 
-    @ui.button(label="核准", style=discord.ButtonStyle.success)
+    @ui.button(label="Approve", style=discord.ButtonStyle.success)
+    @localized("interaction")
     async def approve_button(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
         """核准變更"""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
-                "[拒絕] 你沒有權限審核", ephemeral=True
+                tx("blacklist.denied_appeal_review_permission_is_required"),
+                ephemeral=True,
             )
             return
         await self.cog.handle_approval(interaction, self.request_id, approved=True)
 
-    @ui.button(label="拒絕", style=discord.ButtonStyle.danger)
+    @ui.button(label="Reject", style=discord.ButtonStyle.danger)
+    @localized("interaction")
     async def reject_button(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
         """拒絕變更"""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
-                "[拒絕] 你沒有權限審核", ephemeral=True
+                tx("blacklist.denied_appeal_review_permission_is_required"),
+                ephemeral=True,
             )
             return
         await self.cog.handle_approval(interaction, self.request_id, approved=False)
@@ -58,10 +70,11 @@ class BotAppearance(commands.Cog):
 
     appearance_group = app_commands.Group(
         name="bot_appearance",
-        description="機器人在此伺服器的外觀設定",
+        description="The bot's appearance in this server",
         default_permissions=discord.Permissions(administrator=True),
     )
 
+    @localized("interaction")
     async def send_approval_request(
         self,
         interaction: discord.Interaction,
@@ -77,7 +90,7 @@ class BotAppearance(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.response.send_message(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         request_id = str(uuid.uuid4())[:8]
@@ -96,26 +109,36 @@ class BotAppearance(commands.Cog):
             },
         )
 
-        type_name = "頭像" if change_type == "avatar" else "橫幅"
+        type_name = (
+            tx("bot_appearance.avatar")
+            if change_type == "avatar"
+            else tx("bot_appearance.banner")
+        )
         embed = discord.Embed(
-            title=f"[審核] 機器人{type_name}變更請求",
+            title=tx("bot_appearance.review_bot_change_request", v0=(type_name)),
             color=discord.Color.from_rgb(241, 196, 15),
             timestamp=datetime.now(TZ_OFFSET),
         )
         embed.add_field(
-            name="伺服器",
+            name=tx("bot_appearance.server"),
             value=f"{interaction.guild.name} ({interaction.guild_id})",
             inline=False,
         )
         embed.add_field(
-            name="申請者",
+            name=tx("bot_appearance.requester"),
             value=f"<@{interaction.user.id}> ({interaction.user.id})",
             inline=False,
         )
-        embed.add_field(name="變更類型", value=type_name, inline=True)
-        embed.add_field(name="請求 ID", value=request_id, inline=True)
+        embed.add_field(
+            name=tx("bot_appearance.change_type"), value=type_name, inline=True
+        )
+        embed.add_field(
+            name=tx("bot_appearance.request_id"), value=request_id, inline=True
+        )
         embed.set_image(url=image_url)
-        embed.set_footer(text="請審核此變更請求")
+        embed.set_footer(
+            text=tx("bot_appearance.this_change_request_is_awaiting_review")
+        )
 
         try:
             for dev_id in DEVELOPER_IDS:
@@ -124,8 +147,9 @@ class BotAppearance(commands.Cog):
                 await developer.send(embed=embed, view=view)
         except Exception as e:
             self.service.remove_request(request_id)
-            raise RuntimeError(f"無法通知開發者: {e}")
+            raise RuntimeError(tx("bot_appearance.could_not_notify_developers", v0=(e)))
 
+    @localized("interaction")
     async def handle_approval(
         self,
         interaction: discord.Interaction,
@@ -136,18 +160,22 @@ class BotAppearance(commands.Cog):
         request = self.service.remove_request(request_id)
         if not request:
             await interaction.response.send_message(
-                "[失敗] 此請求已過期或不存在", ephemeral=True
+                tx("bot_appearance.failed_this_request_has_expired_or"), ephemeral=True
             )
             return
 
         change_type = request["type"]
-        type_name = "頭像" if change_type == "avatar" else "橫幅"
+        type_name = (
+            tx("bot_appearance.avatar")
+            if change_type == "avatar"
+            else tx("bot_appearance.banner")
+        )
 
         if approved:
             guild = self.bot.get_guild(request["guild_id"])
             if not guild:
                 await interaction.response.send_message(
-                    "[失敗] 找不到伺服器", ephemeral=True
+                    tx("bot_appearance.failed_server_not_found"), ephemeral=True
                 )
                 return
 
@@ -165,8 +193,10 @@ class BotAppearance(commands.Cog):
 
                 # 更新審核訊息
                 embed = discord.Embed(
-                    title=f"[已核准] {type_name}變更",
-                    description=f"已套用至 {request['guild_name']}",
+                    title=tx("bot_appearance.approved_change", v0=(type_name)),
+                    description=tx(
+                        "bot_appearance.applied_to", v0=(request["guild_name"])
+                    ),
                     color=discord.Color.from_rgb(46, 204, 113),
                 )
                 await interaction.edit_original_response(embed=embed, view=None)
@@ -184,10 +214,13 @@ class BotAppearance(commands.Cog):
                         ),
                     ):
                         notify_embed = discord.Embed(
-                            title=f"[成功] {type_name}已更新",
+                            title=tx("bot_appearance.success_updated", v0=(type_name)),
                             description=(
-                                f"<@{request['requester_id']}> 申請的"
-                                f"{type_name}變更已通過審核並套用"
+                                tx(
+                                    "bot_appearance.the_change_requested_by_was_approved",
+                                    v0=(request["requester_id"]),
+                                    v1=(type_name),
+                                )
                             ),
                             color=discord.Color.from_rgb(46, 204, 113),
                         )
@@ -196,12 +229,18 @@ class BotAppearance(commands.Cog):
                     pass
 
             except Exception as e:
-                await interaction.followup.send(f"[失敗] 套用失敗: {e}", ephemeral=True)
+                await interaction.followup.send(
+                    tx("bot_appearance.failed_could_not_apply_change", v0=(e)),
+                    ephemeral=True,
+                )
         else:
             # 拒絕
             embed = discord.Embed(
-                title=f"[已拒絕] {type_name}變更",
-                description=f"來自 {request['guild_name']} 的請求已拒絕",
+                title=tx("bot_appearance.rejected_change", v0=(type_name)),
+                description=tx(
+                    "bot_appearance.the_request_from_was_rejected",
+                    v0=(request["guild_name"]),
+                ),
                 color=discord.Color.from_rgb(231, 76, 60),
             )
             await interaction.response.edit_message(embed=embed, view=None)
@@ -219,10 +258,16 @@ class BotAppearance(commands.Cog):
                     ),
                 ):
                     notify_embed = discord.Embed(
-                        title=f"[拒絕] {type_name}變更未通過",
+                        title=tx(
+                            "bot_appearance.rejected_change_not_approved",
+                            v0=(type_name),
+                        ),
                         description=(
-                            f"<@{request['requester_id']}> 申請的"
-                            f"{type_name}變更已被開發者拒絕"
+                            tx(
+                                "bot_appearance.the_change_requested_by_was_rejected",
+                                v0=(request["requester_id"]),
+                                v1=(type_name),
+                            )
                         ),
                         color=discord.Color.from_rgb(231, 76, 60),
                     )
@@ -230,8 +275,11 @@ class BotAppearance(commands.Cog):
             except Exception:
                 pass
 
-    @appearance_group.command(name="name", description="更改機器人在此伺服器的名稱")
-    @app_commands.describe(name="新的暱稱 (留空則還原預設)")
+    @appearance_group.command(
+        name="name", description="Change the bot's nickname in this server"
+    )
+    @app_commands.describe(name="New nickname (leave empty to reset)")
+    @localized("interaction")
     async def change_name(
         self, interaction: discord.Interaction, name: str | None = None
     ) -> None:
@@ -242,12 +290,13 @@ class BotAppearance(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.response.send_message(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message(
-                "[失敗] 你需要管理員權限", ephemeral=True
+                tx("bot_appearance.failed_administrator_permission_is_required"),
+                ephemeral=True,
             )
             return
 
@@ -258,29 +307,33 @@ class BotAppearance(commands.Cog):
 
             if name:
                 embed = discord.Embed(
-                    title="[成功] 名稱已更改",
-                    description=f"機器人在此伺服器的名稱已更改為: **{name}**",
+                    title=tx("bot_appearance.success_name_changed"),
+                    description=tx("bot_appearance.the_bot_s_name_in_this", v0=(name)),
                     color=discord.Color.from_rgb(46, 204, 113),
                 )
             else:
                 embed = discord.Embed(
-                    title="[成功] 名稱已還原",
-                    description="機器人名稱已還原為預設",
+                    title=tx("bot_appearance.success_name_reset"),
+                    description=tx("bot_appearance.the_bot_s_name_has_been"),
                     color=discord.Color.from_rgb(46, 204, 113),
                 )
             await interaction.followup.send(embed=embed)
 
         except discord.Forbidden:
             await interaction.followup.send(
-                "[失敗] 機器人缺少更改暱稱的權限", ephemeral=True
+                tx("bot_appearance.failed_the_bot_lacks_permission_to"), ephemeral=True
             )
         except Exception as e:
-            await interaction.followup.send(f"[失敗] 無法更改名稱: {e}", ephemeral=True)
+            await interaction.followup.send(
+                tx("bot_appearance.failed_could_not_change_name", v0=(e)),
+                ephemeral=True,
+            )
 
     @appearance_group.command(
-        name="avatar", description="更改機器人在此伺服器的頭像 (需審核)"
+        name="avatar", description="Change the bot's avatar in this server (reviewed)"
     )
-    @app_commands.describe(image="新的頭像圖片 (將送交開發者審核)")
+    @app_commands.describe(image="New avatar image (sent to the developers for review)")
+    @localized("interaction")
     async def change_avatar(
         self, interaction: discord.Interaction, image: discord.Attachment
     ) -> None:
@@ -291,24 +344,25 @@ class BotAppearance(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.response.send_message(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message(
-                "[失敗] 你需要管理員權限", ephemeral=True
+                tx("bot_appearance.failed_administrator_permission_is_required"),
+                ephemeral=True,
             )
             return
 
         if not image.content_type or not image.content_type.startswith("image/"):
             await interaction.response.send_message(
-                "[失敗] 請上傳有效的圖片檔案", ephemeral=True
+                tx("bot_appearance.failed_upload_a_valid_image_file"), ephemeral=True
             )
             return
 
         if image.size > MAX_IMAGE_SIZE:
             await interaction.response.send_message(
-                "[失敗] 圖片大小不能超過 8MB", ephemeral=True
+                tx("bot_appearance.failed_the_image_must_not_exceed"), ephemeral=True
             )
             return
 
@@ -325,20 +379,24 @@ class BotAppearance(commands.Cog):
             )
 
             embed = discord.Embed(
-                title="[待審核] 頭像變更已提交",
-                description="你的頭像變更請求已發送給開發者審核，請耐心等待",
+                title=tx("bot_appearance.pending_avatar_change_submitted"),
+                description=tx("bot_appearance.the_avatar_change_request_has_been"),
                 color=discord.Color.from_rgb(241, 196, 15),
             )
             embed.set_thumbnail(url=image.url)
             await interaction.followup.send(embed=embed)
 
         except Exception as e:
-            await interaction.followup.send(f"[失敗] 提交審核失敗: {e}", ephemeral=True)
+            await interaction.followup.send(
+                tx("bot_appearance.failed_could_not_submit_for_review", v0=(e)),
+                ephemeral=True,
+            )
 
     @appearance_group.command(
-        name="banner", description="更改機器人在此伺服器的橫幅 (需審核)"
+        name="banner", description="Change the bot's banner in this server (reviewed)"
     )
-    @app_commands.describe(image="新的橫幅圖片 (將送交開發者審核)")
+    @app_commands.describe(image="New banner image (sent to the developers for review)")
+    @localized("interaction")
     async def change_banner(
         self, interaction: discord.Interaction, image: discord.Attachment
     ) -> None:
@@ -349,24 +407,25 @@ class BotAppearance(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.response.send_message(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message(
-                "[失敗] 你需要管理員權限", ephemeral=True
+                tx("bot_appearance.failed_administrator_permission_is_required"),
+                ephemeral=True,
             )
             return
 
         if not image.content_type or not image.content_type.startswith("image/"):
             await interaction.response.send_message(
-                "[失敗] 請上傳有效的圖片檔案", ephemeral=True
+                tx("bot_appearance.failed_upload_a_valid_image_file"), ephemeral=True
             )
             return
 
         if image.size > MAX_IMAGE_SIZE:
             await interaction.response.send_message(
-                "[失敗] 圖片大小不能超過 8MB", ephemeral=True
+                tx("bot_appearance.failed_the_image_must_not_exceed"), ephemeral=True
             )
             return
 
@@ -383,27 +442,31 @@ class BotAppearance(commands.Cog):
             )
 
             embed = discord.Embed(
-                title="[待審核] 橫幅變更已提交",
-                description="你的橫幅變更請求已發送給開發者審核，請耐心等待",
+                title=tx("bot_appearance.pending_banner_change_submitted"),
+                description=tx("bot_appearance.the_banner_change_request_has_been"),
                 color=discord.Color.from_rgb(241, 196, 15),
             )
             embed.set_image(url=image.url)
             await interaction.followup.send(embed=embed)
 
         except Exception as e:
-            await interaction.followup.send(f"[失敗] 提交審核失敗: {e}", ephemeral=True)
+            await interaction.followup.send(
+                tx("bot_appearance.failed_could_not_submit_for_review", v0=(e)),
+                ephemeral=True,
+            )
 
     @appearance_group.command(
-        name="reset", description="將機器人在此伺服器的頭像/橫幅還原為全域預設"
+        name="reset", description="Reset the bot's avatar or banner in this server"
     )
-    @app_commands.describe(target="要還原的項目")
+    @app_commands.describe(target="What to reset")
     @app_commands.choices(
         target=[
-            app_commands.Choice(name="頭像", value="avatar"),
-            app_commands.Choice(name="橫幅", value="banner"),
-            app_commands.Choice(name="頭像與橫幅", value="both"),
+            app_commands.Choice(name="Avatar", value="avatar"),
+            app_commands.Choice(name="Banner", value="banner"),
+            app_commands.Choice(name="Avatar and banner", value="both"),
         ]
     )
+    @localized("interaction")
     async def reset_appearance(
         self,
         interaction: discord.Interaction,
@@ -416,21 +479,22 @@ class BotAppearance(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.response.send_message(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message(
-                "[失敗] 你需要管理員權限", ephemeral=True
+                tx("bot_appearance.failed_administrator_permission_is_required"),
+                ephemeral=True,
             )
             return
 
         await interaction.response.defer()
 
         target_name_map = {
-            "avatar": "頭像",
-            "banner": "橫幅",
-            "both": "頭像與橫幅",
+            "avatar": tx("bot_appearance.avatar"),
+            "banner": tx("bot_appearance.banner"),
+            "both": tx("bot_appearance.avatar_and_banner"),
         }
         target_name = target_name_map[target.value]
 
@@ -450,22 +514,28 @@ class BotAppearance(commands.Cog):
             await self.bot.http.request(route, json=payload)
 
             embed = discord.Embed(
-                title="[成功] 外觀已還原",
-                description=f"機器人在此伺服器的{target_name}已還原為全域預設",
+                title=tx("bot_appearance.success_appearance_reset"),
+                description=tx(
+                    "bot_appearance.the_bot_s_in_this_server", v0=(target_name)
+                ),
                 color=discord.Color.from_rgb(46, 204, 113),
                 timestamp=datetime.now(TZ_OFFSET),
             )
             embed.add_field(
-                name="操作者",
+                name=tx("bot_appearance.performed_by"),
                 value=f"{interaction.user.mention} ({interaction.user.id})",
                 inline=False,
             )
             await interaction.followup.send(embed=embed)
 
         except discord.Forbidden:
-            await interaction.followup.send("[失敗] 機器人缺少必要權限", ephemeral=True)
+            await interaction.followup.send(
+                tx("bot_appearance.failed_the_bot_lacks_the_required"), ephemeral=True
+            )
         except discord.HTTPException as e:
-            await interaction.followup.send(f"[失敗] API 請求失敗: {e}", ephemeral=True)
+            await interaction.followup.send(
+                tx("bot_appearance.failed_api_request_failed", v0=(e)), ephemeral=True
+            )
 
 
 async def setup(bot: commands.Bot) -> None:

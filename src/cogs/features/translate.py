@@ -8,40 +8,43 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from src.utils.i18n import Lang
+from src.utils.i18n import t
+from src.utils.lang_context import interaction_lang
+
 logger = logging.getLogger(__name__)
 
-# 常用語言對照表
-LANGUAGES = {
-    "繁體中文": "zh-TW",
-    "簡體中文": "zh-CN",
-    "英文": "en",
-    "日文": "ja",
-    "韓文": "ko",
-    "法文": "fr",
-    "德文": "de",
-    "西班牙文": "es",
-    "俄文": "ru",
-    "葡萄牙文": "pt",
-    "泰文": "th",
-    "越南文": "vi",
-    "印尼文": "id",
-    "阿拉伯文": "ar",
+# 常用語言：Google 語言代碼 → 各介面語言的顯示名稱
+LANGUAGES: dict[str, dict[Lang, str]] = {
+    "zh-TW": {"en": "Chinese (Traditional)", "zh": "繁體中文"},
+    "zh-CN": {"en": "Chinese (Simplified)", "zh": "簡體中文"},
+    "en": {"en": "English", "zh": "英文"},
+    "ja": {"en": "Japanese", "zh": "日文"},
+    "ko": {"en": "Korean", "zh": "韓文"},
+    "fr": {"en": "French", "zh": "法文"},
+    "de": {"en": "German", "zh": "德文"},
+    "es": {"en": "Spanish", "zh": "西班牙文"},
+    "ru": {"en": "Russian", "zh": "俄文"},
+    "pt": {"en": "Portuguese", "zh": "葡萄牙文"},
+    "th": {"en": "Thai", "zh": "泰文"},
+    "vi": {"en": "Vietnamese", "zh": "越南文"},
+    "id": {"en": "Indonesian", "zh": "印尼文"},
+    "ar": {"en": "Arabic", "zh": "阿拉伯文"},
 }
-
-LANG_CODE_TO_NAME = {v: k for k, v in LANGUAGES.items()}
 
 
 class LanguageSelect(discord.ui.Select[Any]):
     """語言選擇下拉選單"""
 
-    def __init__(self, original_text: str) -> None:
+    def __init__(self, original_text: str, lang: Lang) -> None:
         self.original_text = original_text
+        self.lang: Lang = lang
         options = [
-            discord.SelectOption(label=name, value=code)
-            for name, code in LANGUAGES.items()
+            discord.SelectOption(label=names[lang], value=code)
+            for code, names in LANGUAGES.items()
         ]
         super().__init__(
-            placeholder="選擇目標語言...",
+            placeholder=t(lang, "translate.placeholder"),
             options=options,
             min_values=1,
             max_values=1,
@@ -49,7 +52,8 @@ class LanguageSelect(discord.ui.Select[Any]):
 
     async def callback(self, interaction: discord.Interaction) -> None:
         target_lang = self.values[0]
-        target_name = LANG_CODE_TO_NAME.get(target_lang, target_lang)
+        lang = self.lang
+        target_name = LANGUAGES.get(target_lang, {}).get(lang, target_lang)
 
         await interaction.response.defer(ephemeral=True)
 
@@ -60,13 +64,11 @@ class LanguageSelect(discord.ui.Select[Any]):
             )
         except Exception as e:
             logger.error(f"翻譯失敗: {e}")
-            await interaction.followup.send(
-                "[失敗] 翻譯時發生錯誤，請稍後再試。", ephemeral=True
-            )
+            await interaction.followup.send(t(lang, "translate.failed"), ephemeral=True)
             return
 
         embed = discord.Embed(
-            title=f"[翻譯] 自動偵測 → {target_name}",
+            title=t(lang, "translate.title", target=target_name),
             color=discord.Color.from_rgb(66, 133, 244),
         )
         # 截斷避免超出 Embed 限制
@@ -79,8 +81,12 @@ class LanguageSelect(discord.ui.Select[Any]):
             translated[:1000] + "..." if len(translated) > 1000 else translated
         )
 
-        embed.add_field(name="[原文]", value=original_display, inline=False)
-        embed.add_field(name="[翻譯結果]", value=translated_display, inline=False)
+        embed.add_field(
+            name=t(lang, "translate.original"), value=original_display, inline=False
+        )
+        embed.add_field(
+            name=t(lang, "translate.result"), value=translated_display, inline=False
+        )
 
         await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -88,9 +94,9 @@ class LanguageSelect(discord.ui.Select[Any]):
 class LanguageSelectView(discord.ui.View):
     """包含語言選擇的 View"""
 
-    def __init__(self, original_text: str) -> None:
+    def __init__(self, original_text: str, lang: Lang) -> None:
         super().__init__(timeout=60)
-        self.add_item(LanguageSelect(original_text))
+        self.add_item(LanguageSelect(original_text, lang))
 
 
 class Translate(commands.Cog):
@@ -99,8 +105,13 @@ class Translate(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.translate_ctx_menu = app_commands.ContextMenu(
-            name="翻譯訊息",
+            name="Translate message",
             callback=self.translate_message,
+            # Personal tool: also usable in DMs and servers without the bot.
+            allowed_installs=app_commands.AppInstallationType(guild=True, user=True),
+            allowed_contexts=app_commands.AppCommandContext(
+                guild=True, dm_channel=True, private_channel=True
+            ),
         )
         self.bot.tree.add_command(self.translate_ctx_menu)
 
@@ -114,22 +125,23 @@ class Translate(commands.Cog):
         self, interaction: discord.Interaction, message: discord.Message
     ) -> None:
         """右鍵選單 - 翻譯訊息"""
+        lang = await interaction_lang(interaction)
         content = message.content
         if not content or not content.strip():
             await interaction.response.send_message(
-                "[失敗] 該訊息沒有文字內容可供翻譯。", ephemeral=True
+                t(lang, "translate.no_text"), ephemeral=True
             )
             return
 
         if len(content) > 5000:
             await interaction.response.send_message(
-                "[失敗] 訊息過長，無法翻譯。", ephemeral=True
+                t(lang, "translate.too_long"), ephemeral=True
             )
             return
 
-        view = LanguageSelectView(content)
+        view = LanguageSelectView(content, lang)
         await interaction.response.send_message(
-            "[翻譯] 請選擇目標語言:", view=view, ephemeral=True
+            t(lang, "translate.choose"), view=view, ephemeral=True
         )
 
 

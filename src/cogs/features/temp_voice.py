@@ -8,6 +8,8 @@ from discord import app_commands
 from discord.ext import commands
 
 from src.services.temp_voice_service import TempVoiceService
+from src.utils.i18n import text as tx
+from src.utils.lang_context import localized
 from src.utils.storage_worker import run_storage
 
 if TYPE_CHECKING:
@@ -30,21 +32,24 @@ class TempVoice(commands.Cog):
 
     temp_voice = app_commands.Group(
         name="temp_voice",
-        description="暫時語音頻道系統管理（管理員專用）",
+        description="Temporary voice channels (admins only)",
     )
 
-    @temp_voice.command(name="setup", description="設定暫時語音頻道觸發房間")
-    @app_commands.describe(
-        trigger="使用者加入此頻道後自動建立暫時語音頻道",
-        category="新建立的暫時語音頻道所在類別（預設與觸發頻道相同類別）",
-        name_template="頻道名稱範本，使用 {username} 作為玩家名稱佔位符（預設：{username}的家）",
+    @temp_voice.command(
+        name="setup", description="Set the channel that creates temporary voice rooms"
     )
+    @app_commands.describe(
+        trigger="Joining this channel creates a temporary voice room",
+        category="Category for new rooms (defaults to the trigger channel's)",
+        name_template="Room name; {username} is replaced by the member's name",
+    )
+    @localized("interaction")
     async def setup(
         self,
         interaction: discord.Interaction,
         trigger: discord.VoiceChannel,
         category: Optional[discord.CategoryChannel] = None,
-        name_template: str = "{username}的家",
+        name_template: Optional[str] = None,
     ) -> None:
         """設定暫時語音頻道觸發房間"""
         await interaction.response.defer(thinking=True, ephemeral=False)
@@ -54,18 +59,20 @@ class TempVoice(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.followup.send(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.followup.send(
-                "[失敗] 你需要「管理頻道」權限才能使用此指令", ephemeral=True
+                tx("temp_voice.failed_the_manage_channels_permission_is"),
+                ephemeral=True,
             )
             return
 
+        name_template = name_template or tx("temp_voice.s_room")
         if len(name_template) > 100:
             await interaction.followup.send(
-                "[失敗] 名稱範本不能超過 100 字元", ephemeral=True
+                tx("temp_voice.failed_the_name_template_must_not"), ephemeral=True
             )
             return
 
@@ -82,32 +89,55 @@ class TempVoice(commands.Cog):
         category_display = (
             category.name
             if category
-            else (trigger.category.name if trigger.category else "無類別（根目錄）")
+            else (
+                trigger.category.name
+                if trigger.category
+                else tx("temp_voice.no_category_root")
+            )
         )
 
         embed = discord.Embed(
-            title="[成功] 暫時語音頻道系統已設定",
+            title=tx("temp_voice.success_temporary_voice_channels_configured"),
             color=discord.Color.from_rgb(46, 204, 113),
             timestamp=datetime.now(TZ_OFFSET),
         )
-        embed.add_field(name="觸發頻道", value=trigger.mention, inline=True)
-        embed.add_field(name="建立類別", value=category_display, inline=True)
         embed.add_field(
-            name="名稱範本",
-            value=f"`{name_template}`\n範例：`{name_template.replace('{username}', interaction.user.display_name)}`",
+            name=tx("temp_voice.trigger_channel"), value=trigger.mention, inline=True
+        )
+        embed.add_field(
+            name=tx("temp_voice.channel_category"), value=category_display, inline=True
+        )
+        embed.add_field(
+            name=tx("temp_voice.name_template"),
+            value=tx(
+                "temp_voice.example",
+                v0=(name_template),
+                v1=(name_template.replace("{username}", interaction.user.display_name)),
+            ),
             inline=False,
         )
         embed.add_field(
-            name="用戶指令前綴",
-            value=f"`{ENVC_PREFIX}` — 輸入 `{ENVC_PREFIX}help` 查看完整說明",
+            name=tx("temp_voice.user_command_prefix"),
+            value=tx(
+                "temp_voice.use_help_for_instructions",
+                v0=(ENVC_PREFIX),
+                v1=(ENVC_PREFIX),
+            ),
             inline=False,
         )
         embed.set_footer(
-            text=f"由 {interaction.user} 設定 | 伺服器：{interaction.guild.name}"
+            text=tx(
+                "temp_voice.configured_by_server",
+                v0=(interaction.user),
+                v1=(interaction.guild.name),
+            )
         )
         await interaction.followup.send(embed=embed)
 
-    @temp_voice.command(name="status", description="查看此伺服器的暫時語音頻道系統狀態")
+    @temp_voice.command(
+        name="status", description="Show this server's temporary voice settings"
+    )
+    @localized("interaction")
     async def status(self, interaction: discord.Interaction) -> None:
         """顯示暫時語音頻道系統設定狀態"""
         await interaction.response.defer(thinking=True, ephemeral=True)
@@ -117,19 +147,20 @@ class TempVoice(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.followup.send(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.followup.send(
-                "[失敗] 你需要「管理頻道」權限才能使用此指令", ephemeral=True
+                tx("temp_voice.failed_the_manage_channels_permission_is"),
+                ephemeral=True,
             )
             return
 
         config = await run_storage(self.service.get_guild_config, interaction.guild.id)
         if not config:
             await interaction.followup.send(
-                "[提示] 此伺服器尚未設定暫時語音頻道系統，請使用 `/temp_voice setup` 設定",
+                tx("temp_voice.info_temporary_voice_channels_are_not"),
                 ephemeral=True,
             )
             return
@@ -142,38 +173,44 @@ class TempVoice(commands.Cog):
         )
 
         embed = discord.Embed(
-            title="[資訊] 暫時語音頻道系統狀態",
+            title=tx("temp_voice.info_temporary_voice_channel_status"),
             color=discord.Color.from_rgb(52, 152, 219),
             timestamp=datetime.now(TZ_OFFSET),
         )
         embed.add_field(
-            name="觸發頻道",
+            name=tx("temp_voice.trigger_channel"),
             value=(
                 trigger_ch.mention
                 if trigger_ch
-                else f"[已刪除] ID: {config['trigger_channel_id']}"
+                else tx("temp_voice.deleted_id", v0=(config["trigger_channel_id"]))
             ),
             inline=True,
         )
         embed.add_field(
-            name="建立類別",
-            value=category.name if category else "無類別（根目錄）",
+            name=tx("temp_voice.channel_category"),
+            value=category.name if category else tx("temp_voice.no_category_root"),
             inline=True,
         )
         embed.add_field(
-            name="名稱範本",
-            value=f"`{config.get('name_template', '{username}的家')}`",
+            name=tx("temp_voice.name_template"),
+            value=tx(
+                "temp_voice.value",
+                v0=(config.get("name_template", tx("temp_voice.s_room"))),
+            ),
             inline=True,
         )
         embed.add_field(
-            name="目前活躍暫時頻道數",
+            name=tx("temp_voice.active_temporary_channels"),
             value=str(len(active_channels)),
             inline=True,
         )
-        embed.set_footer(text=f"伺服器：{interaction.guild.name}")
+        embed.set_footer(text=tx("temp_voice.server", v0=(interaction.guild.name)))
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @temp_voice.command(name="disable", description="停用此伺服器的暫時語音頻道系統")
+    @temp_voice.command(
+        name="disable", description="Turn off temporary voice channels in this server"
+    )
+    @localized("interaction")
     async def disable(self, interaction: discord.Interaction) -> None:
         """停用暫時語音頻道系統"""
         await interaction.response.defer(thinking=True, ephemeral=False)
@@ -183,25 +220,27 @@ class TempVoice(commands.Cog):
             or not isinstance(interaction.user, discord.Member)
         ):
             await interaction.followup.send(
-                "此功能只能在伺服器內使用。", ephemeral=True
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.followup.send(
-                "[失敗] 你需要「管理頻道」權限才能使用此指令", ephemeral=True
+                tx("temp_voice.failed_the_manage_channels_permission_is"),
+                ephemeral=True,
             )
             return
 
         config = await run_storage(self.service.get_guild_config, interaction.guild.id)
         if not config:
             await interaction.followup.send(
-                "[提示] 此伺服器尚未啟用暫時語音頻道系統", ephemeral=True
+                tx("temp_voice.info_temporary_voice_channels_are_not_c97b22"),
+                ephemeral=True,
             )
             return
 
         await run_storage(self.service.remove_guild_config, interaction.guild.id)
         await interaction.followup.send(
-            "[成功] 已停用此伺服器的暫時語音頻道系統\n（現有暫時頻道不受影響，將在清空後自動刪除）"
+            tx("temp_voice.success_temporary_voice_channels_disabled_in")
         )
 
     # ─────────────────── 事件監聽 ───────────────────
@@ -224,6 +263,7 @@ class TempVoice(commands.Cog):
             print(f"[TempVoice] 啟動清理：已移除 {removed} 筆殘留頻道記錄")
 
     @commands.Cog.listener()
+    @localized("member")
     async def on_voice_state_update(
         self,
         member: discord.Member,
@@ -250,7 +290,11 @@ class TempVoice(commands.Cog):
             if ch_data and len(before.channel.members) == 0:
                 await run_storage(self.service.remove_channel, before.channel.id)
                 try:
-                    await before.channel.delete(reason="暫時語音頻道已清空，自動刪除")
+                    await before.channel.delete(
+                        reason=tx(
+                            "temp_voice.empty_temporary_voice_channel_deleted_automatically"
+                        )
+                    )
                 except discord.HTTPException:
                     pass
 
@@ -261,7 +305,7 @@ class TempVoice(commands.Cog):
         config: dict[Any, Any],
     ) -> None:
         """建立暫時語音頻道並將成員移入"""
-        template = config.get("name_template", "{username}的家")
+        template = config.get("name_template", tx("temp_voice.s_room"))
         channel_name = template.replace("{username}", member.display_name)
 
         category_id = config.get("category_id")
@@ -273,7 +317,11 @@ class TempVoice(commands.Cog):
                 category=(
                     category if isinstance(category, discord.CategoryChannel) else None
                 ),
-                reason=f"暫時語音頻道建立：{member} ({member.id})",
+                reason=tx(
+                    "temp_voice.temporary_voice_channel_created",
+                    v0=(member),
+                    v1=(member.id),
+                ),
             )
             # 給創立者頻道管理權限
             await new_channel.set_permissions(
@@ -289,7 +337,9 @@ class TempVoice(commands.Cog):
                 guild_id=guild.id,
                 owner_id=member.id,
             )
-            await member.move_to(new_channel, reason="移入暫時語音頻道")
+            await member.move_to(
+                new_channel, reason=tx("temp_voice.moved_to_temporary_voice_channel")
+            )
         except discord.Forbidden:
             pass
         except discord.HTTPException:
@@ -298,6 +348,7 @@ class TempVoice(commands.Cog):
     # ─────────────────── envc* 前綴指令處理 ───────────────────
 
     @commands.Cog.listener()
+    @localized("message")
     async def on_message(self, message: discord.Message) -> None:
         """處理 envc* 前綴指令"""
         if message.guild is None or not isinstance(message.author, discord.Member):
@@ -341,7 +392,12 @@ class TempVoice(commands.Cog):
             await handler(message, args)
         else:
             await message.reply(
-                f"[失敗] 未知指令 `{ENVC_PREFIX}{cmd}`，輸入 `{ENVC_PREFIX}help` 查看所有可用指令",
+                tx(
+                    "temp_voice.failed_unknown_command_use_help_to",
+                    v0=(ENVC_PREFIX),
+                    v1=(cmd),
+                    v2=(ENVC_PREFIX),
+                ),
                 mention_author=False,
             )
 
@@ -379,52 +435,66 @@ class TempVoice(commands.Cog):
         if message.guild is None or not isinstance(message.author, discord.Member):
             return
         embed = discord.Embed(
-            title="[說明] 暫時語音頻道指令",
+            title=tx("temp_voice.help_temporary_voice_channel_commands"),
             description=(
-                "以下指令僅限你自己建立（或已接管）的暫時語音頻道使用。\n"
-                f"**指令前綴：`{ENVC_PREFIX}`**"
+                tx("temp_voice.these_commands_apply_to_a_temporary", v0=(ENVC_PREFIX))
             ),
             color=discord.Color.from_rgb(52, 152, 219),
             timestamp=datetime.now(TZ_OFFSET),
         )
         embed.add_field(
-            name="基礎設定",
+            name=tx("temp_voice.basic_settings"),
             value=(
-                f"`{ENVC_PREFIX}name <名稱>` — 更改頻道名稱\n"
-                f"`{ENVC_PREFIX}limit <人數>` — 設定人數上限（0 = 無限制，最大 99）\n"
-                f"`{ENVC_PREFIX}bitrate <位元率>` — 設定位元率（8～96，單位 kbps）"
+                tx(
+                    "temp_voice.name_name_rename_the_channel_limit",
+                    v0=(ENVC_PREFIX),
+                    v1=(ENVC_PREFIX),
+                    v2=(ENVC_PREFIX),
+                )
             ),
             inline=False,
         )
         embed.add_field(
-            name="隱私設定",
+            name=tx("temp_voice.privacy_settings"),
             value=(
-                f"`{ENVC_PREFIX}hide` — 隱藏頻道，其他玩家無法看見\n"
-                f"`{ENVC_PREFIX}unhide` — 取消隱藏，頻道恢復可見\n"
-                f"`{ENVC_PREFIX}lock` — 鎖定頻道，其他人無法加入（除非受邀）\n"
-                f"`{ENVC_PREFIX}unlock` — 解除鎖定，所有人可自由加入"
+                tx(
+                    "temp_voice.hide_hide_the_channel_unhide_make",
+                    v0=(ENVC_PREFIX),
+                    v1=(ENVC_PREFIX),
+                    v2=(ENVC_PREFIX),
+                    v3=(ENVC_PREFIX),
+                )
             ),
             inline=False,
         )
         embed.add_field(
-            name="管理頻道參與者",
+            name=tx("temp_voice.participant_management"),
             value=(
-                f"`{ENVC_PREFIX}kick <@成員>` — 將成員踢出頻道\n"
-                f"`{ENVC_PREFIX}ban <@成員>` — 永久封鎖成員加入此頻道\n"
-                f"`{ENVC_PREFIX}unban <@成員>` — 解除某成員的封鎖"
+                tx(
+                    "temp_voice.kick_member_disconnect_a_member_ban",
+                    v0=(ENVC_PREFIX),
+                    v1=(ENVC_PREFIX),
+                    v2=(ENVC_PREFIX),
+                )
             ),
             inline=False,
         )
         embed.add_field(
-            name="擁有者管理",
+            name=tx("temp_voice.ownership_management"),
             value=(
-                f"`{ENVC_PREFIX}transfer <@成員>` — 將管理權轉移給頻道內其他成員\n"
-                f"`{ENVC_PREFIX}claim` — 當原創建者已離開時，接管此頻道的管理權"
+                tx(
+                    "temp_voice.transfer_member_transfer_ownership_to_a",
+                    v0=(ENVC_PREFIX),
+                    v1=(ENVC_PREFIX),
+                )
             ),
             inline=False,
         )
         embed.set_footer(
-            text=f"伺服器：{message.guild.name} | 頻道 ID 僅限於你所在的暫時語音頻道有效"
+            text=tx(
+                "temp_voice.server_commands_apply_to_the_current",
+                v0=(message.guild.name),
+            )
         )
         await message.reply(embed=embed, mention_author=False)
 
@@ -434,7 +504,7 @@ class TempVoice(commands.Cog):
         result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
-                "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
+                tx("temp_voice.failed_this_command_requires_a_temporary"),
                 mention_author=False,
             )
             return
@@ -442,28 +512,31 @@ class TempVoice(commands.Cog):
 
         if not args:
             await message.reply(
-                f"[失敗] 請提供新頻道名稱，例如：`{ENVC_PREFIX}name 我的頻道`",
+                tx("temp_voice.failed_provide_a_new_name_for", v0=(ENVC_PREFIX)),
                 mention_author=False,
             )
             return
         if len(args) > 100:
             await message.reply(
-                "[失敗] 頻道名稱不能超過 100 字元", mention_author=False
+                tx("temp_voice.failed_the_channel_name_must_not"), mention_author=False
             )
             return
 
         try:
             await channel.edit(name=args)
             await message.reply(
-                f"[成功] 頻道名稱已更改為：**{args}**", mention_author=False
+                tx("temp_voice.success_channel_renamed_to", v0=(args)),
+                mention_author=False,
             )
         except discord.Forbidden:
             await message.reply(
-                "[失敗] 機器人缺少修改此頻道的權限", mention_author=False
+                tx("temp_voice.failed_the_bot_lacks_permission_to"),
+                mention_author=False,
             )
         except discord.HTTPException as e:
             await message.reply(
-                f"[失敗] 修改失敗（Discord 錯誤）：{e}", mention_author=False
+                tx("temp_voice.failed_update_failed_discord_error", v0=(e)),
+                mention_author=False,
             )
 
     async def _cmd_limit(self, message: discord.Message, args: str) -> None:
@@ -472,7 +545,7 @@ class TempVoice(commands.Cog):
         result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
-                "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
+                tx("temp_voice.failed_this_command_requires_a_temporary"),
                 mention_author=False,
             )
             return
@@ -480,30 +553,37 @@ class TempVoice(commands.Cog):
 
         if not args.isdigit():
             await message.reply(
-                f"[失敗] 請輸入有效數字，例如：`{ENVC_PREFIX}limit 5`（0 表示無限制）",
+                tx("temp_voice.failed_enter_a_valid_number_for", v0=(ENVC_PREFIX)),
                 mention_author=False,
             )
             return
         limit = int(args)
         if limit < 0 or limit > 99:
             await message.reply(
-                "[失敗] 人數限制必須在 0～99 之間（0 表示無限制）", mention_author=False
+                tx("temp_voice.failed_the_member_limit_must_be"), mention_author=False
             )
             return
 
         try:
             await channel.edit(user_limit=limit)
-            limit_text = f"{limit} 人" if limit > 0 else "無限制"
+            limit_text = (
+                tx("anti_spam.members", v0=(limit))
+                if limit > 0
+                else tx("audit_log.unlimited")
+            )
             await message.reply(
-                f"[成功] 頻道人數上限已設定為：**{limit_text}**", mention_author=False
+                tx("temp_voice.success_channel_member_limit", v0=(limit_text)),
+                mention_author=False,
             )
         except discord.Forbidden:
             await message.reply(
-                "[失敗] 機器人缺少修改此頻道的權限", mention_author=False
+                tx("temp_voice.failed_the_bot_lacks_permission_to"),
+                mention_author=False,
             )
         except discord.HTTPException as e:
             await message.reply(
-                f"[失敗] 修改失敗（Discord 錯誤）：{e}", mention_author=False
+                tx("temp_voice.failed_update_failed_discord_error", v0=(e)),
+                mention_author=False,
             )
 
     async def _cmd_bitrate(self, message: discord.Message, args: str) -> None:
@@ -512,7 +592,7 @@ class TempVoice(commands.Cog):
         result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
-                "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
+                tx("temp_voice.failed_this_command_requires_a_temporary"),
                 mention_author=False,
             )
             return
@@ -520,7 +600,10 @@ class TempVoice(commands.Cog):
 
         if not args.isdigit():
             await message.reply(
-                f"[失敗] 請輸入有效數字，例如：`{ENVC_PREFIX}bitrate 64`",
+                tx(
+                    "temp_voice.failed_enter_a_valid_number_for_29f742",
+                    v0=(ENVC_PREFIX),
+                ),
                 mention_author=False,
             )
             return
@@ -530,7 +613,7 @@ class TempVoice(commands.Cog):
         max_bitrate = message.guild.bitrate_limit // 1000
         if bitrate < 8 or bitrate > max_bitrate:
             await message.reply(
-                f"[失敗] 位元率必須在 8～{max_bitrate} kbps 之間（此伺服器加成等級上限）",
+                tx("temp_voice.failed_bitrate_must_be_between_8", v0=(max_bitrate)),
                 mention_author=False,
             )
             return
@@ -538,15 +621,18 @@ class TempVoice(commands.Cog):
         try:
             await channel.edit(bitrate=bitrate * 1000)
             await message.reply(
-                f"[成功] 頻道位元率已設定為：**{bitrate} kbps**", mention_author=False
+                tx("temp_voice.success_channel_bitrate_kbps", v0=(bitrate)),
+                mention_author=False,
             )
         except discord.Forbidden:
             await message.reply(
-                "[失敗] 機器人缺少修改此頻道的權限", mention_author=False
+                tx("temp_voice.failed_the_bot_lacks_permission_to"),
+                mention_author=False,
             )
         except discord.HTTPException as e:
             await message.reply(
-                f"[失敗] 修改失敗（Discord 錯誤）：{e}", mention_author=False
+                tx("temp_voice.failed_update_failed_discord_error", v0=(e)),
+                mention_author=False,
             )
 
     async def _cmd_hide(self, message: discord.Message, args: str) -> None:
@@ -555,7 +641,7 @@ class TempVoice(commands.Cog):
         result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
-                "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
+                tx("temp_voice.failed_this_command_requires_a_temporary"),
                 mention_author=False,
             )
             return
@@ -566,11 +652,13 @@ class TempVoice(commands.Cog):
                 message.guild.default_role, view_channel=False
             )
             await message.reply(
-                "[成功] 頻道已隱藏，其他人無法看見此頻道", mention_author=False
+                tx("temp_voice.success_channel_hidden_from_other_members"),
+                mention_author=False,
             )
         except discord.Forbidden:
             await message.reply(
-                "[失敗] 機器人缺少設定頻道權限的能力", mention_author=False
+                tx("temp_voice.failed_the_bot_cannot_change_channel"),
+                mention_author=False,
             )
 
     async def _cmd_unhide(self, message: discord.Message, args: str) -> None:
@@ -579,7 +667,7 @@ class TempVoice(commands.Cog):
         result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
-                "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
+                tx("temp_voice.failed_this_command_requires_a_temporary"),
                 mention_author=False,
             )
             return
@@ -587,10 +675,13 @@ class TempVoice(commands.Cog):
 
         try:
             await channel.set_permissions(message.guild.default_role, view_channel=True)
-            await message.reply("[成功] 頻道已設為可見", mention_author=False)
+            await message.reply(
+                tx("temp_voice.success_channel_is_visible"), mention_author=False
+            )
         except discord.Forbidden:
             await message.reply(
-                "[失敗] 機器人缺少設定頻道權限的能力", mention_author=False
+                tx("temp_voice.failed_the_bot_cannot_change_channel"),
+                mention_author=False,
             )
 
     async def _cmd_lock(self, message: discord.Message, args: str) -> None:
@@ -599,7 +690,7 @@ class TempVoice(commands.Cog):
         result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
-                "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
+                tx("temp_voice.failed_this_command_requires_a_temporary"),
                 mention_author=False,
             )
             return
@@ -608,12 +699,13 @@ class TempVoice(commands.Cog):
         try:
             await channel.set_permissions(message.guild.default_role, connect=False)
             await message.reply(
-                "[成功] 頻道已鎖定，其他人無法加入（除非受邀或管理員強制移動）",
+                tx("temp_voice.success_channel_locked_only_invited_members"),
                 mention_author=False,
             )
         except discord.Forbidden:
             await message.reply(
-                "[失敗] 機器人缺少設定頻道權限的能力", mention_author=False
+                tx("temp_voice.failed_the_bot_cannot_change_channel"),
+                mention_author=False,
             )
 
     async def _cmd_unlock(self, message: discord.Message, args: str) -> None:
@@ -622,7 +714,7 @@ class TempVoice(commands.Cog):
         result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
-                "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
+                tx("temp_voice.failed_this_command_requires_a_temporary"),
                 mention_author=False,
             )
             return
@@ -631,11 +723,13 @@ class TempVoice(commands.Cog):
         try:
             await channel.set_permissions(message.guild.default_role, connect=True)
             await message.reply(
-                "[成功] 頻道已解除鎖定，所有人可自由加入", mention_author=False
+                tx("temp_voice.success_channel_unlocked_anyone_can_join"),
+                mention_author=False,
             )
         except discord.Forbidden:
             await message.reply(
-                "[失敗] 機器人缺少設定頻道權限的能力", mention_author=False
+                tx("temp_voice.failed_the_bot_cannot_change_channel"),
+                mention_author=False,
             )
 
     async def _cmd_kick(self, message: discord.Message, args: str) -> None:
@@ -644,7 +738,7 @@ class TempVoice(commands.Cog):
         result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
-                "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
+                tx("temp_voice.failed_this_command_requires_a_temporary"),
                 mention_author=False,
             )
             return
@@ -652,17 +746,25 @@ class TempVoice(commands.Cog):
 
         if not message.mentions:
             await message.reply(
-                f"[失敗] 請 @ 提及要踢出的成員，例如：`{ENVC_PREFIX}kick @成員`",
+                tx(
+                    "temp_voice.failed_mention_the_member_to_disconnect",
+                    v0=(ENVC_PREFIX),
+                ),
                 mention_author=False,
             )
             return
 
         target = message.mentions[0]
         if not isinstance(target, discord.Member):
-            await message.reply("請指定此伺服器的成員。", mention_author=False)
+            await message.reply(
+                tx("temp_voice.specify_a_member_of_this_server"), mention_author=False
+            )
             return
         if target.id == message.author.id:
-            await message.reply("[失敗] 你無法踢出自己", mention_author=False)
+            await message.reply(
+                tx("temp_voice.failed_self_kicking_is_not_allowed"),
+                mention_author=False,
+            )
             return
 
         if (
@@ -673,18 +775,27 @@ class TempVoice(commands.Cog):
             try:
                 await target.move_to(
                     None,
-                    reason=f"暫時語音頻道踢出：由 {message.author} ({message.author.id})",
+                    reason=tx(
+                        "temp_voice.temporary_voice_channel_kick_by",
+                        v0=(message.author),
+                        v1=(message.author.id),
+                    ),
                 )
                 await message.reply(
-                    f"[成功] 已將 {target.mention} 踢出頻道", mention_author=False
+                    tx(
+                        "temp_voice.success_disconnected_from_the_channel",
+                        v0=(target.mention),
+                    ),
+                    mention_author=False,
                 )
             except discord.Forbidden:
                 await message.reply(
-                    "[失敗] 機器人缺少移動成員的權限", mention_author=False
+                    tx("temp_voice.failed_the_bot_lacks_the_move"), mention_author=False
                 )
         else:
             await message.reply(
-                f"[失敗] {target.mention} 目前不在此頻道內", mention_author=False
+                tx("temp_voice.failed_is_not_in_this_channel", v0=(target.mention)),
+                mention_author=False,
             )
 
     async def _cmd_ban(self, message: discord.Message, args: str) -> None:
@@ -693,7 +804,7 @@ class TempVoice(commands.Cog):
         result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
-                "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
+                tx("temp_voice.failed_this_command_requires_a_temporary"),
                 mention_author=False,
             )
             return
@@ -701,17 +812,22 @@ class TempVoice(commands.Cog):
 
         if not message.mentions:
             await message.reply(
-                f"[失敗] 請 @ 提及要封鎖的成員，例如：`{ENVC_PREFIX}ban @成員`",
+                tx("temp_voice.failed_mention_the_member_to_block", v0=(ENVC_PREFIX)),
                 mention_author=False,
             )
             return
 
         target = message.mentions[0]
         if not isinstance(target, discord.Member):
-            await message.reply("請指定此伺服器的成員。", mention_author=False)
+            await message.reply(
+                tx("temp_voice.specify_a_member_of_this_server"), mention_author=False
+            )
             return
         if target.id == message.author.id:
-            await message.reply("[失敗] 你無法封鎖自己", mention_author=False)
+            await message.reply(
+                tx("temp_voice.failed_self_blocking_is_not_allowed"),
+                mention_author=False,
+            )
             return
 
         await run_storage(self.service.add_ban, channel.id, target.id)
@@ -725,14 +841,23 @@ class TempVoice(commands.Cog):
             ):
                 await target.move_to(
                     None,
-                    reason=f"暫時語音頻道封鎖：由 {message.author} ({message.author.id})",
+                    reason=tx(
+                        "temp_voice.temporary_voice_channel_block_by",
+                        v0=(message.author),
+                        v1=(message.author.id),
+                    ),
                 )
             await message.reply(
-                f"[成功] 已永久封鎖 {target.mention} 加入此頻道", mention_author=False
+                tx(
+                    "temp_voice.success_is_blocked_from_this_channel",
+                    v0=(target.mention),
+                ),
+                mention_author=False,
             )
         except discord.Forbidden:
             await message.reply(
-                "[失敗] 機器人缺少設定頻道權限的能力", mention_author=False
+                tx("temp_voice.failed_the_bot_cannot_change_channel"),
+                mention_author=False,
             )
 
     async def _cmd_unban(self, message: discord.Message, args: str) -> None:
@@ -741,7 +866,7 @@ class TempVoice(commands.Cog):
         result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
-                "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
+                tx("temp_voice.failed_this_command_requires_a_temporary"),
                 mention_author=False,
             )
             return
@@ -749,25 +874,30 @@ class TempVoice(commands.Cog):
 
         if not message.mentions:
             await message.reply(
-                f"[失敗] 請 @ 提及要解除封鎖的成員，例如：`{ENVC_PREFIX}unban @成員`",
+                tx("temp_voice.failed_mention_the_member_to_unblock", v0=(ENVC_PREFIX)),
                 mention_author=False,
             )
             return
 
         target = message.mentions[0]
         if not isinstance(target, discord.Member):
-            await message.reply("請指定此伺服器的成員。", mention_author=False)
+            await message.reply(
+                tx("temp_voice.specify_a_member_of_this_server"), mention_author=False
+            )
             return
         await run_storage(self.service.remove_ban, channel.id, target.id)
         try:
             await channel.set_permissions(target, overwrite=None)
             await message.reply(
-                f"[成功] 已解除 {target.mention} 的封鎖，對方可再次加入此頻道",
+                tx(
+                    "temp_voice.success_unblocked_and_able_to_join", v0=(target.mention)
+                ),
                 mention_author=False,
             )
         except discord.Forbidden:
             await message.reply(
-                "[失敗] 機器人缺少設定頻道權限的能力", mention_author=False
+                tx("temp_voice.failed_the_bot_cannot_change_channel"),
+                mention_author=False,
             )
 
     async def _cmd_transfer(self, message: discord.Message, args: str) -> None:
@@ -776,7 +906,7 @@ class TempVoice(commands.Cog):
         result = await run_storage(self._get_user_owned_channel, message.author)
         if not result:
             await message.reply(
-                "[失敗] 你需要在自己建立（或已接管）的暫時語音頻道中才能使用此指令",
+                tx("temp_voice.failed_this_command_requires_a_temporary"),
                 mention_author=False,
             )
             return
@@ -784,17 +914,22 @@ class TempVoice(commands.Cog):
 
         if not message.mentions:
             await message.reply(
-                f"[失敗] 請 @ 提及要轉移給的成員，例如：`{ENVC_PREFIX}transfer @成員`",
+                tx("temp_voice.failed_mention_the_new_owner_for", v0=(ENVC_PREFIX)),
                 mention_author=False,
             )
             return
 
         target = message.mentions[0]
         if not isinstance(target, discord.Member):
-            await message.reply("請指定此伺服器的成員。", mention_author=False)
+            await message.reply(
+                tx("temp_voice.specify_a_member_of_this_server"), mention_author=False
+            )
             return
         if target.id == message.author.id:
-            await message.reply("[失敗] 你已經是此頻道的擁有者", mention_author=False)
+            await message.reply(
+                tx("temp_voice.failed_this_account_already_owns_the"),
+                mention_author=False,
+            )
             return
 
         if not (
@@ -803,7 +938,7 @@ class TempVoice(commands.Cog):
             and target.voice.channel.id == channel.id
         ):
             await message.reply(
-                f"[失敗] {target.mention} 需要在此頻道內才能轉移管理權",
+                tx("temp_voice.failed_must_be_in_this_channel", v0=(target.mention)),
                 mention_author=False,
             )
             return
@@ -821,11 +956,16 @@ class TempVoice(commands.Cog):
                 view_channel=True,
             )
             await message.reply(
-                f"[成功] 已將頻道管理權轉移給 {target.mention}", mention_author=False
+                tx(
+                    "temp_voice.success_channel_ownership_transferred_to",
+                    v0=(target.mention),
+                ),
+                mention_author=False,
             )
         except discord.Forbidden:
             await message.reply(
-                "[失敗] 機器人缺少設定頻道權限的能力", mention_author=False
+                tx("temp_voice.failed_the_bot_cannot_change_channel"),
+                mention_author=False,
             )
 
     async def _cmd_claim(self, message: discord.Message, args: str) -> None:
@@ -834,21 +974,26 @@ class TempVoice(commands.Cog):
         result = await run_storage(self._get_user_in_temp_channel, message.author)
         if not result:
             await message.reply(
-                "[失敗] 你需要在暫時語音頻道中才能使用此指令", mention_author=False
+                tx("temp_voice.failed_this_command_requires_a_temporary_ea06f2"),
+                mention_author=False,
             )
             return
         channel, ch_data = result
 
         current_owner_id = ch_data["owner_id"]
         if current_owner_id == message.author.id:
-            await message.reply("[提示] 你已經是此頻道的擁有者", mention_author=False)
+            await message.reply(
+                tx("temp_voice.info_this_account_already_owns_the"),
+                mention_author=False,
+            )
             return
 
         # 確認原擁有者已不在頻道內
         owner_in_channel = any(m.id == current_owner_id for m in channel.members)
         if owner_in_channel:
             await message.reply(
-                "[失敗] 頻道的原擁有者仍在頻道內，無法接管", mention_author=False
+                tx("temp_voice.failed_the_original_owner_is_still"),
+                mention_author=False,
             )
             return
 
@@ -862,11 +1007,13 @@ class TempVoice(commands.Cog):
                 view_channel=True,
             )
             await message.reply(
-                "[成功] 你已成功接管此暫時語音頻道的管理權", mention_author=False
+                tx("temp_voice.success_temporary_voice_channel_ownership_claimed"),
+                mention_author=False,
             )
         except discord.Forbidden:
             await message.reply(
-                "[失敗] 機器人缺少設定頻道權限的能力", mention_author=False
+                tx("temp_voice.failed_the_bot_cannot_change_channel"),
+                mention_author=False,
             )
 
 

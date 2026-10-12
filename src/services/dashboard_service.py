@@ -8,6 +8,8 @@ from typing import Any
 
 import discord
 
+from src.utils.i18n import text as tx
+
 MAPPINGS = {
     "welcome": (
         "Management",
@@ -95,7 +97,9 @@ class DashboardService:
     def _cog(self, section):
         cog = self.bot.get_cog(MAPPINGS[section][0])
         if cog is None:
-            raise RuntimeError(f"{section} 模組未載入")
+            raise RuntimeError(
+                tx("dashboard_checks.the_module_is_not_loaded", v0=(section))
+            )
         return cog
 
     def get_section_config(self, section, guild_id):
@@ -134,23 +138,30 @@ class DashboardService:
             or section not in MAPPINGS
             or not isinstance(values, dict)
         ):
-            raise ValueError("未知的設定區塊")
+            raise ValueError(tx("dashboard_service.unknown_settings_section"))
         fields = MAPPINGS[section][2]
         if set(values) != set(fields) | {"enabled"}:
-            raise ValueError("設定欄位不完整或含未知欄位")
+            raise ValueError(tx("dashboard_service.missing_or_unknown_settings_fields"))
         for key, value in values.items():
             default = fields.get(key, ("", False))[1]
             if type(value) is not type(default):
-                raise ValueError(f"{key} 格式錯誤")
+                raise ValueError(tx("dashboard_service.invalid_format", v0=(key)))
             if isinstance(value, str) and len(value) > 1800:
-                raise ValueError(f"{key} 太長")
+                raise ValueError(tx("dashboard_service.is_too_long", v0=(key)))
             if key in ID_FIELDS and value:
                 if not re.fullmatch(r"[0-9]{17,20}", value):
-                    raise ValueError(f"{key} 必須是 Discord ID")
+                    raise ValueError(
+                        tx("dashboard_service.must_be_a_discord_id", v0=(key))
+                    )
                 if "Role" in key:
                     role = guild.get_role(int(value))
                     if role is None or role.is_default():
-                        raise ValueError(f"{key} 身份組不屬於此伺服器")
+                        raise ValueError(
+                            tx(
+                                "dashboard_service.the_role_does_not_belong_to",
+                                v0=(key),
+                            )
+                        )
                     if key != "staffRole" and (
                         not guild.me.guild_permissions.manage_roles
                         or role.managed
@@ -158,7 +169,10 @@ class DashboardService:
                         or role.permissions.administrator
                     ):
                         raise ValueError(
-                            f"{key} 必須是機器人可管理且不含管理員權限的身份組"
+                            tx(
+                                "dashboard_service.the_role_must_be_manageable_by",
+                                v0=(key),
+                            )
                         )
                 else:
                     channel = guild.get_channel(int(value))
@@ -168,7 +182,12 @@ class DashboardService:
                         else discord.TextChannel
                     )
                     if not isinstance(channel, expected):
-                        raise ValueError(f"{key} 頻道類型錯誤或不屬於此伺服器")
+                        raise ValueError(
+                            tx(
+                                "dashboard_service.the_channel_has_the_wrong_type",
+                                v0=(key),
+                            )
+                        )
                     perms = channel.permissions_for(guild.me)
                     required = (
                         ("view_channel", "connect", "manage_channels", "move_members")
@@ -182,7 +201,12 @@ class DashboardService:
                             "manage_threads",
                         )
                     if not all(getattr(perms, p) for p in required):
-                        raise ValueError(f"機器人在 {key} 頻道缺少必要權限")
+                        raise ValueError(
+                            tx(
+                                "dashboard_service.the_bot_lacks_required_permissions_in",
+                                v0=(key),
+                            )
+                        )
         for key, bounds in {
             "floodMessages": (1, 50),
             "floodWindow": (1, 60),
@@ -190,7 +214,14 @@ class DashboardService:
             "intervalMinutes": (2, 60),
         }.items():
             if key in values and not bounds[0] <= values[key] <= bounds[1]:
-                raise ValueError(f"{key} 必須介於 {bounds[0]}–{bounds[1]}")
+                raise ValueError(
+                    tx(
+                        "dashboard_service.must_be_between_and",
+                        v0=(key),
+                        v1=(bounds[0]),
+                        v2=(bounds[1]),
+                    )
+                )
         if section == "antispam" and values["action"] not in (
             "warn",
             "delete",
@@ -198,7 +229,7 @@ class DashboardService:
             "kick",
             "ban",
         ):
-            raise ValueError("無效的防炸群動作")
+            raise ValueError(tx("dashboard_service.invalid_spam_protection_action"))
         required = {
             "welcome": ["channel", "message"],
             "tempvoice": ["triggerChannel", "nameTemplate"],
@@ -210,7 +241,9 @@ class DashboardService:
         if values["enabled"] and any(
             not values[k].strip() for k in required.get(section, [])
         ):
-            raise ValueError("啟用前請填妥必要欄位")
+            raise ValueError(
+                tx("dashboard_service.complete_all_required_fields_before_enabling")
+            )
         if section == "welcome":
             for _, field, spec, conversion in Formatter().parse(values["message"]):
                 if field is not None and (
@@ -218,14 +251,22 @@ class DashboardService:
                     or spec
                     or conversion
                 ):
-                    raise ValueError("歡迎訊息含不支援的變數")
+                    raise ValueError(
+                        tx(
+                            "dashboard_service.the_welcome_message_contains_unsupported_variables"
+                        )
+                    )
         if section == "tempvoice" and len(values["nameTemplate"]) > 100:
-            raise ValueError("語音頻道名稱上限 100 字")
+            raise ValueError(
+                tx("dashboard_service.voice_channel_names_must_not_exceed")
+            )
         if section == "github" and values["enabled"]:
             if not re.fullmatch(
                 r"[A-Za-z0-9-]{1,39}", values["owner"]
             ) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,100}", values["repo"]):
-                raise ValueError("GitHub 擁有者或倉庫名稱格式錯誤")
+                raise ValueError(
+                    tx("dashboard_service.invalid_github_owner_or_repository_name")
+                )
         return values
 
     def write(self, guild: Any, section: str, values: dict) -> None:
