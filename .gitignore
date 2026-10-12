@@ -2,6 +2,7 @@
 .env.*
 !.env.example
 .file-tools-worker.json*
+.image-review-worker.json*
 worker.json
 worker-key.pem
 

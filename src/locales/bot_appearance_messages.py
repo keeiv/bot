@@ -140,4 +140,44 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "The {v1} change requested by <@{v0}> was approved and applied",
         "zh": "<@{v0}> 申請的{v1}變更已通過審核並套用",
     },
+    "bot_appearance.ai_reviewing_title": {
+        "en": "Reviewing the {v0} with AI...",
+        "zh": "正在用 AI 審核{v0}...",
+    },
+    "bot_appearance.ai_reviewing_description": {
+        "en": "Three local models check it in turn. This can take a few minutes. If the AI is unavailable, a developer reviews it instead.",
+        "zh": "三個本地模型會依序檢查，可能需要幾分鐘。如果 AI 暫時無法使用，會改由開發者人工審核。",
+    },
+    "bot_appearance.ai_approved_footer": {
+        "en": "Approved by the AI review (all three stages)",
+        "zh": "已通過 AI 審核（三個階段）",
+    },
+    "bot_appearance.ai_rejected_title": {
+        "en": "[Rejected] {v0} change failed the AI review",
+        "zh": "[未通過] {v0}變更沒有通過 AI 審核",
+    },
+    "bot_appearance.ai_rejected_description": {
+        "en": "The image was flagged for: {v0}. Please choose a different image.",
+        "zh": "圖片被判定含有：{v0}。請改用其他圖片。",
+    },
+    "bot_appearance.ai_category_sexual": {
+        "en": "sexual content",
+        "zh": "色情內容",
+    },
+    "bot_appearance.ai_category_violence": {
+        "en": "violent content",
+        "zh": "暴力內容",
+    },
+    "bot_appearance.ai_category_tos": {
+        "en": "content that breaks Discord's rules",
+        "zh": "違反 Discord 規範的內容",
+    },
+    "bot_appearance.ai_dev_approved": {
+        "en": "[AI review] {v0} change approved and applied",
+        "zh": "[AI 審核] {v0}變更已通過並套用",
+    },
+    "bot_appearance.ai_dev_rejected": {
+        "en": "[AI review] {v0} change rejected at stage {v1}",
+        "zh": "[AI 審核] {v0}變更在第 {v1} 階段被拒絕",
+    },
 }

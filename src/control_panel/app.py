@@ -397,6 +397,8 @@ class ControlPanel:
             self._log_viewer()
         elif item.action == "worker":
             self._worker_menu("區網檔案工作站", menu.WORKER_CHOICES)
+        elif item.action == "review":
+            self._worker_menu("圖片審核工作站", menu.REVIEW_CHOICES)
         elif item.action in ("project", "data"):
             self._open_folders(item.action)
         else:

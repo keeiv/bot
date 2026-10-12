@@ -9,7 +9,9 @@ from discord import ui
 from discord.ext import commands
 
 from src.config.constants import DEVELOPER_IDS
+from src.services import moderation_protocol as review_protocol
 from src.services.appearance_service import AppearanceService
+from src.services.moderation_remote import ImageReviewService
 from src.utils.i18n import text as tx
 from src.utils.lang_context import localized
 from src.utils.localized_ui import LocalizedView
@@ -67,6 +69,7 @@ class BotAppearance(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.service = AppearanceService()
+        self.review = ImageReviewService()
 
     appearance_group = app_commands.Group(
         name="bot_appearance",
@@ -149,6 +152,133 @@ class BotAppearance(commands.Cog):
             self.service.remove_request(request_id)
             raise RuntimeError(tx("bot_appearance.could_not_notify_developers", v0=(e)))
 
+    async def apply_change(
+        self, guild_id: int, change_type: str, image_bytes: bytes, content_type: str
+    ) -> None:
+        """Set the bot's avatar or banner in one server."""
+        b64 = base64.b64encode(image_bytes).decode("ascii")
+        data_uri = f"data:{content_type};base64,{b64}"
+        route = discord.http.Route(
+            "PATCH", "/guilds/{guild_id}/members/@me", guild_id=guild_id
+        )
+        payload_key = "avatar" if change_type == "avatar" else "banner"
+        await self.bot.http.request(route, json={payload_key: data_uri})
+
+    @localized("interaction")
+    async def review_with_ai(
+        self,
+        interaction: discord.Interaction,
+        change_type: str,
+        image: discord.Attachment,
+        image_bytes: bytes,
+    ) -> bool:
+        """Let the local AI models decide. True means the request is settled.
+
+        False means the AI could not give an answer (no worker, it is off, a
+        model failed), and the caller goes on with the human review as before.
+        """
+        if interaction.guild is None or not await self.review.available():
+            return False
+        type_name = (
+            tx("bot_appearance.avatar")
+            if change_type == "avatar"
+            else tx("bot_appearance.banner")
+        )
+        await interaction.edit_original_response(
+            embed=discord.Embed(
+                title=tx("bot_appearance.ai_reviewing_title", v0=(type_name)),
+                description=tx("bot_appearance.ai_reviewing_description"),
+                color=discord.Color.from_rgb(241, 196, 15),
+            )
+        )
+        outcome = await self.review.review(image.filename or "image", image_bytes)
+        if outcome.verdict == review_protocol.UNAVAILABLE:
+            return False
+        if outcome.verdict == review_protocol.REJECTED:
+            names = ", ".join(
+                tx(f"bot_appearance.ai_category_{c}") for c in outcome.categories
+            )
+            await interaction.edit_original_response(
+                embed=discord.Embed(
+                    title=tx("bot_appearance.ai_rejected_title", v0=(type_name)),
+                    description=tx(
+                        "bot_appearance.ai_rejected_description",
+                        v0=(names or tx("bot_appearance.ai_category_tos")),
+                    ),
+                    color=discord.Color.from_rgb(231, 76, 60),
+                )
+            )
+            await self.tell_developers(
+                interaction,
+                tx(
+                    "bot_appearance.ai_dev_rejected",
+                    v0=(type_name),
+                    v1=(outcome.stage),
+                ),
+                names,
+                discord.Color.from_rgb(231, 76, 60),
+            )
+            return True
+        try:
+            await self.apply_change(
+                interaction.guild.id, change_type, image_bytes, image.content_type or ""
+            )
+        except Exception as e:
+            await interaction.edit_original_response(
+                embed=discord.Embed(
+                    description=tx(
+                        "bot_appearance.failed_could_not_apply_change", v0=(e)
+                    ),
+                    color=discord.Color.from_rgb(231, 76, 60),
+                )
+            )
+            return True
+        embed = discord.Embed(
+            title=tx("bot_appearance.success_updated", v0=(type_name)),
+            description=tx("bot_appearance.applied_to", v0=(interaction.guild.name)),
+            color=discord.Color.from_rgb(46, 204, 113),
+        )
+        embed.set_footer(text=tx("bot_appearance.ai_approved_footer"))
+        await interaction.edit_original_response(embed=embed)
+        await self.tell_developers(
+            interaction,
+            tx("bot_appearance.ai_dev_approved", v0=(type_name)),
+            "",
+            discord.Color.from_rgb(46, 204, 113),
+            image_url=image.url,
+        )
+        return True
+
+    async def tell_developers(
+        self,
+        interaction: discord.Interaction,
+        title: str,
+        detail: str,
+        color: discord.Color,
+        image_url: str | None = None,
+    ) -> None:
+        """A short note for the developers about what the AI decided."""
+        guild = interaction.guild
+        embed = discord.Embed(title=title, description=detail or None, color=color)
+        embed.add_field(
+            name=tx("bot_appearance.server"),
+            value=f"{guild.name} ({guild.id})" if guild else "-",
+            inline=False,
+        )
+        embed.add_field(
+            name=tx("bot_appearance.requester"),
+            value=f"<@{interaction.user.id}> ({interaction.user.id})",
+            inline=False,
+        )
+        if image_url:  # only an approved (safe) image is shown again
+            embed.set_image(url=image_url)
+        for dev_id in DEVELOPER_IDS:
+            try:
+                developer = await self.bot.fetch_user(dev_id)
+                await developer.send(embed=embed)
+            except Exception:
+                continue  # a note must never undo the decision
+
     @localized("interaction")
     async def handle_approval(
         self,
@@ -181,15 +311,12 @@ class BotAppearance(commands.Cog):
 
             await interaction.response.defer()
             try:
-                b64 = base64.b64encode(request["image_bytes"]).decode("ascii")
-                data_uri = f"data:{request['content_type']};base64,{b64}"
-                route = discord.http.Route(
-                    "PATCH",
-                    "/guilds/{guild_id}/members/@me",
-                    guild_id=guild.id,
+                await self.apply_change(
+                    guild.id,
+                    change_type,
+                    request["image_bytes"],
+                    request["content_type"],
                 )
-                payload_key = "avatar" if change_type == "avatar" else "banner"
-                await self.bot.http.request(route, json={payload_key: data_uri})
 
                 # 更新審核訊息
                 embed = discord.Embed(
@@ -370,6 +497,8 @@ class BotAppearance(commands.Cog):
 
         try:
             image_bytes = await image.read()
+            if await self.review_with_ai(interaction, "avatar", image, image_bytes):
+                return
             await self.send_approval_request(
                 interaction,
                 change_type="avatar",
@@ -384,7 +513,7 @@ class BotAppearance(commands.Cog):
                 color=discord.Color.from_rgb(241, 196, 15),
             )
             embed.set_thumbnail(url=image.url)
-            await interaction.followup.send(embed=embed)
+            await interaction.edit_original_response(embed=embed)
 
         except Exception as e:
             await interaction.followup.send(
@@ -433,6 +562,8 @@ class BotAppearance(commands.Cog):
 
         try:
             image_bytes = await image.read()
+            if await self.review_with_ai(interaction, "banner", image, image_bytes):
+                return
             await self.send_approval_request(
                 interaction,
                 change_type="banner",
@@ -447,7 +578,7 @@ class BotAppearance(commands.Cog):
                 color=discord.Color.from_rgb(241, 196, 15),
             )
             embed.set_image(url=image.url)
-            await interaction.followup.send(embed=embed)
+            await interaction.edit_original_response(embed=embed)
 
         except Exception as e:
             await interaction.followup.send(
