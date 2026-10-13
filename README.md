@@ -49,6 +49,9 @@
 
 下面依範圍列出完整內容。
 
+> [!TIP]
+> 在 Discord 輸入 `/help` 可以查看多頁說明；歡迎訊息、防洗版、工單等設定也能在[網站儀表板](https://botweb.shizune.life)完成。
+
 ### 防護與管理
 
 **防洗版**：`/anti_spam` 群組有 11 個子指令（`setup`、`flood`、`duplicate`、`mention`、`link`、`raid`、`escalation`、`whitelist`、`lockdown_off`、`status`、`mute_duration`）。
@@ -134,8 +137,10 @@
 - 回覆、選單、按鈕與表單都有英文與中文兩版。在機器人所在的伺服器依伺服器語言；在私訊，或在機器人沒有加入的伺服器以個人應用程式使用時，依個人設定，沒有設定時依 Discord 用戶端語言。
 - 新加入的伺服器預設英文，並建立 `#bot-guide` 說明頻道，可在選單切換語言（需「管理伺服器」權限）；功能上線前已加入的伺服器維持中文。
 - `/language`：在機器人所在的伺服器切換伺服器語言（需「管理伺服器」權限），在私訊或個人應用程式中切換個人語言。
-- 尚未翻譯：網站儀表板 API 的回應（維持中文以相容網站）、本機命令列工具，以及日誌。
-- 程式已標記可在個人應用程式使用的指令（`/help`、`/language`、`/osu`、`/user_info_osu`、`/mhy`、`/convert`、`/compress`、`/usage`、`/ir`、`翻譯訊息`）；要在 Discord Developer Portal 開啟 User Install 後才會出現。
+
+> [!NOTE]
+> - 尚未翻譯：網站儀表板 API 的回應（維持中文以相容網站）、本機命令列工具，以及日誌。
+> - 程式已標記可在個人應用程式使用的指令（`/help`、`/language`、`/osu`、`/user_info_osu`、`/mhy`、`/convert`、`/compress`、`/usage`、`/ir`、`翻譯訊息`）；要在 Discord Developer Portal 開啟 User Install 後才會出現。
 
 ### 網站儀表板
 
@@ -151,6 +156,7 @@
 
 需要 Python 3.10 以上（目前部署使用 3.13）。
 
+> [!IMPORTANT]
 > **全新安裝請先使用 JSON 相容模式**（`STORAGE_BACKEND=json`）。MySQL 模式啟動前必須先完成資料搬移，而搬移工具只能從 `data/` 底下既有的 JSON／SQLite 資料搬移；目前還沒有直接建立空白 MySQL 資料庫的流程。正式環境使用 Oracle MySQL 8.4。
 
 **開發者快速安裝**：`install.py` 從 GitHub 取得專案並完成開發環境的基本配置：檢查環境、取得程式碼（沒有 git 時改下載 ZIP）、建立虛擬環境、安裝依賴、建立空白的 `.env`，最後確認套件都能匯入。只使用 Python 內建功能。
@@ -167,7 +173,10 @@ curl -O https://raw.githubusercontent.com/keeiv/bot/main/install.py
 python3 install.py
 ```
 
-常用選項：`--dir` 指定安裝資料夾、`--test` 安裝後執行全部測試、`--no-dev` 不安裝開發工具、`--check` 只檢查環境、`--plain` 以純文字輸出、`--yes` 不詢問直接開始；完整選項見 `python install.py --help`。已安裝的資料夾再次執行會改為更新，不會更動 `.env` 與虛擬環境。安裝程式不會詢問或寫入任何密鑰，`DISCORD_TOKEN` 需要自行填入 `.env`。
+常用選項：`--dir` 指定安裝資料夾、`--test` 安裝後執行全部測試、`--no-dev` 不安裝開發工具、`--check` 只檢查環境、`--plain` 以純文字輸出、`--yes` 不詢問直接開始；完整選項見 `python install.py --help`。
+
+> [!NOTE]
+> 已安裝的資料夾再次執行會改為更新，不會更動 `.env` 與虛擬環境。安裝程式不會詢問或寫入任何密鑰，`DISCORD_TOKEN` 需要自行填入 `.env`。
 
 以下是手動安裝的步驟。
 
@@ -205,19 +214,25 @@ BOT_API_PORT=8080
 BOT_API_SECRET=
 ```
 
+> [!WARNING]
+> `.env` 含有 Discord Token、各項 API 金鑰、加密金鑰與資料庫密碼，已列在 `.gitignore`，不要提交，也不要貼到公開的地方。
+
+> [!CAUTION]
+> 已經有加密帳號時，必須沿用原本的 `GENSHIN_ENCRYPTION_KEY`；缺少時服務會停止初始化，不會用新金鑰覆蓋。全新安裝會產生並保存這把金鑰。
+
 <details>
 <summary>各項設定說明</summary>
 
 - `STORAGE_ROOT` 可設為專案的絕對路徑；不設定時以啟動目錄為準，所以要從專案根目錄執行。
 - `STORAGE_BACKEND` 只接受 `json` 或 `mysql`（不寫這一行等同 `json`，但不能留空白值）。完成第 3 步的搬移後再改為 `mysql`。MySQL 的資料庫與專用帳號要先建立，帳號需能建表與讀寫；使用 JSON 模式時 `MYSQL_*` 可以不填。
-- 全新安裝會產生並保存 `GENSHIN_ENCRYPTION_KEY`。已經有加密帳號時必須沿用原金鑰，缺少時服務會停止初始化，不會用新金鑰覆蓋。
 - 要讓網站連線，設定 `BOT_API_ENABLED=true` 與至少 32 字元的 `BOT_API_SECRET`。
 
 </details>
 
 **3. 改用 MySQL：從既有資料搬移（只需要一次，使用 JSON 模式時略過）**
 
-停止機器人後執行：
+> [!WARNING]
+> 請先停止機器人，再執行搬移。
 
 ```bash
 python -m src.migrate_storage
@@ -266,9 +281,13 @@ python -X utf8 -m src.control_panel
 | `data/logs/runtime.log` | 執行日誌，經背景佇列寫入，避免卡住 Discord 心跳 |
 | `.env` | 連線資訊與加密金鑰，不納入 Git |
 
-- MySQL 模式不會寫回舊的 JSON／SQLite，資料庫失敗時也不會退回舊檔；保留的原檔只是搬移時的快照。
-- 本機 MySQL 使用 `127.0.0.1:3307`，資料在 `%LOCALAPPDATA%\NewBotMySQL\data`。設定好 `start-mysql.ps1` 時，機器人啟動也會順便啟動尚未執行的本機資料庫（不適用遠端資料庫）。
-- 時間：Discord 日誌與介面顯示 UTC+8；GitHub 等外部資料與部分診斷使用 UTC，內部也使用 Unix 時間戳。
+> [!NOTE]
+> MySQL 模式不會寫回舊的 JSON／SQLite，資料庫失敗時也不會退回舊檔；保留的原檔只是搬移時的快照。
+
+本機 MySQL 使用 `127.0.0.1:3307`，資料在 `%LOCALAPPDATA%\NewBotMySQL\data`。設定好 `start-mysql.ps1` 時，機器人啟動也會順便啟動尚未執行的本機資料庫（不適用遠端資料庫）。
+
+> [!NOTE]
+> 時間：Discord 日誌與介面顯示 UTC+8；GitHub 等外部資料與部分診斷使用 UTC，內部也使用 Unix 時間戳。
 
 ## 專案結構
 
@@ -316,4 +335,5 @@ Copyright (c) 2026 Keeiv。
 
 採用 **GNU Affero General Public License v3.0 only（AGPL-3.0-only）**，條文見 [LICENSE](LICENSE)，著作權聲明見 [NOTICE](NOTICE)。可以複製、修改、散布與商業使用；修改後透過網路提供服務時，須讓使用者能免費取得該版本完整的對應原始碼。原始碼不包含部署密鑰或使用者資料。
 
-這次授權變更不追溯取代已發布版本的 MIT 授權，舊聲明保留於 [LICENSES/MIT-legacy.txt](LICENSES/MIT-legacy.txt)。第三方元件保留各自的授權與著作權聲明。
+> [!NOTE]
+> 這次授權變更不追溯取代已發布版本的 MIT 授權，舊聲明保留於 [LICENSES/MIT-legacy.txt](LICENSES/MIT-legacy.txt)。第三方元件保留各自的授權與著作權聲明。
