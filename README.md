@@ -153,7 +153,7 @@
 
 > **全新安裝請先使用 JSON 相容模式**（`STORAGE_BACKEND=json`）。MySQL 模式啟動前必須先完成資料搬移，而搬移工具只能從 `data/` 底下既有的 JSON／SQLite 資料搬移；目前還沒有直接建立空白 MySQL 資料庫的流程。正式環境使用 Oracle MySQL 8.4。
 
-**開發者快速安裝**：只想把程式碼取下來、裝好依賴就能開發，不用照下面一步一步做，用安裝程式即可。它只做一件事：下載專案。在終端機裡會開啟黑白的方框畫面（版面和下面的控制台相似，有圖標、輸入安裝資料夾的文字方塊、進度與即時輸出），照著做：檢查環境、從 GitHub 取得程式碼（沒有 git 就改下載 ZIP）、建立虛擬環境、安裝依賴、建立空白的 `.env`、確認套件都能匯入。它只用 Python 內建的功能，沒有顏色也沒有 Nova；不是終端機（例如接到檔案或管線）時會改印純文字。已經安裝的資料夾再執行會改成更新，不會動你的 `.env` 和虛擬環境。
+**開發者快速安裝**：`install.py` 從 GitHub 取得專案並完成開發環境的基本配置：檢查環境、取得程式碼（沒有 git 時改下載 ZIP）、建立虛擬環境、安裝依賴、建立空白的 `.env`，最後確認套件都能匯入。只使用 Python 內建功能。
 
 ```powershell
 # Windows PowerShell
@@ -167,9 +167,9 @@ curl -O https://raw.githubusercontent.com/keeiv/bot/main/install.py
 python3 install.py
 ```
 
-畫面操作：輸入或貼上資料夾、Enter 開始、Esc 離開；下載中 Ctrl+C 可中止，失敗後 Enter 重試。選項：`--dir 資料夾` 指定位置、`--yes` 直接開始、`--test` 裝好後跑全部測試、`--no-dev` 不裝開發工具、`--check` 只檢查環境、`--plain` 不開畫面只印文字；`python install.py --help` 看全部選項。安裝程式不會詢問或寫入任何密鑰，`DISCORD_TOKEN` 要自己填進 `.env`。
+常用選項：`--dir` 指定安裝資料夾、`--test` 安裝後執行全部測試、`--no-dev` 不安裝開發工具、`--check` 只檢查環境、`--plain` 以純文字輸出、`--yes` 不詢問直接開始；完整選項見 `python install.py --help`。已安裝的資料夾再次執行會改為更新，不會更動 `.env` 與虛擬環境。安裝程式不會詢問或寫入任何密鑰，`DISCORD_TOKEN` 需要自行填入 `.env`。
 
-下面是手動安裝的步驟。
+以下是手動安裝的步驟。
 
 **1. 安裝**
 
@@ -237,15 +237,7 @@ python -m src.main
 python -X utf8 -m src.control_panel
 ```
 
-在同一個畫面啟動、停止、重新啟動機器人，看即時狀態（PID、運行時間、CPU、記憶體）、這台電腦的硬體、資料庫連線，以及彩色日誌（重複訊息會合併成一行，例如 `×282`）；也能執行安裝依賴、測試、格式檢查與兩種區網節點的設定。
-
-- 開啟和啟動機器人時會逐步檢查環境、資料庫與鎖定檔，並以動畫顯示；資料庫沒有在執行就自動啟動。`M` 可單獨檢查／啟動資料庫。
-- 資料庫只處理本機 3307 埠的 `NewBotMySQL` 實例：先找 `%LOCALAPPDATA%\NewBotMySQL`，找不到再找各應用程式套件資料夾裡的同名實例；啟動前會確認同一個實例沒有其他 `mysqld` 在執行。
-- 右上角是吉祥物 Nova 與 AI 用量欄位；目前沒有接上任何模型，所以顯示「無模型」。
-- `python -m src.control_panel.shortcut install` 在桌面建立捷徑：已經開著就切回那個視窗，沒開才開新的。
-- 操作：↑↓ 選擇、Enter 執行，或直接按選項前的字母／數字；`Q` 離開控制台，不會停止在獨立視窗執行的機器人。
-
-本機的 `run_bot.bat` 只是啟動控制台的捷徑，不在版本控制內。
+在同一個畫面啟動、停止與重新啟動機器人，查看運行狀態、資料庫連線與日誌，也能執行依賴安裝、測試與格式檢查，以及設定區網節點。操作方式與資料庫實例的處理見 [開發指南](docs/DEVELOPMENT.md#終端機控制台)。
 
 ## 權限
 
@@ -290,7 +282,7 @@ src/
   services/             業務規則與資料保存，以及 NovaGrid、區網節點、圖片審核
   locales/              英文與中文的訊息目錄
   utils/                儲存、背景工作、翻譯與共用工具
-  control_panel/        Windows 終端機控制台與 Nova
+  control_panel/        Windows 終端機控制台
 services/               獨立外部整合（GitHub 客戶端、osu! API）
 tests/                  自動化測試（CI：Python 3.10–3.13 與 MySQL 8.4）
 docs/                   說明文件

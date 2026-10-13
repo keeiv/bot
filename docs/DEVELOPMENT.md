@@ -25,7 +25,7 @@
 ## 專案結構
 
 ```text
-install.py               安裝程式：從 GitHub 下載專案並配置開發環境（只用標準函式庫，黑白方框畫面）
+install.py               安裝程式：從 GitHub 下載專案並配置開發環境（只用標準函式庫）
 src/
   main.py               啟動入口：Token、重複程序與儲存就緒檢查
   bot.py                Bot、全域黑名單檢查、Cog 自動載入、指令翻譯器
@@ -158,7 +158,17 @@ await interaction.followup.send(tx("management.saved"), ephemeral=True)
 
 ## 終端機控制台
 
-`src/control_panel/` 是 Windows 專用的終端機介面（`python -X utf8 -m src.control_panel`）。
+`src/control_panel/` 是 Windows 專用的終端機介面（`python -X utf8 -m src.control_panel`）。本機的 `run_bot.bat` 只是啟動它的捷徑，不在版本控制內。
+
+**功能**
+
+- 啟動、停止與重新啟動機器人，顯示狀態（PID、運行時間、CPU、記憶體）、這台電腦的硬體、資料庫連線與日誌；重複的日誌訊息會合併成一行（例如 `×282`）。
+- 執行依賴安裝、測試、格式檢查，以及兩種區網節點（NovaGrid、AI 圖片審核）的設定。
+- 開啟和啟動機器人時會逐步檢查環境、資料庫與鎖定檔；資料庫沒有在執行就自動啟動，`M` 可單獨檢查或啟動資料庫。資料庫只處理本機 3307 埠的 `NewBotMySQL` 實例：先找 `%LOCALAPPDATA%\NewBotMySQL`，找不到再找各應用程式套件資料夾裡的同名實例；啟動前會確認同一個實例沒有其他 `mysqld` 在執行。
+- `python -m src.control_panel.shortcut install` 在桌面建立捷徑；已經開著就切回那個視窗，沒開才開新的。控制台若是另一個終端機視窗裡未選取的分頁，捷徑找不到它，會再開一個新視窗；兩個控制台只讀取同樣的檔案，不會互相影響。
+- 操作：↑↓ 選擇、Enter 執行，或直接按選項前的字母／數字；`Q` 離開控制台，不會停止在獨立視窗執行的機器人。
+
+**修改時要注意**
 
 - `render.py` 只把狀態畫成畫面，沒有輸入輸出，方便測試；鍵盤與迴圈在 `app.py`。
 - 它處理的是 **Windows 的路徑與程序**（機器人與 `mysqld` 的命令列、MySQL 設定檔）。比對路徑一律用 Windows 規則（`ntpath`、`PureWindowsPath`），不要用 `os.path`，否則在 Linux 的 CI 上行為會不同。另外，Python 3.13 起 `ntpath.isabs()` 不再把「只以一個斜線或反斜線開頭」的路徑（例如 `\Windows`）當成絕對路徑，UNC 路徑則仍是絕對路徑；控制台用 `state._is_absolute()` 自行判斷。
