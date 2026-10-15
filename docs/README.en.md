@@ -280,24 +280,21 @@ Start, stop and restart the bot, check its status, database connection and logs,
 ## Architecture
 
 ```mermaid
-flowchart LR
-    subgraph discord["Discord"]
-        gateway["Gateway (WebSocket)<br/>message, member, voice and interaction events"]
-        rest["HTTP API<br/>replies, moderation actions"]
-    end
+flowchart TB
+    discord(["Discord"])
     subgraph bot["Bot (discord.py)"]
         cogs["Cogs<br/>command and event handling"]
         services["Services<br/>business rules and data access"]
     end
-    subgraph storage["Database"]
-        mysql[("MySQL 8.4<br/>STORAGE_BACKEND=mysql")]
-        json[("JSON files + SQLite<br/>STORAGE_BACKEND=json")]
+    subgraph storage["Database, chosen by STORAGE_BACKEND"]
+        mysql[("MySQL 8.4<br/>mysql: production")]
+        json[("JSON files + SQLite<br/>json: compatibility mode")]
     end
-    gateway -->|"events"| cogs
-    cogs -->|"requests"| rest
-    cogs -->|"run_storage: serialized on a worker thread"| services
-    services -->|"production"| mysql
-    services -.->|"compatibility mode"| json
+    discord -->|"Gateway (WebSocket)<br/>message, member, voice and interaction events"| cogs
+    cogs -->|"HTTP API<br/>replies and moderation actions"| discord
+    cogs -->|"run_storage<br/>serialized on a worker thread"| services
+    services --> mysql
+    services -.-> json
 ```
 
 - **Discord and the bot**: the bot receives events over the Gateway's WebSocket connection: messages, members joining, voice state, and interactions such as slash commands, buttons and forms. Reading message content and the member list are privileged intents (Message Content, Server Members) and must be enabled in the Discord Developer Portal first. Replies and actions such as timeouts, deleting messages and creating channels go out through Discord's HTTP API.

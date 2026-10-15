@@ -277,24 +277,21 @@ python -X utf8 -m src.control_panel
 ## 架構
 
 ```mermaid
-flowchart LR
-    subgraph discord["Discord"]
-        gateway["Gateway（WebSocket）<br/>訊息、成員、語音與互動事件"]
-        rest["HTTP API<br/>回覆、管理動作"]
-    end
+flowchart TB
+    discord(["Discord"])
     subgraph bot["機器人（discord.py）"]
         cogs["Cog<br/>指令與事件處理"]
         services["Service<br/>業務規則與資料存取"]
     end
-    subgraph storage["資料庫"]
-        mysql[("MySQL 8.4<br/>STORAGE_BACKEND=mysql")]
-        json[("JSON 檔＋SQLite<br/>STORAGE_BACKEND=json")]
+    subgraph storage["資料庫：由 STORAGE_BACKEND 決定"]
+        mysql[("MySQL 8.4<br/>mysql：正式環境")]
+        json[("JSON 檔＋SQLite<br/>json：相容模式")]
     end
-    gateway -->|"事件"| cogs
-    cogs -->|"請求"| rest
-    cogs -->|"run_storage：背景執行緒依序執行"| services
-    services -->|"正式環境"| mysql
-    services -.->|"相容模式"| json
+    discord -->|"Gateway（WebSocket）<br/>訊息、成員、語音與互動事件"| cogs
+    cogs -->|"HTTP API<br/>回覆與管理動作"| discord
+    cogs -->|"run_storage<br/>背景執行緒依序執行"| services
+    services --> mysql
+    services -.-> json
 ```
 
 - **Discord 與機器人**：機器人透過 Gateway 的 WebSocket 連線接收事件，包括訊息、成員加入、語音狀態，以及斜線指令、按鈕、表單等互動。其中讀取訊息內容與成員清單屬於特權 intent（Message Content、Server Members），要先在 Discord Developer Portal 開啟。回覆訊息與禁言、刪除訊息、建立頻道等動作，則經由 Discord 的 HTTP API 送出。
