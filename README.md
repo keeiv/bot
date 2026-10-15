@@ -1,6 +1,6 @@
 <div align="center">
 
-[EN](docs/README.en.md) | **CN**
+[EN](docs/README.en.md) | **繁中**
 
 <h1>
   <picture>
@@ -33,6 +33,7 @@
 - [快速開始](#快速開始)
 - [終端機控制台（Windows）](#終端機控制台windows)
 - [權限](#權限)
+- [架構](#架構)
 - [資料與儲存](#資料與儲存)
 - [專案結構](#專案結構)
 - [授權](#授權)
@@ -272,6 +273,35 @@ python -X utf8 -m src.control_panel
 | `/emoji upload` | 管理表情符號 |
 | `/blacklist`、開發者指令 | 開發者限定 |
 | 其他指令，例如遊戲、成就、osu!、HoYoLAB、翻譯、檔案工具、`/repo_watch status`、`/repo_track status`、`/welcome templates`／`preview` | 不需要特殊權限 |
+
+## 架構
+
+```mermaid
+flowchart LR
+    subgraph discord["Discord"]
+        gateway["Gateway（WebSocket）<br/>訊息、成員、語音與互動事件"]
+        rest["HTTP API<br/>回覆、管理動作"]
+    end
+    subgraph bot["機器人（discord.py）"]
+        cogs["Cog<br/>指令與事件處理"]
+        services["Service<br/>業務規則與資料存取"]
+    end
+    subgraph storage["資料庫"]
+        mysql[("MySQL 8.4<br/>STORAGE_BACKEND=mysql")]
+        json[("JSON 檔＋SQLite<br/>STORAGE_BACKEND=json")]
+    end
+    gateway -->|"事件"| cogs
+    cogs -->|"請求"| rest
+    cogs -->|"run_storage：背景執行緒依序執行"| services
+    services -->|"正式環境"| mysql
+    services -.->|"相容模式"| json
+```
+
+- **Discord 與機器人**：機器人透過 Gateway 的 WebSocket 連線接收事件，包括訊息、成員加入、語音狀態，以及斜線指令、按鈕、表單等互動。其中讀取訊息內容與成員清單屬於特權 intent（Message Content、Server Members），要先在 Discord Developer Portal 開啟。回覆訊息與禁言、刪除訊息、建立頻道等動作，則經由 Discord 的 HTTP API 送出。
+- **機器人內部**：`src/cogs` 底下的 Cog 在啟動時自動載入，負責解析指令與事件；權限判斷、門檻與資料格式等規則集中在 `src/services`。Cog 透過 `run_storage` 把讀寫交給背景執行緒依序執行，同時最多受理 128 件，5 秒內無法受理就回報錯誤，不會卡住 Discord 的心跳。
+- **資料庫**：存放位置由 `STORAGE_BACKEND` 決定。
+  - `mysql`（正式環境）：設定與使用者資料以文件形式存在 `documents` 資料表，每次讀取都核對 SHA-256，不一致就拒絕使用。連線或寫入失敗時直接回報錯誤，不會退回讀寫 JSON 檔。
+  - `json`（相容模式，全新安裝使用）：每份資料是 `data/` 底下的 JSON 檔，先寫入暫存檔再整檔取代，寫到一半中斷也不會留下殘缺的檔案。快取、指標與審計紀錄放在 SQLite 檔 `data/storage/bot_database.db`。
 
 ## 資料與儲存
 

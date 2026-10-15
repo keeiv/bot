@@ -1,6 +1,6 @@
 <div align="center">
 
-**EN** | [CN](../CONTRIBUTING.md)
+**EN** | [繁中](../CONTRIBUTING.md)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/logo/bot-logo-wordmark-en-light.png">

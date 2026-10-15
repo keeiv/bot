@@ -1,6 +1,6 @@
 <div align="center">
 
-**EN** | [CN](../README.md)
+**EN** | [繁中](../README.md)
 
 <h1>
   <picture>
@@ -36,6 +36,7 @@ plus a web dashboard where you can set most of it up.
 - [Quick start](#quick-start)
 - [Terminal console (Windows)](#terminal-console-windows)
 - [Permissions](#permissions)
+- [Architecture](#architecture)
 - [Data and storage](#data-and-storage)
 - [Project layout](#project-layout)
 - [License](#license)
@@ -275,6 +276,35 @@ Start, stop and restart the bot, check its status, database connection and logs,
 | `/emoji upload` | Manage Emojis |
 | `/blacklist`, developer commands | Developer only |
 | Everything else, such as games, achievements, osu!, HoYoLAB, translation, file tools, `/repo_watch status`, `/repo_track status`, `/welcome templates` / `preview` | None |
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph discord["Discord"]
+        gateway["Gateway (WebSocket)<br/>message, member, voice and interaction events"]
+        rest["HTTP API<br/>replies, moderation actions"]
+    end
+    subgraph bot["Bot (discord.py)"]
+        cogs["Cogs<br/>command and event handling"]
+        services["Services<br/>business rules and data access"]
+    end
+    subgraph storage["Database"]
+        mysql[("MySQL 8.4<br/>STORAGE_BACKEND=mysql")]
+        json[("JSON files + SQLite<br/>STORAGE_BACKEND=json")]
+    end
+    gateway -->|"events"| cogs
+    cogs -->|"requests"| rest
+    cogs -->|"run_storage: serialized on a worker thread"| services
+    services -->|"production"| mysql
+    services -.->|"compatibility mode"| json
+```
+
+- **Discord and the bot**: the bot receives events over the Gateway's WebSocket connection: messages, members joining, voice state, and interactions such as slash commands, buttons and forms. Reading message content and the member list are privileged intents (Message Content, Server Members) and must be enabled in the Discord Developer Portal first. Replies and actions such as timeouts, deleting messages and creating channels go out through Discord's HTTP API.
+- **Inside the bot**: cogs under `src/cogs` are loaded automatically at startup and handle commands and events; rules such as permission checks, thresholds and data formats live in `src/services`. Cogs hand reads and writes to `run_storage`, which runs them one at a time on a worker thread. It accepts at most 128 operations at once and reports an error if one cannot be accepted within 5 seconds, so storage never stalls the Discord heartbeat.
+- **Database**: `STORAGE_BACKEND` decides where data lives.
+  - `mysql` (production): settings and user data are stored as documents in the `documents` table, and every read verifies the SHA-256 checksum, refusing the data if it doesn't match. If a connection or write fails, the error is reported directly; the bot never falls back to the JSON files.
+  - `json` (compatibility mode, used for fresh installs): each piece of data is a JSON file under `data/`, written to a temporary file and then swapped in whole, so an interrupted write never leaves a partial file. Caches, metrics and audit records go to the SQLite file `data/storage/bot_database.db`.
 
 ## Data and storage
 
