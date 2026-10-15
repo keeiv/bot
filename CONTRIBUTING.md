@@ -1,5 +1,7 @@
 <div align="center">
 
+[EN](docs/CONTRIBUTING.en.md) | **CN**
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/logo/bot-logo-wordmark-light.png">
   <img src="assets/logo/bot-logo-wordmark.png" alt="BOT." width="220">
@@ -71,7 +73,7 @@ MySQL 整合測試在 CI 的獨立 MySQL 8.4 工作固定執行；本機執行�
 ```powershell
 $env:MYSQL_INTEGRATION_TEST = "1"
 $env:MYSQL_TEST_DATABASE = "new_bot_test"
-python -m pytest tests/test_mysql_storage.py tests/test_storage_reliability.py tests/test_service_boundaries.py -q
+python -m pytest tests/test_mysql_storage.py tests/test_storage_reliability.py tests/test_service_boundaries.py tests/test_achievement_storage.py tests/test_content_alignment.py tests/test_tool_mysql.py -q
 ```
 
 測試帳號不得具備正式資料庫權限，不得將整合測試指向正式資料庫。一般測試中跳過此測試屬預期行為。

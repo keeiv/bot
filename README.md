@@ -1,5 +1,7 @@
 <div align="center">
 
+[EN](docs/README.en.md) | **CN**
+
 <h1>
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/logo/bot-logo-wordmark-light.png">
@@ -66,7 +68,7 @@
 | 換行 | 單則訊息 30 個換行 | 刪除訊息 |
 | 突襲 | 30 秒內 10 人加入 | 封鎖頻道 |
 
-處理方式共六種：警告、刪除訊息、禁言、踢出、封禁、封鎖頻道。10 分鐘內累計 3 次違規，會比這次最重的處分再升一級（最高到封鎖頻道）。洪水、重複、提及、連結與突襲的門檻可調整，也能設定白名單身分組與頻道；表情與換行目前使用預設門檻。
+處理方式共六種：警告、刪除訊息、禁言、踢出、封禁、封鎖頻道。10 分鐘內累計 3 次違規（預設值，可用 `escalation` 調整），會比這次最重的處分再升一級（最高到封鎖頻道）。洪水、重複、提及、連結與突襲的門檻可調整，也能設定白名單身分組與頻道；表情與換行目前使用預設門檻。
 
 **黑名單與申訴**：`/blacklist add`／`remove`／`list`／`info` 管理本地黑名單並查詢 CatHome API（開發者限定）。被擋下的使用者可用 `/appeal` 提交、`/appeal_status` 查詢，由開發者審核；提交時沿用原本的封鎖原因，沒有另外填寫的表單。接受申訴只會移除本地黑名單，CatHome API 的封鎖仍須由對方解除。詳見 [黑名單指南](BLACKLIST_GUIDE.md)。
 
@@ -78,14 +80,14 @@
 
 ### 迎接新成員
 
-- **歡迎訊息**：`/welcome setup` 設定頻道與範本，可用 `{user}`、`{server}`、`{count}`；`/welcome templates` 列出內建範本、`/welcome preview` 預覽、`/welcome disable` 停用。
+- **歡迎訊息**：`/welcome setup` 設定頻道與範本，可用 `{user}`（提及）、`{username}`（顯示名稱）、`{server}`、`{count}`（成員數）、`{created_at}`（伺服器建立日期）；`/welcome templates` 列出內建範本、`/welcome preview` 預覽、`/welcome disable` 停用。
 - **自動身分組**：`/auto_role setup`／`list`／`remove` 管理加入時自動給予的身分組規則。
 - **年齡守門**：從訊息中的「數字 + 歲」辨識未成年的年齡宣告，依設定移除成人身分組並加入指定身分組。`/age_guard set_adult_role`、`set_punishment_role`、`toggle`、`status`。
 
 ### 伺服器服務
 
 - **工單**：`>>>ticket setup #頻道 @身分組` 建立面板。成員按「開啟工單」會建立私人討論串並通知工作人員身分組；可直接關閉或附原因關閉，討論串會鎖定保留紀錄。
-- **臨時語音**：`/temp_voice setup` 設定觸發頻道、類別與名稱範本（預設 `{username}的家`），`status` 查看、`disable` 停用。成員加入觸發頻道就會得到自己的語音頻道，人都離開後自動刪除。房主可用 `envc*` 前綴指令管理：
+- **臨時語音**：`/temp_voice setup` 設定觸發頻道、類別與名稱範本（預設 `{username}的家`，英文介面為 `{username}'s room`），`status` 查看、`disable` 停用。成員加入觸發頻道就會得到自己的語音頻道，人都離開後自動刪除。房主可用 `envc*` 前綴指令管理：
 
   | 類型 | 指令 |
   | --- | --- |
@@ -276,7 +278,8 @@ python -X utf8 -m src.control_panel
 | 位置 | 內容 |
 | --- | --- |
 | MySQL `documents` | 以原本的檔案路徑為鍵保存完整 JSON 與 SHA-256 校驗值：設定、成就、黑名單、osu! 綁定、加密帳號等 |
-| MySQL `samples`、`cache_entries`、`metrics`、`audit_logs` | 運作歷史、快取、指標與審計資料 |
+| MySQL `samples`、`sample_health`、`cache_entries`、`metrics`、`audit_logs` | 運作歷史、快取、指標與審計資料 |
+| MySQL `tool_*`（`tool_users`、`tool_jobs` 等 7 張） | 檔案工具的額度、等級與處理紀錄 |
 | MySQL `migration_sources`、`migration_state` | 搬移來源副本與驗證標記 |
 | `data/logs/runtime.log` | 執行日誌，經背景佇列寫入，避免卡住 Discord 心跳 |
 | `.env` | 連線資訊與加密金鑰，不納入 Git |
