@@ -4,8 +4,8 @@
 
 <h1>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="../assets/logo/bot-logo-wordmark-light.png">
-    <img src="../assets/logo/bot-logo-wordmark.png" alt="BOT." width="320">
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/logo/bot-logo-wordmark-en-light.png">
+    <img src="../assets/logo/bot-logo-wordmark-en.png" alt="BOT." width="330">
   </picture>
 </h1>
 
