@@ -281,13 +281,13 @@ flowchart TB
     discord(["Discord"])
     subgraph bot["機器人（discord.py）"]
         cogs["Cog<br/>指令與事件處理"]
-        services["Service<br/>業務規則與資料存取"]
+        services["Service<br/>業務規則<br/>與資料存取"]
     end
     subgraph storage["資料庫：由 STORAGE_BACKEND 決定"]
-        mysql[("MySQL 8.4<br/>mysql：正式環境")]
-        json[("JSON 檔＋SQLite<br/>json：相容模式")]
+        mysql[("MySQL 8.4<br/>mysql<br/>正式環境")]
+        json[("JSON 檔＋SQLite<br/>json<br/>相容模式")]
     end
-    discord -->|"Gateway（WebSocket）<br/>訊息、成員、語音與互動事件"| cogs
+    discord -->|"Gateway（WebSocket）<br/>訊息、成員、語音<br/>與互動事件"| cogs
     cogs -->|"HTTP API<br/>回覆與管理動作"| discord
     cogs -->|"run_storage<br/>背景執行緒依序執行"| services
     services --> mysql
