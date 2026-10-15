@@ -284,13 +284,13 @@ flowchart TB
     discord(["Discord"])
     subgraph bot["Bot (discord.py)"]
         cogs["Cogs<br/>command and event handling"]
-        services["Services<br/>business rules and data access"]
+        services["Services<br/>business rules<br/>and data access"]
     end
     subgraph storage["Database, chosen by STORAGE_BACKEND"]
-        mysql[("MySQL 8.4<br/>mysql: production")]
-        json[("JSON files + SQLite<br/>json: compatibility mode")]
+        mysql[("MySQL 8.4<br/>mysql<br/>production")]
+        json[("JSON files + SQLite<br/>json<br/>compatibility mode")]
     end
-    discord -->|"Gateway (WebSocket)<br/>message, member, voice and interaction events"| cogs
+    discord -->|"Gateway (WebSocket)<br/>message, member, voice<br/>and interaction events"| cogs
     cogs -->|"HTTP API<br/>replies and moderation actions"| discord
     cogs -->|"run_storage<br/>serialized on a worker thread"| services
     services --> mysql
