@@ -3,7 +3,13 @@
 Each module defines ``MESSAGES = {key: {"en": ..., "zh": ...}}``. Keys are
 namespaced by area (``guide.*``, ``language.*``) so modules cannot collide; the
 merge below refuses duplicates instead of silently overwriting.
+
+Catalogues that are present on disk but not listed here (features kept only on
+one machine and left out of the repository) are found and merged as well.
 """
+
+import importlib
+import pkgutil
 
 from src.locales import achievements_messages
 from src.locales import admin_messages
@@ -35,8 +41,6 @@ from src.locales import message_logger_messages
 from src.locales import novagrid_messages
 from src.locales import osu_info_messages
 from src.locales import osu_service_messages
-from src.locales import petition_messages
-from src.locales import petition_service_messages
 from src.locales import report_messages
 from src.locales import report_service_messages
 from src.locales import russian_roulette_messages
@@ -51,8 +55,7 @@ from src.locales import tool_remote_messages
 from src.locales import tool_routes_messages
 from src.locales import tool_worker_messages
 
-MESSAGES: dict[str, dict[str, str]] = {}
-for _module in (
+_MODULES = [
     core,
     help_messages,
     info,
@@ -83,8 +86,6 @@ for _module in (
     novagrid_messages,
     osu_info_messages,
     osu_service_messages,
-    petition_messages,
-    petition_service_messages,
     report_messages,
     report_service_messages,
     russian_roulette_messages,
@@ -98,7 +99,15 @@ for _module in (
     tool_remote_messages,
     tool_routes_messages,
     tool_worker_messages,
-):
+]
+_LISTED = {_module.__name__ for _module in _MODULES}
+for _found in sorted(pkgutil.iter_modules(__path__), key=lambda found: found.name):
+    _name = f"{__name__}.{_found.name}"
+    if _found.name.endswith("_messages") and _name not in _LISTED:
+        _MODULES.append(importlib.import_module(_name))
+
+MESSAGES: dict[str, dict[str, str]] = {}
+for _module in _MODULES:
     for _key, _value in _module.MESSAGES.items():
         if _key in MESSAGES:
             raise ValueError(f"Duplicate message key: {_key}")
