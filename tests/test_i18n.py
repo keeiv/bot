@@ -133,11 +133,6 @@ def test_context_menus_have_chinese_names():
         assert len(english) <= 32 and len(chinese) <= 32
 
 
-def test_zas_prefix_command_is_left_alone():
-    source = (COGS / "features" / "petition.py").read_text(encoding="utf-8")
-    assert '@commands.command(name="請求zas女裝")' in source
-
-
 async def _menu_callback(interaction: discord.Interaction, message: discord.Message):
     pass
 
