@@ -491,3 +491,12 @@ def test_an_ai_request_in_progress_does_not_block_a_file_job(quota):
     quote = service.quote("101", [100], "png")
     assert service.reserve("101", quote)  # the AI hold is not a file job
     service.ai_settle("101", job, 0)
+
+
+def test_an_ai_hold_lasts_through_the_longest_request(quota):
+    from src.services.tool_quota import AI_RESERVATION_SECONDS
+
+    service, _ = quota
+    assert AI_RESERVATION_SECONDS >= 45 + 240 + 120
+    service.ai_reserve("101", 3)
+    assert service.snapshot("101")["reserved"] == 3
