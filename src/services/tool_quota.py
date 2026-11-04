@@ -82,6 +82,8 @@ NOVA_TIER = {
     "hidden": True,
 }
 RESERVATION_SECONDS = 300
+# An AI hold outlives the longest request: 45 s queued, 240 s drawing, then delivery.
+AI_RESERVATION_SECONDS = 900
 
 
 def valid_id(value):
@@ -442,7 +444,7 @@ class ToolQuota:
                     user[0],
                     user[2],
                     self.clock(),
-                    self.clock() + RESERVATION_SECONDS,
+                    self.clock() + AI_RESERVATION_SECONDS,
                     cost,
                 ),
             )

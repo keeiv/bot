@@ -126,7 +126,7 @@ class AiChat(commands.Cog):
         await interaction.response.defer(thinking=True)
 
         async def deliver(reply: Reply) -> None:
-            await interaction.followup.send(**self.boxed(reply, interaction))
+            await interaction.followup.send(**(await self.boxed(reply, interaction)))
 
         notice = await self.ask(interaction.user.id, message, deliver)
         if notice:  # busy, unavailable, no allowance or no character
@@ -144,13 +144,13 @@ class AiChat(commands.Cog):
         await interaction.response.defer(thinking=True)
 
         async def deliver(reply: Reply) -> None:
-            await interaction.followup.send(**self.boxed(reply, interaction))
+            await interaction.followup.send(**(await self.boxed(reply, interaction)))
 
         notice = await self.ask_drawing(interaction.user.id, prompt, deliver)
         if notice:
             await interaction.followup.send(notice)
 
-    def boxed(self, reply: Reply, interaction: Any = None) -> dict[str, Any]:
+    async def boxed(self, reply: Reply, interaction: Any = None) -> dict[str, Any]:
         """A reply as an embed: the character's name and avatar, the text, the model line."""
         files = [discord.File(AVATARS[reply.provider], filename="avatar.png")]
         embed = discord.Embed(
@@ -162,7 +162,10 @@ class AiChat(commands.Cog):
             # Within what this interaction may upload (Discord's own limit, with room
             # for the avatar), so a paid-for drawing is never refused at the door.
             limit = int(getattr(interaction, "filesize_limit", 0) or 10 * 1024 * 1024)
-            data, name = fit_image(reply.drawings[0], limit - 512 * 1024)
+            # Decoding and re-encoding a large image is slow: never on the event loop.
+            data, name = await run_blocking(
+                fit_image, reply.drawings[0], limit - 512 * 1024
+            )
             files.append(discord.File(io.BytesIO(data), filename=name))
             embed.set_image(url=f"attachment://{name}")
         return {"embed": embed, "files": files, "allowed_mentions": NO_MENTIONS}
