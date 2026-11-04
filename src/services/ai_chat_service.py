@@ -113,7 +113,11 @@ class AiChatService:
         self.cli = cli or ai_cli.shared()
         self.path = path
         self.models = models or chat_models()
-        self._lock = threading.RLock()
+        # Storage is written under _store (in a worker thread, it can be slow); the
+        # conversations are changed under _state, which is never held across I/O, so the
+        # event loop never waits on a database.
+        self._store = threading.RLock()
+        self._state = threading.Lock()
         self._data: Optional[dict[str, Any]] = None
         self._history: dict[int, deque[tuple[str, str]]] = {}
         # Bumped by forget and choose: a reply started before cannot write history back.
@@ -122,7 +126,7 @@ class AiChatService:
 
     # ── stored choice ─────────────────────────────────────────────
     def _load(self) -> dict[str, Any]:
-        with self._lock:
+        with self._store:
             if self._data is None:
                 try:
                     data = read_document(self.path)
@@ -141,16 +145,17 @@ class AiChatService:
     def choose(self, user_id: int, provider: str) -> None:
         if provider not in ai_cli.PROVIDERS:
             raise ValueError("unknown provider")
-        with self._lock:
+        with self._store:
             data = self._load()
             data["users"][str(user_id)] = provider
             write_document(self.path, data)
             self._data = data
-            # A new character starts a new conversation.
+        # A new character starts a new conversation.
+        with self._state:
             self._reset(user_id)
 
     def forget(self, user_id: int) -> None:
-        with self._lock:
+        with self._state:
             self._reset(user_id)
 
     def _reset(self, user_id: int) -> None:
@@ -180,7 +185,7 @@ class AiChatService:
         if provider not in ai_cli.PROVIDERS:
             raise LookupError("no character chosen")
         message = message.strip()[:MAX_MESSAGE]
-        with self._lock:
+        with self._state:
             if user_id in self._busy:
                 raise ChatBusy()
             self._busy.add(user_id)
@@ -197,12 +202,12 @@ class AiChatService:
                 seconds=REPLY_SECONDS,
             )
         finally:
-            with self._lock:
+            with self._state:
                 self._busy.discard(user_id)
         answer = answer.strip()
         if len(answer) > MAX_REPLY:
             answer = answer[: MAX_REPLY - 1] + "…"
-        with self._lock:
+        with self._state:
             # Not if the member cleared the conversation or switched meanwhile.
             if self._generation.get(user_id, 0) == generation:
                 turns = self._history.setdefault(user_id, deque(maxlen=HISTORY_TURNS))
