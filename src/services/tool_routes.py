@@ -89,12 +89,14 @@ def install_routes(app, bot):
                 if not isinstance(coupon, str) or len(coupon) > 128:
                     raise ValueError(tx("tool_routes.invalid_reset_voucher"))
                 data = await run_blocking(service.quota.redeem, uid, coupon)
+            elif route == "egg":
+                data = await run_blocking(service.quota.easter_egg, uid)
             else:
                 raise ValueError(tx("tool_routes.unknown_file_tool_operation"))
         return web.json_response(data, headers={"Cache-Control": "no-store"})
 
     app.router.add_get("/tools/{operation:usage|coupons|job|jobs}", metadata)
-    app.router.add_post("/tools/{operation:quote|redeem}", metadata)
+    app.router.add_post("/tools/{operation:quote|redeem|egg}", metadata)
 
     async def transfer(request):
         return await public_transfer(bot, request)

@@ -417,6 +417,24 @@ class ToolQuota:
                 "items": [{"id": r[0], "issuedAt": r[1], "usedAt": r[2]} for r in rows],
             }
 
+    def easter_egg(self, user_id):
+        """One reset voucher per account for finding the website's terminal easter egg.
+
+        The voucher id is fixed per account, so asking again (or twice at once)
+        can never issue a second one.
+        """
+        uid = valid_id(user_id)
+        coupon_id = f"egg-rm-rf-{uid}"
+        ignore = "INSERT IGNORE" if self.mysql else "INSERT OR IGNORE"
+        with self.connection(locked=True) as db:
+            self._user(db, uid)
+            # The insert itself decides: only the request that adds the row says "issued".
+            added = db.execute(
+                f"{ignore} INTO tool_coupons(coupon_id,user_id,issued_at) VALUES (?,?,?)",
+                (coupon_id, uid, self.clock()),
+            ).rowcount
+        return {"issued": added == 1, "couponId": coupon_id}
+
     def redeem(self, user_id, coupon_id):
         with self.connection(locked=True) as db:
             user = self._user(db, user_id)
