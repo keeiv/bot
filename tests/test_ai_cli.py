@@ -998,6 +998,23 @@ async def test_a_reply_the_member_let_expire_is_still_paid_for(tmp_path):
     assert quota.charged == [1]
 
 
+async def test_a_reply_lost_because_discord_was_unreachable_is_refunded(tmp_path):
+    import aiohttp
+
+    service, _ = chat(tmp_path, {ai_cli.CLAUDE: ["您好。"]})
+    service.choose(7, ai_cli.CLAUDE)
+    quota = FakeQuota()
+    interaction = event()
+
+    async def offline(*args, **kwargs):
+        if "embed" in kwargs:
+            raise aiohttp.ClientConnectionError("down")
+
+    interaction.followup.send = offline
+    await AiChat.chat.callback(cog(service, quota), interaction, "hi")
+    assert quota.charged == [0]
+
+
 def test_a_large_drawing_is_shrunk_to_fit_the_upload_limit():
     import random
 
