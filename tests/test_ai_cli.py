@@ -5,8 +5,8 @@ checked is the command line, the parsing, the review policy and the fallbacks,
 not any model's judgement.
 """
 
-from datetime import date
 import asyncio
+from datetime import date
 import io
 import json
 from pathlib import Path
