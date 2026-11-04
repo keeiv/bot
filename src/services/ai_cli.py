@@ -16,6 +16,13 @@ while, so a used-up quota is not asked again and again.
 
 What each model did today (calls, failures, tokens, whether it is resting) is
 written to ``data/ai_usage.json`` by :class:`UsageLog`, for the control panel.
+
+Both tools run with homes of their own under ``data/ai`` (``CODEX_HOME`` and
+``CLAUDE_CONFIG_DIR``), never the owner's: the owner's global instructions
+(``AGENTS.md``, ``CLAUDE.md``), skills and settings must not reach members'
+chats or the review policy. The bot's Codex therefore has its own sign-in
+(``codex login`` with that ``CODEX_HOME``); Claude signs in with
+``CLAUDE_CODE_OAUTH_TOKEN``.
 """
 
 import asyncio
@@ -24,7 +31,6 @@ from datetime import date
 import json
 import os
 from pathlib import Path
-import re
 import shutil
 import tempfile
 import time
@@ -34,7 +40,9 @@ CLAUDE, GPT = "claude", "gpt"
 PROVIDERS = (CLAUDE, GPT)
 MAX_RUNNING = 2  # model processes at the same time, for chat and review together
 DOWN_SECONDS = 60  # after a failure, that model is not asked for this long
+QUEUE_SECONDS = 45  # how long a request may wait for a free model process
 USAGE_FILE = "data/ai_usage.json"
+HOME = Path(os.getenv("AI_CLI_HOME", "data/ai"))
 
 # Codex features that would let a model act on this machine or reach out of it.
 CODEX_DISABLED = (
@@ -61,8 +69,50 @@ CODEX_DISABLED = (
 )
 
 # Environment the tools keep: everything except the bot's own secrets.
-_SECRET = re.compile(r"TOKEN|SECRET|PASSWORD|PASSWD|API_KEY|PRIVATE", re.IGNORECASE)
-_KEEP = {"CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"}
+# The only environment a model process gets: what Windows and the two tools need
+# to start, find their sign-in and reach the network. Nothing of the bot's own.
+_PASS = {
+    name.upper()
+    for name in (
+        "PATH",
+        "PATHEXT",
+        "SYSTEMROOT",
+        "SYSTEMDRIVE",
+        "WINDIR",
+        "COMSPEC",
+        "OS",
+        "PROCESSOR_ARCHITECTURE",
+        "NUMBER_OF_PROCESSORS",
+        "USERNAME",
+        "USERDOMAIN",
+        "COMPUTERNAME",
+        "USERPROFILE",
+        "HOMEDRIVE",
+        "HOMEPATH",
+        "HOME",
+        "APPDATA",
+        "LOCALAPPDATA",
+        "PROGRAMDATA",
+        "PROGRAMFILES",
+        "PROGRAMFILES(X86)",
+        "PROGRAMW6432",
+        "TEMP",
+        "TMP",
+        "LANG",
+        "LC_ALL",
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "NO_PROXY",
+        "SSL_CERT_FILE",
+        "NODE_EXTRA_CA_CERTS",
+        # sign-in and configuration of the two tools
+        "CLAUDE_CODE_OAUTH_TOKEN",
+        "CLAUDE_CONFIG_DIR",
+        "ANTHROPIC_API_KEY",
+        "CODEX_HOME",
+        "OPENAI_API_KEY",
+    )
+}
 
 Runner = Callable[[Sequence[str], bytes, str, float], Awaitable[tuple[int, bytes]]]
 
@@ -111,13 +161,24 @@ def find_codex(
 
 
 def child_environment(environ: Optional[dict[str, str]] = None) -> dict[str, str]:
-    """The environment for a model process, without the bot's tokens and passwords."""
+    """The environment for a model process: an allowlist, so no bot secret can leak."""
     environ = dict(os.environ) if environ is None else environ
-    return {
-        key: value
-        for key, value in environ.items()
-        if key in _KEEP or not _SECRET.search(key)
-    }
+    return {key: value for key, value in environ.items() if key.upper() in _PASS}
+
+
+def isolated_environment(
+    environ: Optional[dict[str, str]] = None, home: Optional[Path] = None
+) -> dict[str, str]:
+    """The allowlisted environment, pointed at the bot's own homes for both tools."""
+    home = (home or HOME).resolve()
+    env = child_environment(environ)
+    for key in [k for k in env if k.upper() in ("CODEX_HOME", "CLAUDE_CONFIG_DIR")]:
+        del env[key]
+    for name, key in (("codex", "CODEX_HOME"), ("claude", "CLAUDE_CONFIG_DIR")):
+        folder = home / name
+        folder.mkdir(parents=True, exist_ok=True)
+        env[key] = str(folder)
+    return env
 
 
 async def run_process(
@@ -131,7 +192,7 @@ async def run_process(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.DEVNULL,
             cwd=cwd,
-            env=child_environment(),
+            env=isolated_environment(),
             creationflags=0x08000000 if os.name == "nt" else 0,  # CREATE_NO_WINDOW
         )
     except OSError as error:
@@ -311,7 +372,14 @@ class AiCli:
         executable = self.path(provider)
         if executable is None:
             raise AiCliError("找不到模型程式")
-        async with self._slots:
+        try:
+            await asyncio.wait_for(self._slots.acquire(), QUEUE_SECONDS)
+        except asyncio.TimeoutError as error:
+            raise AiCliError("等待模型逾時") from error
+        try:
+            # A request that queued while the model failed must not start it again.
+            if time.monotonic() < self._down_until[provider]:
+                raise AiCliError("模型暫停使用中")
             spent = [0]  # tokens, filled in even when the answer is unusable
             try:
                 with tempfile.TemporaryDirectory(
@@ -336,6 +404,8 @@ class AiCli:
             if self.usage is not None:
                 self.usage.record(provider, model, spent[0], ok=True)
             return answer
+        finally:
+            self._slots.release()
 
     async def _claude(
         self, executable, folder, system, prompt, model, images, seconds, spent
@@ -357,6 +427,7 @@ class AiCli:
             "--tools",
             "",
             "--safe-mode",
+            "--strict-mcp-config",
             "--no-session-persistence",
             "--permission-prompts",
             "none",

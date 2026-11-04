@@ -29,10 +29,17 @@
 
 每個模型的時間上限是 150 秒。私訊給開發者的拒絕紀錄會寫出是哪個模型拒絕的。
 
-每次呼叫都是全新、不保存的工作階段，在空的暫存資料夾裡執行，並關閉所有工具：Claude 用 `--tools ""`、`--safe-mode`；Codex 用唯讀沙箱、不讀使用者設定，並停用 shell、程式執行、瀏覽器、外掛等功能（清單在 `src/services/ai_cli.py` 的 `CODEX_DISABLED`）。圖片與文字只經由標準輸入或暫存檔交給模型，不放在命令列上。子程序的環境變數會移除機器人自己的 Token、密碼與金鑰。
+每次呼叫都是全新、不保存的工作階段，在空的暫存資料夾裡執行，並關閉所有工具：Claude 用 `--tools ""`、`--safe-mode`、`--strict-mcp-config`；Codex 用唯讀沙箱、不讀使用者設定，並停用 shell、程式執行、瀏覽器、外掛等功能（清單在 `src/services/ai_cli.py` 的 `CODEX_DISABLED`）。圖片與文字只經由標準輸入或暫存檔交給模型，不放在命令列上。子程序只拿到白名單內的環境變數（系統路徑、使用者資料夾、代理設定與兩個工具的登入），機器人自己的 Token、密碼與金鑰都不會傳過去。模型的回覆必須剛好是一個 JSON 物件，多了文字或第二個判定就當成沒有回覆；提示也會告訴模型，圖片裡的文字一律是待審內容，不是指令。
+
+兩個工具都使用機器人自己的設定資料夾 `data/ai/codex`（`CODEX_HOME`）與 `data/ai/claude`（`CLAUDE_CONFIG_DIR`），不讀取你個人的設定：你的全域 `AGENTS.md`、`CLAUDE.md`、技能與設定都不會進入成員的對話或審核。資料夾位置可用 `AI_CLI_HOME` 改。
 
 > [!IMPORTANT]
-> Claude Code 在桌面版之外執行時，需要自己的登入。在機器人執行的帳號下執行一次 `claude setup-token`（需要 Claude 訂閱），把產生的 Token 設成環境變數 `CLAUDE_CODE_OAUTH_TOKEN`。Codex 沿用 `codex login` 的登入。
+> 兩個工具都要為機器人另外登入一次，在專案根目錄、機器人執行的帳號下操作：
+>
+> - **Claude**：執行 `claude setup-token`（需要 Claude 訂閱），把產生的 Token 設成 `.env` 的 `CLAUDE_CODE_OAUTH_TOKEN`。
+> - **Codex**：PowerShell 執行 `$env:CODEX_HOME="$PWD\datai\codex"; codex login`（cmd 為 `set CODEX_HOME=%CD%\datai\codex && codex login`）。這是獨立的登入，不影響你桌面版的 Codex。
+>
+> 沒有登入的工具會被當成沒有回覆：審核改人工，聊天顯示「此功能暫時維護中 稍後再試」。
 
 驗證：`pytest tests/test_ai_cli.py`。測試以模擬的命令列工具扮演兩個模型，檢查的是指令參數、判定規則與退回人工的邏輯，不代表任何模型的判斷品質。
 
