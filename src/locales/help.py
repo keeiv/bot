@@ -158,7 +158,7 @@ CATEGORIES: dict[str, tuple[HelpCategory, ...]] = {
         HelpCategory(
             key="community",
             label="社群工具",
-            description="翻譯、抽獎、工單與資訊指令",
+            description="翻譯、AI 聊天、抽獎、工單與資訊指令",
             accent_color=_YELLOW,
             summary="面向一般成員的常用工具與社群互動功能。",
             blocks=(
@@ -167,6 +167,15 @@ CATEGORIES: dict[str, tuple[HelpCategory, ...]] = {
                     lines=(
                         "右鍵訊息 > 應用程式 > `翻譯訊息`（英文介面為 `Translate message`）- 翻譯任意訊息",
                         "支援 14 種語言，自動偵測來源語言。",
+                    ),
+                ),
+                HelpBlock(
+                    title="AI 聊天",
+                    lines=(
+                        "`/ai choose` - 選擇回應你的角色：十四行詩（Claude，文靜的大小姐）或晨曦（GPT，活潑開朗）",
+                        "`/ai chat` - 和選擇的角色聊天，之後只由她回應你",
+                        "`@BOT. 訊息` - 在頻道直接提及機器人，角色以分身回覆",
+                        "`/ai forget` - 清除她對這段對話的記憶",
                     ),
                 ),
                 HelpBlock(
@@ -389,7 +398,7 @@ CATEGORIES: dict[str, tuple[HelpCategory, ...]] = {
         HelpCategory(
             key="community",
             label="Community tools",
-            description="Translation, giveaways, tickets and info",
+            description="Translation, AI chat, giveaways, tickets and info",
             accent_color=_YELLOW,
             summary="Everyday tools for members and community activities.",
             blocks=(
@@ -398,6 +407,15 @@ CATEGORIES: dict[str, tuple[HelpCategory, ...]] = {
                     lines=(
                         "Right-click a message > Apps > `Translate message`",
                         "14 languages, with the source language detected for you.",
+                    ),
+                ),
+                HelpBlock(
+                    title="AI chat",
+                    lines=(
+                        "`/ai choose` - pick who answers you: Sonnet (Claude, a quiet, refined young lady) or Dawn (GPT, lively and cheerful)",
+                        "`/ai chat` - talk to the character you picked; only she answers you",
+                        "`@BOT. message` - mention the bot in a channel and she replies in person",
+                        "`/ai forget` - clear what she remembers of your conversation",
                     ),
                 ),
                 HelpBlock(

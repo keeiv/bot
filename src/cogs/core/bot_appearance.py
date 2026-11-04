@@ -172,10 +172,11 @@ class BotAppearance(commands.Cog):
         image: discord.Attachment,
         image_bytes: bytes,
     ) -> bool:
-        """Let the local AI models decide. True means the request is settled.
+        """Let the AI models decide. True means the request is settled.
 
-        False means the AI could not give an answer (no worker, it is off, a
-        model failed), and the caller goes on with the human review as before.
+        False means the AI could not give an answer (no backend, it is off, a
+        model failed or ran out of quota), and the caller goes on with the
+        human review as before.
         """
         if interaction.guild is None or not await self.review.available():
             return False
@@ -213,7 +214,10 @@ class BotAppearance(commands.Cog):
                 tx(
                     "bot_appearance.ai_dev_rejected",
                     v0=(type_name),
-                    v1=(outcome.stage),
+                    v1=(
+                        outcome.reviewer
+                        or tx("bot_appearance.ai_stage", v0=(outcome.stage))
+                    ),
                 ),
                 names,
                 discord.Color.from_rgb(231, 76, 60),

@@ -1,10 +1,15 @@
-"""The bot's side of the image-review worker: pinned-TLS client and the service.
+"""The bot's side of the image review: the backends and the service.
+
+Two backends can judge an image. The default is Claude and GPT through the
+desktop apps' command-line tools on this machine (``moderation_cli``); when
+they are not installed, or ``IMAGE_REVIEW_BACKEND`` is not ``cli``, the remote
+Ollama worker over pinned TLS is used if one is configured.
 
 The review has three outcomes. ``approved`` and ``rejected`` come from the
-local models on the worker. Everything else (no worker configured, the worker
-is off or still preparing, a model failed or timed out, the answer did not
+models. Everything else (no backend, a backend that is off or still preparing,
+a model that failed, timed out or ran out of quota, an answer that did not
 check out) is ``unavailable``, and the caller then falls back to the human
-review that existed before. A broken worker can never approve an image.
+review that existed before. A broken backend can never approve an image.
 """
 
 import asyncio
@@ -22,6 +27,7 @@ import uuid
 import aiohttp
 
 from src.services import moderation_protocol as protocol
+from src.services.moderation_cli import CliReviewer
 from src.services.tool_remote import read_config
 from src.services.tool_remote import RemoteWorker
 
@@ -37,6 +43,7 @@ class Outcome:
     stage: int = 0  # the stage that decided (0 when unavailable)
     categories: tuple[str, ...] = field(default_factory=tuple)
     reason: str = ""  # for logs and developers, never shown to the requester
+    reviewer: str = ""  # the model(s) that decided, when the backend names them
 
 
 UNAVAILABLE = Outcome(protocol.UNAVAILABLE)
@@ -127,6 +134,11 @@ class ModerationWorker(RemoteWorker):
         return protocol.validate_result(json.loads(body), len(images))["results"]
 
 
+def configured_backend() -> Optional[Any]:
+    """Claude and GPT on this machine if available, else the remote worker."""
+    return CliReviewer.configured() or ModerationWorker.configured()
+
+
 class ImageReviewService:
     """What the cogs call: ``await service.review(name, bytes)``."""
 
@@ -134,7 +146,7 @@ class ImageReviewService:
         self,
         worker: Optional[Any] = None,
         *,
-        configured: Callable[[], Optional[Any]] = ModerationWorker.configured,
+        configured: Callable[[], Optional[Any]] = configured_backend,
     ) -> None:
         self._worker = worker
         self._configured = configured
@@ -185,5 +197,9 @@ class ImageReviewService:
             self._skip_until = time.monotonic() + SKIP_SECONDS // 4
             return UNAVAILABLE
         return Outcome(
-            item["verdict"], item["stage"], tuple(item["categories"]), item["reason"]
+            item["verdict"],
+            item["stage"],
+            tuple(item["categories"]),
+            item["reason"],
+            item.get("reviewer", ""),
         )

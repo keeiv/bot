@@ -153,8 +153,11 @@ class ControlPanel:
         self.status = self.reader.read()
         self.summary = summarise_log(self.paths.runtime_log, self.clock())
         self.memory_percent: Optional[float] = None
-        # Where Nova's AI usage comes from. Nothing is connected yet.
-        self.ai_source: ai_usage.UsageSource = ai_source or ai_usage.NoUsageSource()
+        # Where Nova's AI usage comes from: the file the bot writes as it asks
+        # Claude and GPT.
+        self.ai_source: ai_usage.UsageSource = ai_source or ai_usage.BotUsageSource(
+            self.paths.root
+        )
         self.ai = self.ai_source.read()
         self.notice: Optional[render.Notice] = None
         self.notice_until = 0.0

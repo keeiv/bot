@@ -141,7 +141,7 @@ def nova_lines(usage: AiUsage) -> list[Text]:
     elif usage.fraction is not None:
         state = line(f"已用 {usage.fraction:.0%}", theme.MUTED)
     else:
-        state = line("未計量", theme.DIM)
+        state = line(usage.note or "未計量", theme.MUTED if usage.note else theme.DIM)
     return [
         name,
         line("AI 用量", theme.DIM),

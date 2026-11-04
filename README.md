@@ -47,7 +47,7 @@
 | 伺服器服務 | 工單、臨時語音、抽獎、身分組與表情符號、伺服器設定面板 | `>>>ticket` `/temp_voice` `/giveaway` `/role` `/emoji` `/settings` |
 | 遊戲與成就 | 兩款雙人小遊戲、18 個成就 | `/deep-sea-oxygen` `/russian-roulette` `/achievements` |
 | 帳號整合 | osu!、HoYoLAB／米游社、GitHub 倉庫通知 | `/osu` `/mhy` `/repo_watch` `/repo_track` |
-| 工具 | 檔案轉換與壓縮（NovaGrid）、訊息翻譯 | `/convert` `/compress` `/usage` `翻譯訊息` |
+| 工具 | 檔案轉換與壓縮（NovaGrid）、訊息翻譯、AI 聊天 | `/convert` `/compress` `/usage` `翻譯訊息` `/ai` |
 | 語言 | 英文與中文介面，伺服器與個人各自設定 | `/language` |
 
 下面依範圍列出完整內容。
@@ -100,7 +100,7 @@
 - **抽獎**：`/giveaway start`（時長可寫 `1d12h30m`）、`end` 提前結束、`reroll` 重抽、`list` 列出；按按鈕參加，到期自動開獎。
 - **身分組與表情符號**：`/role assign`／`remove`、`/emoji get`／`upload`。
 - **設定面板**：`/settings` 用選單和按鈕查看與修改日誌頻道、舉報頻道、防洗版與歡迎訊息。
-- **機器人外觀**：`/bot_appearance name` 改伺服器暱稱，`reset` 還原頭像或橫幅。`avatar`／`banner` 的圖片在設定 [AI 圖片審核節點](docs/image-review.md) 後，先由三個本地模型依序審核；AI 無法判定或未設定時，由開發者人工審核。
+- **機器人外觀**：`/bot_appearance name` 改伺服器暱稱，`reset` 還原頭像或橫幅。`avatar`／`banner` 的圖片先交給 [AI 審核](docs/image-review.md)：預設由這台電腦上的 Claude（Haiku）與 GPT（Luna）同時判斷，兩個都判定安全才通過；也可改用另一台電腦上的審核節點。AI 無法判定或兩種都沒有設定時，由開發者人工審核。
 
 ### 遊戲與成就
 
@@ -133,6 +133,8 @@
 - 處理工作可以分給區網內另一台電腦。詳見 [檔案工具](docs/file-tools.md)、[NovaGrid 引擎](docs/novagrid.md)、[區網處理節點](docs/tool-worker.md)。
 
 **翻譯**：右鍵訊息 → 應用程式 → `翻譯訊息`（英文介面為 `Translate message`），可選 14 種語言：繁體中文、簡體中文、英文、日文、韓文、法文、德文、西班牙文、俄文、葡萄牙文、泰文、越南文、印尼文、阿拉伯文。
+
+**AI 聊天**：`/ai choose` 選一位角色，之後 `/ai chat`（embed 回覆）與 `@BOT. 訊息`（角色分身以 webhook 純文字回覆）只會由她回應你：十四行詩／Sonnet（Claude，文靜的大小姐）或晨曦／Dawn（GPT，活潑開朗）。每則回覆最後一行標示模型與耗時。角色會記得最近 6 輪對話，`/ai forget` 清除，換角色時也會重新開始；選擇會保存，對話不會寫入硬碟。模型額度用完或暫時無法使用時，回覆「此功能暫時維護中 稍後再試」。設定見 [AI 聊天](docs/ai-chat.md)。
 
 ### 語言（English／中文）
 
@@ -271,6 +273,7 @@ python -X utf8 -m src.control_panel
 | `/welcome setup`／`disable`、`/temp_voice`、`/repo_track add`／`remove` | 管理頻道 |
 | `/role`、`/auto_role setup`／`remove` | 管理身分組 |
 | `/emoji upload` | 管理表情符號 |
+| `@BOT.` AI 聊天的角色分身（沒有時改由機器人自己回覆） | 機器人需要該頻道的管理 Webhook |
 | `/blacklist`、開發者指令 | 開發者限定 |
 | 其他指令，例如遊戲、成就、osu!、HoYoLAB、翻譯、檔案工具、`/repo_watch status`、`/repo_track status`、`/welcome templates`／`preview` | 不需要特殊權限 |
 

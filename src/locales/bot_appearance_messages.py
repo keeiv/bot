@@ -145,12 +145,12 @@ MESSAGES: dict[str, dict[str, str]] = {
         "zh": "正在用 AI 審核{v0}...",
     },
     "bot_appearance.ai_reviewing_description": {
-        "en": "Three local models check it in turn. This can take a few minutes. If the AI is unavailable, a developer reviews it instead.",
-        "zh": "三個本地模型會依序檢查，可能需要幾分鐘。如果 AI 暫時無法使用，會改由開發者人工審核。",
+        "en": "AI models are checking it. This can take a minute or two. If the AI is unavailable, a developer reviews it instead.",
+        "zh": "AI 模型正在檢查，可能需要一兩分鐘。如果 AI 暫時無法使用，會改由開發者人工審核。",
     },
     "bot_appearance.ai_approved_footer": {
-        "en": "Approved by the AI review (all three stages)",
-        "zh": "已通過 AI 審核（三個階段）",
+        "en": "Approved by the AI review",
+        "zh": "已通過 AI 審核",
     },
     "bot_appearance.ai_rejected_title": {
         "en": "[Rejected] {v0} change failed the AI review",
@@ -177,7 +177,11 @@ MESSAGES: dict[str, dict[str, str]] = {
         "zh": "[AI 審核] {v0}變更已通過並套用",
     },
     "bot_appearance.ai_dev_rejected": {
-        "en": "[AI review] {v0} change rejected at stage {v1}",
-        "zh": "[AI 審核] {v0}變更在第 {v1} 階段被拒絕",
+        "en": "[AI review] {v0} change rejected by {v1}",
+        "zh": "[AI 審核] {v0}變更被 {v1} 拒絕",
+    },
+    "bot_appearance.ai_stage": {
+        "en": "stage {v0}",
+        "zh": "第 {v0} 階段",
     },
 }
