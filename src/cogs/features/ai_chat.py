@@ -1,9 +1,11 @@
+import asyncio
 import io
 import logging
 from pathlib import Path
 import re
 from typing import Any, Awaitable, Callable, Optional, Union
 
+import aiohttp
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -265,6 +267,9 @@ class AiChat(commands.Cog):
             except discord.HTTPException as error:
                 if error.status == 413 or error.status >= 500:
                     cost = 0
+                raise
+            except (aiohttp.ClientError, OSError, asyncio.TimeoutError):
+                cost = 0  # the bot could not reach Discord at all
                 raise
             return None
         finally:
