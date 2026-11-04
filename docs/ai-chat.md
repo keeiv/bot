@@ -39,7 +39,7 @@
 
 ## 設定
 
-聊天與 [AI 圖片審核](image-review.md#claude-與-gpt預設) 共用同一套命令列工具與限制：同時最多執行兩個模型程序，每次呼叫都是不保存、無工具的新工作階段。
+聊天與 [AI 圖片審核](image-review.md#claude-與-gpt預設) 共用同一套命令列工具與限制：同時最多執行兩個模型程序，排隊超過 45 秒就當成沒有回覆；每次呼叫都是不保存、無工具的新工作階段，使用機器人自己的設定資料夾。
 
 | 環境變數 | 預設 | 用途 |
 | --- | --- | --- |
@@ -47,6 +47,7 @@
 | `AI_CHAT_GPT_MODEL` | `gpt-6.1-terra` | 晨曦使用的模型；想更省額度可改 `gpt-6-luna` |
 | `CLAUDE_CLI`、`CODEX_CLI` | 自動尋找 | 指定兩個命令列工具的位置 |
 | `CLAUDE_CODE_OAUTH_TOKEN` | 無 | Claude Code 在桌面版之外的登入，用 `claude setup-token` 產生 |
+| `AI_CLI_HOME` | `data/ai` | 兩個工具專用的設定資料夾；Codex 要在這裡另外登入一次，見 [AI 圖片審核](image-review.md#claude-與-gpt預設) |
 
 ## 控制台顯示
 

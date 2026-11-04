@@ -16,6 +16,7 @@ from src.services.ai_cli import CLAUDE
 from src.services.ai_cli import GPT
 from src.utils.i18n import text as tx
 from src.utils.lang_context import localized
+from src.utils.storage_worker import run_storage
 
 logger = logging.getLogger(__name__)
 
@@ -65,13 +66,12 @@ class AiChat(commands.Cog):
     ) -> None:
         """選擇回應自己的角色"""
         provider = character.value
+        await interaction.response.defer(ephemeral=True)
         try:
-            self.service.choose(interaction.user.id, provider)
+            await run_storage(self.service.choose, interaction.user.id, provider)
         except Exception:
             logger.exception("Could not save the AI chat choice")
-            await interaction.response.send_message(
-                tx("ai_chat.maintenance"), ephemeral=True
-            )
+            await interaction.followup.send(tx("ai_chat.maintenance"), ephemeral=True)
             return
         embed = discord.Embed(
             title=tx("ai_chat.chosen", v0=(tx(f"ai_chat.name_{provider}"))),
@@ -79,7 +79,7 @@ class AiChat(commands.Cog):
             color=COLORS[provider],
         )
         embed.set_footer(text=tx("ai_chat.how_to_talk"))
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     @ai_group.command(name="chat", description="Talk to the AI character you picked")
     @app_commands.describe(message="What you want to say")
@@ -90,11 +90,6 @@ class AiChat(commands.Cog):
         message: app_commands.Range[str, 1, MAX_MESSAGE],
     ) -> None:
         """和選擇的角色聊天（回覆包在 embed 裡）"""
-        if self.service.choice(interaction.user.id) is None:
-            await interaction.response.send_message(
-                tx("ai_chat.choose_first"), ephemeral=True
-            )
-            return
         await interaction.response.defer(thinking=True)
         reply = await self.ask(interaction.user.id, message)
         if isinstance(reply, str):  # busy, unavailable or no character
@@ -146,9 +141,6 @@ class AiChat(commands.Cog):
     @localized("message")
     async def answer_mention(self, message: discord.Message, text: str) -> None:
         """回覆一則 @BOT. 訊息：純文字，不包 embed"""
-        if self.service.choice(message.author.id) is None:
-            await message.reply(tx("ai_chat.choose_first"), mention_author=False)
-            return
         async with message.channel.typing():
             reply = await self.ask(message.author.id, text)
         if isinstance(reply, str):
@@ -164,7 +156,10 @@ class AiChat(commands.Cog):
     async def ask(self, user_id: int, text: str) -> Union[Reply, str]:
         """The character's reply, or the message to show instead."""
         try:
-            return await self.service.reply(user_id, text)
+            provider = await run_storage(self.service.choice, user_id)
+            if provider is None:
+                return tx("ai_chat.choose_first")
+            return await self.service.reply(user_id, text, provider)
         except ChatBusy:
             return tx("ai_chat.busy")
         except AiCliError as error:
@@ -173,6 +168,10 @@ class AiChat(commands.Cog):
             return tx("ai_chat.maintenance")
         except LookupError:
             return tx("ai_chat.choose_first")
+        except Exception:
+            # Storage down or anything unexpected: the member sees maintenance, the log the cause.
+            logger.exception("AI chat failed")
+            return tx("ai_chat.maintenance")
 
     async def send_as(self, channel, provider: str, content: str) -> bool:
         """Post ``content`` as the character's webhook; False when that is not possible."""

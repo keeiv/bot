@@ -116,6 +116,8 @@ class AiChatService:
         self._lock = threading.RLock()
         self._data: Optional[dict[str, Any]] = None
         self._history: dict[int, deque[tuple[str, str]]] = {}
+        # Bumped by forget and choose: a reply started before cannot write history back.
+        self._generation: dict[int, int] = {}
         self._busy: set[int] = set()
 
     # ── stored choice ─────────────────────────────────────────────
@@ -145,11 +147,15 @@ class AiChatService:
             write_document(self.path, data)
             self._data = data
             # A new character starts a new conversation.
-            self._history.pop(user_id, None)
+            self._reset(user_id)
 
     def forget(self, user_id: int) -> None:
         with self._lock:
-            self._history.pop(user_id, None)
+            self._reset(user_id)
+
+    def _reset(self, user_id: int) -> None:
+        self._history.pop(user_id, None)
+        self._generation[user_id] = self._generation.get(user_id, 0) + 1
 
     # ── talking ───────────────────────────────────────────────────
     def _prompt(self, provider: str, history, message: str) -> str:
@@ -163,15 +169,15 @@ class AiChatService:
         parts.append(message)
         return "\n".join(parts)
 
-    async def reply(self, user_id: int, message: str) -> Reply:
-        """The answer of the member's character, with the model and its time.
+    async def reply(self, user_id: int, message: str, provider: str) -> Reply:
+        """The answer of ``provider``, the member's chosen character.
 
-        Raises ``LookupError`` when no character is chosen, :class:`ChatBusy`
-        while the previous message is pending, and ``ai_cli.AiCliError`` when
-        the model cannot answer (signed out, out of quota, a timeout).
+        The caller reads the choice (it is storage, so off the event loop) and
+        passes it in. Raises :class:`ChatBusy` while the previous message is
+        pending and ``ai_cli.AiCliError`` when the model cannot answer (signed
+        out, out of quota, a timeout).
         """
-        provider = self.choice(user_id)
-        if provider is None:
+        if provider not in ai_cli.PROVIDERS:
             raise LookupError("no character chosen")
         message = message.strip()[:MAX_MESSAGE]
         with self._lock:
@@ -179,6 +185,7 @@ class AiChatService:
                 raise ChatBusy()
             self._busy.add(user_id)
             history = list(self._history.get(user_id, ()))
+            generation = self._generation.get(user_id, 0)
         model = self.models[provider]
         began = time.monotonic()
         try:
@@ -196,8 +203,8 @@ class AiChatService:
         if len(answer) > MAX_REPLY:
             answer = answer[: MAX_REPLY - 1] + "…"
         with self._lock:
-            # Only keep it if the member did not switch character meanwhile.
-            if self.choice(user_id) == provider:
+            # Not if the member cleared the conversation or switched meanwhile.
+            if self._generation.get(user_id, 0) == generation:
                 turns = self._history.setdefault(user_id, deque(maxlen=HISTORY_TURNS))
                 turns.append((message, answer))
         return Reply(provider, answer, model, time.monotonic() - began)

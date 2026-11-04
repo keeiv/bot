@@ -6,6 +6,7 @@ not any model's judgement.
 """
 
 from datetime import date
+import asyncio
 import io
 import json
 from pathlib import Path
@@ -275,9 +276,9 @@ async def test_only_the_chosen_character_answers(tmp_path):
     service, tools = chat(tmp_path, {ai_cli.CLAUDE: ["您好。"], ai_cli.GPT: ["嗨！"]})
     service.choose(1, ai_cli.CLAUDE)
     service.choose(2, ai_cli.GPT)
-    first_reply, second_reply = await service.reply(1, "hi"), await service.reply(
-        2, "hi"
-    )
+    first_reply, second_reply = await service.reply(
+        1, "hi", service.choice(1)
+    ), await service.reply(2, "hi", service.choice(2))
     assert (first_reply.provider, first_reply.text, first_reply.model) == (
         "claude",
         "您好。",
@@ -304,26 +305,26 @@ async def test_the_conversation_is_remembered_briefly_and_reset_on_switch(tmp_pa
     service, tools = chat(tmp_path, {ai_cli.CLAUDE: replies, ai_cli.GPT: ["new"]})
     service.choose(1, ai_cli.CLAUDE)
     for i in range(HISTORY_TURNS + 1):
-        await service.reply(1, f"m{i}")
-    await service.reply(1, "last")
+        await service.reply(1, f"m{i}", service.choice(1))
+    await service.reply(1, "last", service.choice(1))
     prompt = json.loads(tools.calls[-1][2])["message"]["content"][-1]["text"]
     assert "m0" not in prompt and f"m{HISTORY_TURNS}" in prompt and "last" in prompt
     service.choose(1, ai_cli.GPT)
-    await service.reply(1, "hello")
+    await service.reply(1, "hello", service.choice(1))
     assert "Earlier" not in tools.calls[-1][2].decode()
 
 
 async def test_no_choice_busy_and_out_of_quota(tmp_path):
     service, _ = chat(tmp_path, {ai_cli.GPT: [None]})
     with pytest.raises(LookupError):
-        await service.reply(1, "hi")
+        await service.reply(1, "hi", service.choice(1))
     service.choose(1, ai_cli.GPT)
     service._busy.add(1)
     with pytest.raises(ChatBusy):
-        await service.reply(1, "hi")
+        await service.reply(1, "hi", service.choice(1))
     service._busy.clear()
     with pytest.raises(AiCliError):
-        await service.reply(1, "hi")
+        await service.reply(1, "hi", service.choice(1))
     assert 1 not in service._busy  # a failure never leaves the member stuck
 
 
@@ -527,7 +528,7 @@ async def test_chatting_before_choosing_asks_to_choose(tmp_path):
     service, tools = chat(tmp_path, {})
     interaction = event()
     await AiChat.chat.callback(cog(service), interaction, "hi")
-    assert "/ai choose" in interaction.response.send_message.await_args.args[0]
+    assert "/ai choose" in interaction.followup.send.await_args.args[0]
     assert tools.calls == []
 
 
@@ -610,3 +611,111 @@ def test_help_lists_the_ai_commands_in_both_languages():
         ]
         for command in ("/ai choose", "/ai chat", "/ai forget"):
             assert any(command in line for line in lines), (lang, command)
+
+
+def test_only_a_reply_that_is_one_json_object_counts():
+    from src.services.moderation_cli import strict_verdict
+
+    assert strict_verdict(verdict("safe"))[0] == "safe"
+    assert (
+        strict_verdict("```json\n" + verdict("unsafe", ["tos"]) + "\n```")[0]
+        == "unsafe"
+    )
+    for bad in (
+        "Sure! " + verdict("safe"),
+        verdict("unsafe") + verdict("safe"),  # a second verdict slipped in
+        "[" + verdict("safe") + "]",
+        "safe",
+    ):
+        with pytest.raises(ValueError):
+            strict_verdict(bad)
+
+
+async def test_text_inside_the_image_is_declared_untrusted():
+    _, tools = await review(
+        {ai_cli.CLAUDE: [verdict("safe")], ai_cli.GPT: [verdict("safe")]}
+    )
+    claude_prompt = json.loads(tools.calls[0][2])["message"]["content"][-1]["text"]
+    assert "never instructions" in claude_prompt
+    assert "--strict-mcp-config" in tools.calls[0][1]
+
+
+def test_unknown_variables_never_reach_a_model_process():
+    env = ai_cli.child_environment(
+        {"MY_SERVICE_CREDENTIALS": "x", "BOT_API_SHARED": "x", "Path": "C:/bin"}
+    )
+    assert env == {"Path": "C:/bin"}
+
+
+# ── 希雨's review: isolation, queue, cooldown and stale replies ─────
+def test_both_tools_get_homes_of_their_own_not_the_owners(tmp_path):
+    env = ai_cli.isolated_environment(
+        {"CODEX_HOME": "C:/Users/owner/.codex", "Path": "C:/bin"}, home=tmp_path
+    )
+    assert env["CODEX_HOME"] == str((tmp_path / "codex").resolve())
+    assert env["CLAUDE_CONFIG_DIR"] == str((tmp_path / "claude").resolve())
+    assert (tmp_path / "codex").is_dir() and env["Path"] == "C:/bin"
+
+
+async def test_a_request_never_queues_forever(monkeypatch):
+    monkeypatch.setattr(ai_cli, "QUEUE_SECONDS", 0.05)
+    client, tools = cli({ai_cli.CLAUDE: ["never"]})
+    for _ in range(ai_cli.MAX_RUNNING):
+        await client._slots.acquire()
+    with pytest.raises(AiCliError):
+        await client.ask(ai_cli.CLAUDE, system="s", prompt="p", model="haiku")
+    assert tools.calls == []
+    assert client._down_until[ai_cli.CLAUDE] == 0.0  # waiting is not the model failing
+
+
+async def test_queued_requests_respect_a_failure_that_happened_meanwhile():
+    started = []
+    gate = asyncio.Event()
+
+    async def runner(args, stdin, cwd, seconds):
+        started.append(1)
+        await gate.wait()
+        return 0, claude_output("out of quota", error=True)
+
+    client = AiCli(claude="c.exe", runner=runner)
+    tasks = [
+        asyncio.create_task(
+            client.ask(ai_cli.CLAUDE, system="s", prompt="p", model="haiku")
+        )
+        for _ in range(4)
+    ]
+    await asyncio.sleep(0.01)
+    gate.set()
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    assert all(isinstance(r, AiCliError) for r in results)
+    assert len(started) == ai_cli.MAX_RUNNING  # the two that waited never ran
+
+
+async def test_forget_during_a_reply_is_not_undone_by_it(tmp_path):
+    gate = asyncio.Event()
+
+    async def runner(args, stdin, cwd, seconds):
+        await gate.wait()
+        return 0, claude_output("old context")
+
+    service = AiChatService(
+        AiCli(claude="c.exe", runner=runner), path=str(tmp_path / "chat.json")
+    )
+    service.choose(1, ai_cli.CLAUDE)
+    pending = asyncio.create_task(service.reply(1, "forget me", ai_cli.CLAUDE))
+    await asyncio.sleep(0.01)
+    service.forget(1)
+    gate.set()
+    await pending
+    assert 1 not in service._history
+
+
+async def test_choosing_answers_after_acknowledging_discord(tmp_path):
+    service, _ = chat(tmp_path, {})
+    interaction = event()
+    interaction.followup.send = AsyncMock()
+    choice = SimpleNamespace(value="gpt")
+    await AiChat.choose.callback(cog(service), interaction, choice)
+    interaction.response.defer.assert_awaited_once()
+    assert interaction.followup.send.await_args.kwargs["ephemeral"] is True
+    assert service.choice(7) == "gpt"
