@@ -213,9 +213,13 @@ class AiChat(commands.Cog):
         async def deliver(reply: Reply) -> None:
             content = f"{reply.text}\n{reply.signature}"
             if not await self.send_as(message.channel, reply.provider, content):
-                # No webhook allowed here: the bot answers in its own name instead.
-                await message.reply(
-                    content, mention_author=False, allowed_mentions=NO_MENTIONS
+                # No webhook allowed here: the bot answers in its own name instead,
+                # still in the channel if the member deleted their message meanwhile.
+                await message.channel.send(
+                    content,
+                    reference=message.to_reference(fail_if_not_exists=False),
+                    mention_author=False,
+                    allowed_mentions=NO_MENTIONS,
                 )
 
         async with message.channel.typing():
@@ -240,8 +244,10 @@ class AiChat(commands.Cog):
     ) -> Optional[str]:
         """Hold ``hold`` points, run ``work``, deliver it, then charge what it cost.
 
-        Points are charged only once the reply has reached Discord: a failed model
-        or a failed send costs nothing. Returns a message to show instead, or None.
+        A failed model costs nothing. Once the model has answered the work is paid
+        for, whatever the member does next (deleting their message, letting the
+        interaction expire); only a send that fails on the bot's side (an upload too
+        large, Discord's own errors) is refunded. Returns a message to show, or None.
         """
         quota = self.quota()
         if quota is None:
@@ -253,8 +259,13 @@ class AiChat(commands.Cog):
         cost = 0
         try:
             reply = await work()
-            await deliver(reply)
             cost = reply.cost
+            try:
+                await deliver(reply)
+            except discord.HTTPException as error:
+                if error.status == 413 or error.status >= 500:
+                    cost = 0
+                raise
             return None
         finally:
             await run_blocking(quota.ai_settle, user_id, job, cost)

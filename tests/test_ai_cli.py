@@ -423,6 +423,10 @@ class FakeChannel(discord.TextChannel):
         self.guild = SimpleNamespace(id=9, me=object())
         self.can_hook = can_hook
         self.typing = lambda: _Nothing()
+        self.sent = []
+
+    async def send(self, content, **kwargs):
+        self.sent.append((content, kwargs))
 
     def permissions_for(self, member):
         return SimpleNamespace(manage_webhooks=self.can_hook)
@@ -461,6 +465,7 @@ def mention(text, channel, author=7):
         guild=SimpleNamespace(id=9),
         channel=channel,
         reply=AsyncMock(),
+        to_reference=lambda fail_if_not_exists=True: ("ref", fail_if_not_exists),
     )
 
 
@@ -507,9 +512,11 @@ async def test_without_webhook_permission_the_bot_answers_itself(tmp_path):
     channel = FakeChannel(can_hook=False)
     message = mention("<@1> hi", channel)
     await mention_cog(service).on_message(message)
-    content = message.reply.await_args.args[0]
+    content, kwargs = channel.sent[0]
     assert content.startswith("嗨！\n-# GPT-6.1 Terra ") and channel.made == []
-    assert message.reply.await_args.kwargs["allowed_mentions"].everyone is False
+    assert kwargs["allowed_mentions"].everyone is False
+    # still sent if the member deleted their message meanwhile
+    assert kwargs["reference"] == ("ref", False)
 
 
 async def test_a_deleted_webhook_is_made_again_once(tmp_path):
@@ -973,7 +980,22 @@ async def test_a_reply_that_never_reaches_discord_costs_nothing(tmp_path):
 
     interaction.followup.send = refuse
     await AiChat.chat.callback(cog(service, quota), interaction, "hi")
-    assert quota.charged == [0]
+    assert quota.charged == [0]  # 413: the bot's own upload was refused
+
+
+async def test_a_reply_the_member_let_expire_is_still_paid_for(tmp_path):
+    service, _ = chat(tmp_path, {ai_cli.CLAUDE: ["您好。"]})
+    service.choose(7, ai_cli.CLAUDE)
+    quota = FakeQuota()
+    interaction = event()
+
+    async def gone(*args, **kwargs):
+        if "embed" in kwargs:
+            raise discord.NotFound(SimpleNamespace(status=404, reason=""), "")
+
+    interaction.followup.send = gone
+    await AiChat.chat.callback(cog(service, quota), interaction, "hi")
+    assert quota.charged == [1]
 
 
 def test_a_large_drawing_is_shrunk_to_fit_the_upload_limit():
