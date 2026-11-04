@@ -179,23 +179,49 @@ def child_environment(environ: Optional[dict[str, str]] = None) -> dict[str, str
     return {key: value for key, value in environ.items() if key.upper() in _PASS}
 
 
+# Each tool's own sign-in; the other tool never receives it.
+_CREDENTIALS = {
+    "claude": {"CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CONFIG_DIR", "ANTHROPIC_API_KEY"},
+    "gpt": {"CODEX_HOME", "OPENAI_API_KEY"},
+}
+
+
 def isolated_environment(
-    environ: Optional[dict[str, str]] = None, home: Optional[Path] = None
+    environ: Optional[dict[str, str]] = None,
+    home: Optional[Path] = None,
+    provider: Optional[str] = None,
 ) -> dict[str, str]:
-    """The allowlisted environment, pointed at the bot's own homes for both tools."""
+    """The allowlisted environment, pointed at the bot's own homes for both tools.
+
+    With ``provider`` the other tool's credentials are left out as well.
+    """
     home = (home or HOME).resolve()
     env = child_environment(environ)
+    if provider is not None:
+        foreign = set().union(
+            *(keys for name, keys in _CREDENTIALS.items() if name != provider)
+        )
+        for key in [k for k in env if k.upper() in foreign]:
+            del env[key]
     for key in [k for k in env if k.upper() in ("CODEX_HOME", "CLAUDE_CONFIG_DIR")]:
         del env[key]
-    for name, key in (("codex", "CODEX_HOME"), ("claude", "CLAUDE_CONFIG_DIR")):
-        folder = home / name
-        folder.mkdir(parents=True, exist_ok=True)
-        env[key] = str(folder)
+    for name, key, owner in (
+        ("codex", "CODEX_HOME", "gpt"),
+        ("claude", "CLAUDE_CONFIG_DIR", "claude"),
+    ):
+        if provider in (None, owner):
+            folder = home / name
+            folder.mkdir(parents=True, exist_ok=True)
+            env[key] = str(folder)
     return env
 
 
 async def run_process(
-    args: Sequence[str], stdin: bytes, cwd: str, seconds: float
+    args: Sequence[str],
+    stdin: bytes,
+    cwd: str,
+    seconds: float,
+    provider: Optional[str] = None,
 ) -> tuple[int, bytes]:
     """Run ``args`` with ``stdin``; returns the exit code and standard output."""
     try:
@@ -205,7 +231,7 @@ async def run_process(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.DEVNULL,
             cwd=cwd,
-            env=isolated_environment(),
+            env=isolated_environment(provider=provider),
             creationflags=0x08000000 if os.name == "nt" else 0,  # CREATE_NO_WINDOW
         )
     except OSError as error:
@@ -466,6 +492,12 @@ class AiCli:
         finally:
             self._slots.release()
 
+    async def _call(self, provider, args, stdin, cwd, seconds):
+        """Run one tool; the real runner gets only that tool's credentials."""
+        if self._run is run_process:
+            return await run_process(args, stdin, cwd, seconds, provider=provider)
+        return await self._run(args, stdin, cwd, seconds)
+
     async def _claude(
         self, executable, folder, system, prompt, model, images, seconds, spent, web
     ):
@@ -504,8 +536,8 @@ class AiCli:
             "stream-json",
             "--verbose",
         ]
-        _, output = await self._run(
-            args, (json.dumps(message) + "\n").encode("utf-8"), folder, seconds
+        _, output = await self._call(
+            CLAUDE, args, (json.dumps(message) + "\n").encode("utf-8"), folder, seconds
         )
         result, used, searches = None, model, 0
         for event in _events(output):
@@ -591,7 +623,9 @@ class AiCli:
         args += ["-C", folder, "-o", str(answer), "--color", "never", "--json", "-"]
         # Codex has no separate system prompt in exec mode: the instructions lead.
         stdin = f"<instructions>\n{system}\n</instructions>\n\n{prompt}"
-        code, output = await self._run(args, stdin.encode("utf-8"), folder, seconds)
+        code, output = await self._call(
+            GPT, args, stdin.encode("utf-8"), folder, seconds
+        )
         thread, searches = "", 0
         for event in _events(output):
             if event.get("type") == "thread.started":

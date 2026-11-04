@@ -1033,3 +1033,18 @@ def test_a_large_drawing_is_shrunk_to_fit_the_upload_limit():
     small, name = fit_image(data, 1_000_000)
     assert len(small) <= 1_000_000 and name == "drawing.jpg"
     assert fit_image(b"tiny", 100) == (b"tiny", "drawing.png")
+
+
+def test_each_tool_gets_only_its_own_sign_in(tmp_path):
+    base = {
+        "CLAUDE_CODE_OAUTH_TOKEN": "claude-secret",
+        "OPENAI_API_KEY": "openai-secret",
+        "Path": "C:/bin",
+    }
+    codex = ai_cli.isolated_environment(base, home=tmp_path, provider=ai_cli.GPT)
+    assert "CLAUDE_CODE_OAUTH_TOKEN" not in codex and "CLAUDE_CONFIG_DIR" not in codex
+    assert codex["OPENAI_API_KEY"] == "openai-secret" and "CODEX_HOME" in codex
+    claude = ai_cli.isolated_environment(base, home=tmp_path, provider=ai_cli.CLAUDE)
+    assert "OPENAI_API_KEY" not in claude and "CODEX_HOME" not in claude
+    assert claude["CLAUDE_CODE_OAUTH_TOKEN"] == "claude-secret"
+    assert codex["Path"] == claude["Path"] == "C:/bin"
