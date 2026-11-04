@@ -1,8 +1,46 @@
-# AI 圖片審核節點
+# AI 圖片審核
 
-`/bot_appearance avatar` 與 `/bot_appearance banner` 上傳的圖片，先交給另一台電腦上的本地 AI 模型審核。只有 AI 無法給出結果時，才改用原本的開發者人工審核。這個節點與 NovaGrid 檔案處理節點互相獨立：各自的套件、金鑰、憑證與埠號（審核節點用 TCP 8788）。
+`/bot_appearance avatar` 與 `/bot_appearance banner` 上傳的圖片，先交給 AI 審核。只有 AI 無法給出結果時，才改用原本的開發者人工審核。
 
-## 審核流程
+審核有兩種後端，機器人啟動後第一次審核時決定用哪一種：
+
+1. **預設：Claude 與 GPT**。機器人所在的電腦裝有 Claude 桌面版與 Codex 時使用，見下一節。
+2. **備用：AI 圖片審核節點**。另一台電腦上的本地 Ollama 模型，見[審核節點](#ai-圖片審核節點)。設定 `IMAGE_REVIEW_BACKEND=worker`，或兩個桌面版程式有一個找不到時使用。
+
+兩種都沒有時，全部改人工審核。
+
+## Claude 與 GPT（預設）
+
+機器人透過兩個桌面版附帶的命令列工具，用這台電腦上已登入的訂閱額度審核，不需要 API 金鑰：
+
+| 審核者 | 程式 | 預設模型 | 換模型 |
+| --- | --- | --- | --- |
+| Claude | Claude 桌面版附帶的 Claude Code（`%LOCALAPPDATA%\Claude-Data\…\claude-code\<版本>\…\claude.exe`，自動找最新版） | `haiku`（Haiku 系列最新版） | `IMAGE_REVIEW_CLAUDE_MODEL` |
+| GPT | Codex CLI（`codex`；npm 安裝時直接執行套件內的 `codex.exe`） | `gpt-6-luna`，推理強度 `low` | `IMAGE_REVIEW_GPT_MODEL` |
+
+程式位置也可以用 `CLAUDE_CLI`、`CODEX_CLI` 指定。
+
+兩個模型同時、各自看同一張圖，提示詞與節點第 1 階段相同（`src/services/moderation_protocol.py`）：
+
+- 任一個判定「不安全」：拒絕，類別取自判定的模型。
+- 任一個「無法確定」：拒絕。
+- 兩個都判定「安全」：通過。
+- 任一個沒有回覆（沒登入、額度用完、逾時、連續兩次回覆不是有效判定）：無法判定，改人工審核。該模型之後 60 秒內不再被詢問。
+
+每個模型的時間上限是 150 秒。私訊給開發者的拒絕紀錄會寫出是哪個模型拒絕的。
+
+每次呼叫都是全新、不保存的工作階段，在空的暫存資料夾裡執行，並關閉所有工具：Claude 用 `--tools ""`、`--safe-mode`；Codex 用唯讀沙箱、不讀使用者設定，並停用 shell、程式執行、瀏覽器、外掛等功能（清單在 `src/services/ai_cli.py` 的 `CODEX_DISABLED`）。圖片與文字只經由標準輸入或暫存檔交給模型，不放在命令列上。子程序的環境變數會移除機器人自己的 Token、密碼與金鑰。
+
+> [!IMPORTANT]
+> Claude Code 在桌面版之外執行時，需要自己的登入。在機器人執行的帳號下執行一次 `claude setup-token`（需要 Claude 訂閱），把產生的 Token 設成環境變數 `CLAUDE_CODE_OAUTH_TOKEN`。Codex 沿用 `codex login` 的登入。
+
+驗證：`pytest tests/test_ai_cli.py`。測試以模擬的命令列工具扮演兩個模型，檢查的是指令參數、判定規則與退回人工的邏輯，不代表任何模型的判斷品質。
+
+## AI 圖片審核節點
+
+這個節點與 NovaGrid 檔案處理節點互相獨立：各自的套件、金鑰、憑證與埠號（審核節點用 TCP 8788）。
+
+### 審核流程
 
 每張圖片依序經過三個階段，三個都是 Ollama 上的本地視覺模型：
 
@@ -21,7 +59,7 @@
 
 動態圖片最多取 3 個畫格一起判斷。圖片在送給模型前縮到最長邊 1024 px。
 
-## 機器人端的行為
+### 機器人端的行為
 
 | 結果 | 機器人做什麼 |
 | --- | --- |
@@ -33,7 +71,7 @@
 
 每階段的時間上限為 90、180、300 秒。在沒有獨立顯示卡的舊電腦上，思考模型可能需要數分鐘；超過上限就改人工。
 
-## 建立與啟用
+### 建立與啟用
 
 在主機的專案目錄執行，IP 換成兩台電腦的實際區網 IPv4：
 
@@ -68,7 +106,7 @@
 
 `enable` 會先完成完整驗證才修改設定，重啟機器人後生效。`run_bot.bat` 控制台的 `R`（圖片審核工作站）提供相同功能。
 
-## 停用
+### 停用
 
 ```powershell
 .venv\Scripts\python.exe -X utf8 -m src.moderation_worker_setup disable
@@ -76,7 +114,7 @@
 
 重啟機器人後，所有申請恢復為人工審核。
 
-## 安全與隱私
+### 安全與隱私
 
 - 與 NovaGrid 節點相同：HTTPS 以固定 SHA-256 憑證指紋校驗，256 位元連線金鑰，只接受配對主機與本機回環。節點與主機的審核程式碼必須一致（核對 `moderation_protocol.py`、`moderation_engine.py` 的內容），否則主機拒用。
 - 圖片只在記憶體中處理，不寫入節點硬碟，請求結束即丟棄。節點只連線本機的 Ollama（`127.0.0.1`），不經過代理。

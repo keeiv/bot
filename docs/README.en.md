@@ -50,7 +50,7 @@ plus a web dashboard where you can set most of it up.
 | Server services | Tickets, temporary voice, giveaways, roles and emojis, a server settings panel | `>>>ticket` `/temp_voice` `/giveaway` `/role` `/emoji` `/settings` |
 | Games & achievements | Two two-player mini-games, 18 achievements | `/deep-sea-oxygen` `/russian-roulette` `/achievements` |
 | Account integrations | osu!, HoYoLAB / Miyoushe, GitHub repository notifications | `/osu` `/mhy` `/repo_watch` `/repo_track` |
-| Tools | File conversion and compression (NovaGrid), message translation | `/convert` `/compress` `/usage` `Translate message` |
+| Tools | File conversion and compression (NovaGrid), message translation, AI chat | `/convert` `/compress` `/usage` `Translate message` `/ai` |
 | Language | English and Chinese interface, set per server and per user | `/language` |
 
 Details for each area are below.
@@ -103,7 +103,7 @@ Six actions are available: warn, delete message, mute, kick, ban and lock channe
 - **Giveaways**: `/giveaway start` (durations like `1d12h30m`), `end` to finish early, `reroll`, `list`. Members enter with a button, and winners are drawn automatically when time runs out.
 - **Roles and emojis**: `/role assign` / `remove`, `/emoji get` / `upload`.
 - **Settings panel**: `/settings` lets you view and change the log channel, report channel, anti-spam and welcome message through menus and buttons.
-- **Bot appearance**: `/bot_appearance name` changes the bot's nickname in the server, and `reset` restores the default avatar or banner. Once an [AI image review node](image-review.md) (Chinese) is set up, images for `avatar` / `banner` are checked by three local models in turn; if they can't reach a verdict, or no node is set up, a developer reviews the image by hand.
+- **Bot appearance**: `/bot_appearance name` changes the bot's nickname in the server, and `reset` restores the default avatar or banner. Images for `avatar` / `banner` go to the [AI review](image-review.md) (Chinese) first: by default Claude (Haiku) and GPT (Luna) on the bot's machine judge each one side by side, and both must call it safe; a review node on another computer can be used instead. If the AI can't reach a verdict, or neither is set up, a developer reviews the image by hand.
 
 ### Games & achievements
 
@@ -136,6 +136,8 @@ Six actions are available: warn, delete message, mute, kick, ban and lock channe
 - Jobs can be offloaded to another computer on the local network. See [file tools](file-tools.md), [the NovaGrid engine](novagrid.md) and [LAN worker nodes](tool-worker.md) (all Chinese).
 
 **Translation**: right-click a message → Apps → `Translate message`, with 14 target languages: Traditional Chinese, Simplified Chinese, English, Japanese, Korean, French, German, Spanish, Russian, Portuguese, Thai, Vietnamese, Indonesian and Arabic.
+
+**AI chat**: pick a character with `/ai choose`, and from then on only she answers your `/ai chat` (an embed reply) and your `@BOT. message` (her own webhook replies in plain text): Sonnet (Claude, a quiet, refined young lady) or Dawn (GPT, lively and cheerful). Every reply ends with a line naming the model and how long it took. She remembers the last 6 exchanges; `/ai forget` clears them, and switching character starts over. The choice is saved, the conversation is not written to disk. When a model is out of quota or unavailable, the reply is "This feature is under maintenance. Please try again later." Setup is in [AI chat](ai-chat.md) (Chinese).
 
 ### Language (English / Chinese)
 
@@ -274,6 +276,7 @@ Start, stop and restart the bot, check its status, database connection and logs,
 | `/welcome setup` / `disable`, `/temp_voice`, `/repo_track add` / `remove` | Manage Channels |
 | `/role`, `/auto_role setup` / `remove` | Manage Roles |
 | `/emoji upload` | Manage Emojis |
+| The `@BOT.` AI chat characters (without it the bot replies itself) | The bot needs Manage Webhooks in that channel |
 | `/blacklist`, developer commands | Developer only |
 | Everything else, such as games, achievements, osu!, HoYoLAB, translation, file tools, `/repo_watch status`, `/repo_track status`, `/welcome templates` / `preview` | None |
 

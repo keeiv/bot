@@ -14,6 +14,7 @@ import pkgutil
 from src.locales import achievements_messages
 from src.locales import admin_messages
 from src.locales import age_guard_messages
+from src.locales import ai_chat_messages
 from src.locales import anti_spam_messages
 from src.locales import audit_log_messages
 from src.locales import blacklist_messages
@@ -62,6 +63,7 @@ _MODULES = [
     domain,
     achievements_messages,
     admin_messages,
+    ai_chat_messages,
     age_guard_messages,
     anti_spam_messages,
     audit_log_messages,

@@ -1,7 +1,9 @@
 """Nova, the AI usage placeholder and the desktop shortcut of the control panel."""
 
+from datetime import date
 from datetime import datetime
 import io
+import json
 from pathlib import Path
 import subprocess
 
@@ -220,3 +222,104 @@ def test_install_writes_the_icon_and_passes_paths_through_the_environment(tmp_pa
     assert env["BOT_TARGET"] == str(pythonw)
     assert env["BOT_ROOT"] == str(root)
     assert env["BOT_ARGS"].endswith("src.control_panel.shortcut open")
+
+
+# ── the bot's Claude and GPT usage ────────────────────────────────
+def _usage_file(tmp_path, providers, day="2026-11-04"):
+    folder = tmp_path / "data"
+    folder.mkdir(exist_ok=True)
+    (folder / "ai_usage.json").write_text(
+        json.dumps({"date": day, "providers": providers}), encoding="utf-8"
+    )
+
+
+def _entry(**override):
+    entry = {
+        "installed": True,
+        "model": "m",
+        "calls": 1,
+        "failures": 0,
+        "tokens": 0,
+        "down_until": 0.0,
+    }
+    entry.update(override)
+    return entry
+
+
+def _source(tmp_path, environ=None, now=1000.0):
+    return ai_usage.BotUsageSource(
+        tmp_path,
+        today=lambda: date(2026, 11, 4),
+        now=lambda: now,
+        environ=environ or {},
+    )
+
+
+def test_without_the_bots_file_nova_rests(tmp_path):
+    assert _source(tmp_path).read() == ai_usage.NO_USAGE
+    _usage_file(tmp_path, {"claude": _entry(installed=False)})
+    assert _source(tmp_path).read() == ai_usage.NO_USAGE
+
+
+def test_the_panel_shows_both_models_and_todays_tokens(tmp_path):
+    _usage_file(tmp_path, {"claude": _entry(tokens=12000), "gpt": _entry(tokens=345)})
+    usage = _source(tmp_path).read()
+    assert usage.connected and usage.model == "Claude·GPT"
+    assert usage.fraction is None and usage.note == "今日 12.3k"
+    plain, _ = _capture(render.dashboard(_view(ai=usage)))
+    assert "Claude·GPT" in plain and "今日 12.3k" in plain and "無本地模型" in plain
+
+
+def test_a_daily_budget_fills_the_bar(tmp_path):
+    _usage_file(tmp_path, {"gpt": _entry(tokens=2500)})
+    usage = _source(tmp_path, {"BOT_AI_DAILY_TOKENS": "10000"}).read()
+    assert usage.model == "GPT" and usage.fraction == 0.25
+    assert _source(tmp_path, {"BOT_AI_DAILY_TOKENS": "lots"}).read().fraction is None
+
+
+def test_a_resting_model_shows_maintenance_and_yesterday_counts_nothing(tmp_path):
+    _usage_file(
+        tmp_path, {"claude": _entry(down_until=1060.0), "gpt": _entry(tokens=5)}
+    )
+    assert _source(tmp_path).read().note == "Claude維護"
+    _usage_file(
+        tmp_path,
+        {"claude": _entry(down_until=1060.0), "gpt": _entry(down_until=1060.0)},
+    )
+    assert _source(tmp_path).read().note == "維護中"
+    _usage_file(tmp_path, {"gpt": _entry(tokens=999)}, day="2026-11-03")
+    assert _source(tmp_path).read().note == "今日 0"
+
+
+def test_a_damaged_file_is_nothing_connected(tmp_path):
+    folder = tmp_path / "data"
+    folder.mkdir()
+    (folder / "ai_usage.json").write_text("{broken", encoding="utf-8")
+    assert _source(tmp_path).read() == ai_usage.NO_USAGE
+
+
+def test_the_budget_can_live_in_dot_env_like_other_settings(tmp_path, monkeypatch):
+    monkeypatch.delenv("BOT_AI_DAILY_TOKENS", raising=False)
+    (tmp_path / ".env").write_text("BOT_AI_DAILY_TOKENS=1000\n", encoding="utf-8")
+    _usage_file(tmp_path, {"claude": _entry(tokens=500)})
+    source = ai_usage.BotUsageSource(tmp_path, today=lambda: date(2026, 11, 4))
+    assert source.read().fraction == 0.5
+
+
+@pytest.mark.parametrize(
+    "tokens, shown",
+    [
+        (0, "0"),
+        (999, "999"),
+        (12345, "12.3k"),
+        (99_949, "99.9k"),
+        (99_950, "100k"),
+        (279_600, "280k"),
+        (999_499, "999k"),
+        (999_500, "1.0M"),
+        (25_000_000, "25.0M"),
+    ],
+)
+def test_token_counts_fit_the_ten_cell_status_line(tokens, shown):
+    assert ai_usage.short_count(tokens) == shown
+    assert len(f"今日 {shown}") + 2 <= render.NOVA_TEXT_WIDTH  # 今日 is two wide cells
