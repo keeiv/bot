@@ -7,6 +7,7 @@ from typing import Any, Awaitable, Callable, Optional, Union
 import discord
 from discord import app_commands
 from discord.ext import commands
+from PIL import Image
 
 from src.config.constants import DEVELOPER_IDS
 from src.services.ai_chat_service import AiChatService
@@ -42,6 +43,28 @@ DEV_COMMAND = re.compile(r"^>>>(claude|codex)(?:\s+(.*))?$", re.IGNORECASE | re.
 DEV_PROVIDER = {"claude": CLAUDE, "codex": GPT}
 
 Hookable = Union[discord.TextChannel, discord.VoiceChannel, discord.ForumChannel]
+Deliver = Callable[[Reply], Awaitable[None]]
+
+
+def fit_image(data: bytes, limit: int) -> tuple[bytes, str]:
+    """The drawing as a PNG if it fits ``limit`` bytes, else a JPEG shrunk until it does."""
+    if len(data) <= limit:
+        return data, "drawing.png"
+    with Image.open(io.BytesIO(data)) as opened:
+        picture = opened.convert("RGB")
+    quality = 90
+    while True:
+        out = io.BytesIO()
+        picture.save(out, format="JPEG", quality=quality, optimize=True)
+        if out.tell() <= limit or min(picture.size) <= 256:
+            return out.getvalue(), "drawing.jpg"
+        if quality > 70:
+            quality -= 10
+        else:
+            picture = picture.resize(
+                (int(picture.width * 0.8), int(picture.height * 0.8)),
+                Image.Resampling.LANCZOS,
+            )
 
 
 class AiChat(commands.Cog):
@@ -101,11 +124,13 @@ class AiChat(commands.Cog):
     ) -> None:
         """和選擇的角色聊天（回覆包在 embed 裡）"""
         await interaction.response.defer(thinking=True)
-        reply = await self.ask(interaction.user.id, message)
-        if isinstance(reply, str):  # busy, unavailable, no allowance or no character
-            await interaction.followup.send(reply)
-            return
-        await interaction.followup.send(**self.boxed(reply))
+
+        async def deliver(reply: Reply) -> None:
+            await interaction.followup.send(**self.boxed(reply, interaction))
+
+        notice = await self.ask(interaction.user.id, message, deliver)
+        if notice:  # busy, unavailable, no allowance or no character
+            await interaction.followup.send(notice)
 
     @ai_group.command(name="image", description="Ask Dawn to draw a picture")
     @app_commands.describe(prompt="What to draw")
@@ -117,13 +142,15 @@ class AiChat(commands.Cog):
     ) -> None:
         """請 Dawn 畫圖（只有 GPT 能畫，與選擇的角色無關）"""
         await interaction.response.defer(thinking=True)
-        reply = await self.ask_drawing(interaction.user.id, prompt)
-        if isinstance(reply, str):
-            await interaction.followup.send(reply)
-            return
-        await interaction.followup.send(**self.boxed(reply))
 
-    def boxed(self, reply: Reply) -> dict[str, Any]:
+        async def deliver(reply: Reply) -> None:
+            await interaction.followup.send(**self.boxed(reply, interaction))
+
+        notice = await self.ask_drawing(interaction.user.id, prompt, deliver)
+        if notice:
+            await interaction.followup.send(notice)
+
+    def boxed(self, reply: Reply, interaction: Any = None) -> dict[str, Any]:
         """A reply as an embed: the character's name and avatar, the text, the model line."""
         files = [discord.File(AVATARS[reply.provider], filename="avatar.png")]
         embed = discord.Embed(
@@ -132,10 +159,12 @@ class AiChat(commands.Cog):
         )
         embed.set_author(name=NAMES[reply.provider], icon_url="attachment://avatar.png")
         if reply.drawings:
-            files.append(
-                discord.File(io.BytesIO(reply.drawings[0]), filename="drawing.png")
-            )
-            embed.set_image(url="attachment://drawing.png")
+            # Within what this interaction may upload (Discord's own limit, with room
+            # for the avatar), so a paid-for drawing is never refused at the door.
+            limit = int(getattr(interaction, "filesize_limit", 0) or 10 * 1024 * 1024)
+            data, name = fit_image(reply.drawings[0], limit - 512 * 1024)
+            files.append(discord.File(io.BytesIO(data), filename=name))
+            embed.set_image(url=f"attachment://{name}")
         return {"embed": embed, "files": files, "allowed_mentions": NO_MENTIONS}
 
     @ai_group.command(
@@ -177,17 +206,19 @@ class AiChat(commands.Cog):
     @localized("message")
     async def answer_mention(self, message: discord.Message, text: str) -> None:
         """回覆一則 @BOT. 訊息：純文字，不包 embed"""
+
+        async def deliver(reply: Reply) -> None:
+            content = f"{reply.text}\n{reply.signature}"
+            if not await self.send_as(message.channel, reply.provider, content):
+                # No webhook allowed here: the bot answers in its own name instead.
+                await message.reply(
+                    content, mention_author=False, allowed_mentions=NO_MENTIONS
+                )
+
         async with message.channel.typing():
-            reply = await self.ask(message.author.id, text)
-        if isinstance(reply, str):
-            await message.reply(reply, mention_author=False)
-            return
-        content = f"{reply.text}\n{reply.signature}"
-        if not await self.send_as(message.channel, reply.provider, content):
-            # No webhook allowed here: the bot answers in its own name instead.
-            await message.reply(
-                content, mention_author=False, allowed_mentions=NO_MENTIONS
-            )
+            notice = await self.ask(message.author.id, text, deliver)
+        if notice:
+            await message.reply(notice, mention_author=False)
 
     def quota(self) -> Optional[Any]:
         """The file tools' allowance, which AI requests share; None when it is not up."""
@@ -198,9 +229,17 @@ class AiChat(commands.Cog):
         return getattr(engine, "quota", None)
 
     async def charged(
-        self, user_id: int, hold: int, work: Callable[[], Awaitable[Reply]]
-    ) -> Union[Reply, str]:
-        """Hold ``hold`` points, run ``work``, then charge what the reply cost (0 on failure)."""
+        self,
+        user_id: int,
+        hold: int,
+        work: Callable[[], Awaitable[Reply]],
+        deliver: Deliver,
+    ) -> Optional[str]:
+        """Hold ``hold`` points, run ``work``, deliver it, then charge what it cost.
+
+        Points are charged only once the reply has reached Discord: a failed model
+        or a failed send costs nothing. Returns a message to show instead, or None.
+        """
         quota = self.quota()
         if quota is None:
             logger.warning("AI chat has no allowance service")
@@ -211,13 +250,14 @@ class AiChat(commands.Cog):
         cost = 0
         try:
             reply = await work()
+            await deliver(reply)
             cost = reply.cost
-            return reply
+            return None
         finally:
             await run_blocking(quota.ai_settle, user_id, job, cost)
 
-    async def ask(self, user_id: int, text: str) -> Union[Reply, str]:
-        """The character's reply, or the message to show instead."""
+    async def ask(self, user_id: int, text: str, deliver: Deliver) -> Optional[str]:
+        """Send the character's reply through ``deliver``; else the message to show."""
         try:
             provider = await run_storage(self.service.choice, user_id)
             if provider is None:
@@ -227,6 +267,7 @@ class AiChat(commands.Cog):
                 user_id,
                 MAX_CHAT_COST,
                 lambda: self.service.reply(user_id, text, provider, model),
+                deliver,
             )
         except ChatBusy:
             return tx("ai_chat.busy")
@@ -241,12 +282,17 @@ class AiChat(commands.Cog):
             logger.exception("AI chat failed")
             return tx("ai_chat.maintenance")
 
-    async def ask_drawing(self, user_id: int, prompt: str) -> Union[Reply, str]:
-        """Dawn's drawing, or the message to show instead."""
+    async def ask_drawing(
+        self, user_id: int, prompt: str, deliver: Deliver
+    ) -> Optional[str]:
+        """Send Dawn's drawing through ``deliver``; else the message to show."""
         try:
             model = await run_storage(self.service.model_for, user_id, GPT)
             return await self.charged(
-                user_id, COST_DRAW, lambda: self.service.draw(user_id, prompt, model)
+                user_id,
+                COST_DRAW,
+                lambda: self.service.draw(user_id, prompt, model),
+                deliver,
             )
         except ChatBusy:
             return tx("ai_chat.busy")
