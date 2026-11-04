@@ -32,7 +32,7 @@ REVIEW_SECONDS = 150  # per model; both run at the same time
 
 def review_models() -> dict[str, str]:
     return {
-        ai_cli.CLAUDE: os.getenv("IMAGE_REVIEW_CLAUDE_MODEL", "haiku"),
+        ai_cli.CLAUDE: os.getenv("IMAGE_REVIEW_CLAUDE_MODEL", "claude-haiku-5-5"),
         ai_cli.GPT: os.getenv("IMAGE_REVIEW_GPT_MODEL", "gpt-6-luna"),
     }
 

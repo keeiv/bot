@@ -1,21 +1,28 @@
+import io
 import logging
 from pathlib import Path
 import re
-from typing import Optional, Union
+from typing import Any, Awaitable, Callable, Optional, Union
 
 import discord
 from discord import app_commands
 from discord.ext import commands
 
+from src.config.constants import DEVELOPER_IDS
 from src.services.ai_chat_service import AiChatService
+from src.services.ai_chat_service import CATALOG
 from src.services.ai_chat_service import ChatBusy
+from src.services.ai_chat_service import COST_DRAW
+from src.services.ai_chat_service import MAX_CHAT_COST
 from src.services.ai_chat_service import MAX_MESSAGE
+from src.services.ai_chat_service import model_label
 from src.services.ai_chat_service import Reply
 from src.services.ai_cli import AiCliError
 from src.services.ai_cli import CLAUDE
 from src.services.ai_cli import GPT
 from src.utils.i18n import text as tx
 from src.utils.lang_context import localized
+from src.utils.storage_worker import run_blocking
 from src.utils.storage_worker import run_storage
 
 logger = logging.getLogger(__name__)
@@ -30,6 +37,9 @@ COLORS = {
     GPT: discord.Color.from_rgb(150, 130, 230),
 }
 NO_MENTIONS = discord.AllowedMentions.none()
+# ">>>claude ..." and ">>>codex ...": the developers' model switch.
+DEV_COMMAND = re.compile(r"^>>>(claude|codex)(?:\s+(.*))?$", re.IGNORECASE | re.DOTALL)
+DEV_PROVIDER = {"claude": CLAUDE, "codex": GPT}
 
 Hookable = Union[discord.TextChannel, discord.VoiceChannel, discord.ForumChannel]
 
@@ -92,18 +102,41 @@ class AiChat(commands.Cog):
         """和選擇的角色聊天（回覆包在 embed 裡）"""
         await interaction.response.defer(thinking=True)
         reply = await self.ask(interaction.user.id, message)
-        if isinstance(reply, str):  # busy, unavailable or no character
+        if isinstance(reply, str):  # busy, unavailable, no allowance or no character
             await interaction.followup.send(reply)
             return
-        avatar = discord.File(AVATARS[reply.provider], filename="avatar.png")
+        await interaction.followup.send(**self.boxed(reply))
+
+    @ai_group.command(name="image", description="Ask Dawn to draw a picture")
+    @app_commands.describe(prompt="What to draw")
+    @localized("interaction")
+    async def image(
+        self,
+        interaction: discord.Interaction,
+        prompt: app_commands.Range[str, 1, MAX_MESSAGE],
+    ) -> None:
+        """請 Dawn 畫圖（只有 GPT 能畫，與選擇的角色無關）"""
+        await interaction.response.defer(thinking=True)
+        reply = await self.ask_drawing(interaction.user.id, prompt)
+        if isinstance(reply, str):
+            await interaction.followup.send(reply)
+            return
+        await interaction.followup.send(**self.boxed(reply))
+
+    def boxed(self, reply: Reply) -> dict[str, Any]:
+        """A reply as an embed: the character's name and avatar, the text, the model line."""
+        files = [discord.File(AVATARS[reply.provider], filename="avatar.png")]
         embed = discord.Embed(
-            description=f"{reply.text}\n{reply.signature}",
+            description=f"{reply.text}\n{reply.signature}".strip(),
             color=COLORS[reply.provider],
         )
         embed.set_author(name=NAMES[reply.provider], icon_url="attachment://avatar.png")
-        await interaction.followup.send(
-            embed=embed, file=avatar, allowed_mentions=NO_MENTIONS
-        )
+        if reply.drawings:
+            files.append(
+                discord.File(io.BytesIO(reply.drawings[0]), filename="drawing.png")
+            )
+            embed.set_image(url="attachment://drawing.png")
+        return {"embed": embed, "files": files, "allowed_mentions": NO_MENTIONS}
 
     @ai_group.command(
         name="forget", description="Clear what the AI remembers of your conversation"
@@ -117,14 +150,17 @@ class AiChat(commands.Cog):
     # ── @BOT. message: the character answers in person ────────────
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
-        """有人 @BOT. 時，由他選擇的角色以分身（webhook）回覆"""
+        """有人 @BOT. 時，由他選擇的角色以分身（webhook）回覆；>>>claude／>>>codex 切換模型"""
         me = self.bot.user
-        if (
-            me is None
-            or message.author.bot
-            or message.webhook_id is not None
-            or message.guild is None
-        ):
+        if me is None or message.author.bot or message.webhook_id is not None:
+            return
+        command = DEV_COMMAND.match(message.content.strip())
+        if command:
+            await self.switch_model(
+                message, DEV_PROVIDER[command.group(1).lower()], command.group(2) or ""
+            )
+            return
+        if message.guild is None:
             return
         # Only a real @BOT. in the text counts, not the ping of a reply.
         mention = re.compile(rf"<@!?{me.id}>")
@@ -153,13 +189,45 @@ class AiChat(commands.Cog):
                 content, mention_author=False, allowed_mentions=NO_MENTIONS
             )
 
+    def quota(self) -> Optional[Any]:
+        """The file tools' allowance, which AI requests share; None when it is not up."""
+        if "quota_service" in self.__dict__:
+            return self.__dict__["quota_service"]
+        tools = self.bot.get_cog("FileToolsCog")
+        engine = getattr(tools, "engine", None)
+        return getattr(engine, "quota", None)
+
+    async def charged(
+        self, user_id: int, hold: int, work: Callable[[], Awaitable[Reply]]
+    ) -> Union[Reply, str]:
+        """Hold ``hold`` points, run ``work``, then charge what the reply cost (0 on failure)."""
+        quota = self.quota()
+        if quota is None:
+            logger.warning("AI chat has no allowance service")
+            return tx("ai_chat.maintenance")
+        job = await run_blocking(quota.ai_reserve, user_id, hold)
+        if job is None:
+            return tx("ai_chat.no_allowance", v0=(hold))
+        cost = 0
+        try:
+            reply = await work()
+            cost = reply.cost
+            return reply
+        finally:
+            await run_blocking(quota.ai_settle, user_id, job, cost)
+
     async def ask(self, user_id: int, text: str) -> Union[Reply, str]:
         """The character's reply, or the message to show instead."""
         try:
             provider = await run_storage(self.service.choice, user_id)
             if provider is None:
                 return tx("ai_chat.choose_first")
-            return await self.service.reply(user_id, text, provider)
+            model = await run_storage(self.service.model_for, user_id, provider)
+            return await self.charged(
+                user_id,
+                MAX_CHAT_COST,
+                lambda: self.service.reply(user_id, text, provider, model),
+            )
         except ChatBusy:
             return tx("ai_chat.busy")
         except AiCliError as error:
@@ -172,6 +240,88 @@ class AiChat(commands.Cog):
             # Storage down or anything unexpected: the member sees maintenance, the log the cause.
             logger.exception("AI chat failed")
             return tx("ai_chat.maintenance")
+
+    async def ask_drawing(self, user_id: int, prompt: str) -> Union[Reply, str]:
+        """Dawn's drawing, or the message to show instead."""
+        try:
+            model = await run_storage(self.service.model_for, user_id, GPT)
+            return await self.charged(
+                user_id, COST_DRAW, lambda: self.service.draw(user_id, prompt, model)
+            )
+        except ChatBusy:
+            return tx("ai_chat.busy")
+        except AiCliError as error:
+            logger.warning("AI drawing unavailable: %s", error)
+            return tx("ai_chat.maintenance")
+        except Exception:
+            logger.exception("AI drawing failed")
+            return tx("ai_chat.maintenance")
+
+    # ── developers: >>>claude / >>>codex ──────────────────────────
+    @localized("message")
+    async def switch_model(
+        self, message: discord.Message, provider: str, argument: str
+    ) -> None:
+        """>>>codex [編號] 1（只改自己）／2（改全部人）、>>>codex reset、>>>codex（清單）"""
+        if message.author.id not in DEVELOPER_IDS:
+            await message.reply(
+                tx("developer.denied_this_command_is_restricted_to"), delete_after=5
+            )
+            return
+        name = "claude" if provider == CLAUDE else "codex"
+        parts = argument.split()
+        try:
+            if not parts:
+                text = await self.model_list(provider, name, message.author.id)
+            elif parts == ["reset"]:
+                await run_storage(self.service.reset_models, provider)
+                text = tx(
+                    "ai_chat.dev_reset",
+                    v0=(name),
+                    v1=(model_label(self.service.models[provider])),
+                )
+            elif len(parts) == 2 and parts[0].isdigit() and parts[1] in ("1", "2"):
+                scope = "self" if parts[1] == "1" else "all"
+                try:
+                    model = await run_storage(
+                        self.service.set_model,
+                        provider,
+                        int(parts[0]),
+                        scope,
+                        message.author.id,
+                    )
+                except ValueError:
+                    text = tx("ai_chat.dev_bad_number", v0=(name))
+                else:
+                    key = (
+                        "ai_chat.dev_set_self"
+                        if scope == "self"
+                        else "ai_chat.dev_set_all"
+                    )
+                    text = tx(key, v0=(name), v1=(model_label(model)))
+            else:
+                text = tx("ai_chat.dev_usage", v0=(name))
+        except Exception:
+            logger.exception("Could not switch the AI model")
+            text = tx("ai_chat.maintenance")
+        await message.reply(text, mention_author=False, allowed_mentions=NO_MENTIONS)
+
+    async def model_list(self, provider: str, name: str, user_id: int) -> str:
+        overrides = await run_storage(self.service.overrides, provider)
+        mine = overrides["users"].get(str(user_id))
+        lines = [tx("ai_chat.dev_list_title", v0=(name))]
+        for number, (model, label) in enumerate(CATALOG[provider], start=1):
+            marks = []
+            if model == self.service.models[provider]:
+                marks.append(tx("ai_chat.dev_mark_default"))
+            if model == overrides["all"]:
+                marks.append(tx("ai_chat.dev_mark_everyone"))
+            if model == mine:
+                marks.append(tx("ai_chat.dev_mark_you"))
+            tail = f"  ← {'、'.join(marks)}" if marks else ""
+            lines.append(f"`{number}` {label}{tail}")
+        lines.append(tx("ai_chat.dev_usage", v0=(name)))
+        return "\n".join(lines)
 
     async def send_as(self, channel, provider: str, content: str) -> bool:
         """Post ``content`` as the character's webhook; False when that is not possible."""
