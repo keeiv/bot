@@ -60,7 +60,18 @@ def strict_verdict(reply: str):
         raise ValueError("模型回覆不是單一 JSON 物件") from error
     if not isinstance(value, dict):
         raise ValueError("模型回覆不是單一 JSON 物件")
-    return engine.parse_verdict(json.dumps(value))
+    # The top-level fields only: a nested {"verdict": ...} never counts.
+    verdict = value.get("verdict")
+    if verdict not in (protocol.SAFE, protocol.UNSAFE, protocol.UNCERTAIN):
+        raise ValueError("模型沒有回覆有效的判定")
+    categories = value.get("categories")
+    categories = [
+        c
+        for c in (categories if isinstance(categories, list) else [])
+        if c in protocol.CATEGORIES
+    ]
+    reason = re.sub(r"[\x00-\x1f]+", " ", str(value.get("reason", ""))).strip()[:200]
+    return verdict, list(dict.fromkeys(categories)), reason
 
 
 def _item(index, verdict, stage, categories, reason, stages, reviewer=""):

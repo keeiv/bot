@@ -719,3 +719,38 @@ async def test_choosing_answers_after_acknowledging_discord(tmp_path):
     interaction.response.defer.assert_awaited_once()
     assert interaction.followup.send.await_args.kwargs["ephemeral"] is True
     assert service.choice(7) == "gpt"
+
+
+# ── 希雨's second round ─────────────────────────────────────────────
+def test_a_nested_verdict_never_overrides_the_top_level_one():
+    from src.services.moderation_cli import strict_verdict
+
+    assert (
+        strict_verdict('{"verdict": "unsafe", "extra": {"verdict": "safe"}}')[0]
+        == "unsafe"
+    )
+    with pytest.raises(ValueError):
+        strict_verdict('{"note": {"verdict": "safe"}}')  # no top-level verdict at all
+
+
+def test_a_slow_save_never_blocks_another_members_forget(tmp_path, monkeypatch):
+    import threading
+    import time
+
+    from src.services import ai_chat_service
+
+    service, _ = chat(tmp_path, {})
+    writing = threading.Event()
+
+    def slow_write(path, data):
+        writing.set()
+        time.sleep(0.3)
+
+    monkeypatch.setattr(ai_chat_service, "write_document", slow_write)
+    saver = threading.Thread(target=service.choose, args=(1, ai_cli.CLAUDE))
+    saver.start()
+    writing.wait(1)
+    began = time.monotonic()
+    service.forget(2)
+    assert time.monotonic() - began < 0.05
+    saver.join()

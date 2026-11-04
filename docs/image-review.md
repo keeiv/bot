@@ -37,7 +37,7 @@
 > 兩個工具都要為機器人另外登入一次，在專案根目錄、機器人執行的帳號下操作：
 >
 > - **Claude**：執行 `claude setup-token`（需要 Claude 訂閱），把產生的 Token 設成 `.env` 的 `CLAUDE_CODE_OAUTH_TOKEN`。
-> - **Codex**：PowerShell 執行 `$env:CODEX_HOME="$PWD\datai\codex"; codex login`（cmd 為 `set CODEX_HOME=%CD%\datai\codex && codex login`）。這是獨立的登入，不影響你桌面版的 Codex。
+> - **Codex**：PowerShell 執行 `$env:CODEX_HOME="$PWD\data\ai\codex"; codex login`（cmd 為 `set CODEX_HOME=%CD%\data\ai\codex && codex login`）。這是獨立的登入，不影響你桌面版的 Codex。
 >
 > 沒有登入的工具會被當成沒有回覆：審核改人工，聊天顯示「此功能暫時維護中 稍後再試」。
 
