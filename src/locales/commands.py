@@ -24,6 +24,8 @@ TEXT: dict[str, str] = {
     "Automatic roles": "自動角色分配管理",
     "Avatar": "頭像",
     "Chat with an AI character": "與 AI 角色聊天",
+    "Ask Dawn to draw a picture": "請 Dawn（晨曦）畫一張圖",
+    "What to draw": "想畫什麼",
     "Clear what the AI remembers of your conversation": "清除 AI 對這段對話的記憶",
     "Dawn (GPT)": "晨曦（GPT）",
     "Pick who answers you: Sonnet (Claude) or Dawn (GPT)": "選擇回應你的角色：十四行詩（Claude）或晨曦（GPT）",

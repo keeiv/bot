@@ -417,6 +417,53 @@ class ToolQuota:
                 "items": [{"id": r[0], "issuedAt": r[1], "usedAt": r[2]} for r in rows],
             }
 
+    def ai_reserve(self, user_id, cost):
+        """Hold ``cost`` points for one AI request; ``None`` when the allowance is short.
+
+        AI requests share the file tools' weekly and three-hour allowance. Unlike a
+        file job they may run alongside other work, so no single-job rule applies.
+        """
+        if type(cost) is not int or cost <= 0:
+            raise ValueError("invalid AI cost")
+        job_id = "ai-" + uuid.uuid4().hex
+        with self.connection(locked=True) as db:
+            user = self._user(db, user_id)
+            data = self._snapshot(db, user)
+            if any(
+                data[period]["used"] + data["reserved"] + cost > data[period]["limit"]
+                for period in ("weekly", "rolling")
+            ):
+                return None
+            db.execute(
+                "INSERT INTO tool_jobs(job_id,user_id,epoch,created_at,expires_at,state,reserved,input_bytes) VALUES (?,?,?,?,?,'pending',?,0)",
+                (
+                    job_id,
+                    user[0],
+                    user[2],
+                    self.clock(),
+                    self.clock() + RESERVATION_SECONDS,
+                    cost,
+                ),
+            )
+        return job_id
+
+    def ai_settle(self, user_id, job_id, charge):
+        """Charge ``charge`` points (at most what was held; 0 frees it)."""
+        with self.connection(locked=True) as db:
+            user = self._user(db, user_id)
+            row = db.execute(
+                "SELECT state,reserved FROM tool_jobs WHERE job_id=? AND user_id=?",
+                (job_id, user[0]),
+            ).fetchone()
+            if row is None or row[0] != "pending" or not str(job_id).startswith("ai-"):
+                return 0
+            charge = max(0, min(row[1], int(charge)))
+            db.execute(
+                "UPDATE tool_jobs SET state=?,charged=?,seconds=0,finished_at=?,epoch=? WHERE job_id=?",
+                ("done" if charge else "failed", charge, self.clock(), user[2], job_id),
+            )
+            return charge
+
     def easter_egg(self, user_id):
         """One reset voucher per account for finding the website's terminal easter egg.
 
@@ -581,8 +628,9 @@ class ToolQuota:
     def jobs(self, user_id):
         with self.connection() as db:
             rows = db.execute(
-                "SELECT job_id,state,created_at,finished_at,charged,input_bytes,seconds,expires_at FROM tool_jobs WHERE user_id=? ORDER BY created_at DESC LIMIT 20",
-                (valid_id(user_id),),
+                "SELECT job_id,state,created_at,finished_at,charged,input_bytes,seconds,expires_at FROM tool_jobs WHERE user_id=? AND job_id NOT LIKE ? ORDER BY created_at DESC LIMIT 20",
+                # a parameter, not a literal: MySQL's driver would read "%" as a placeholder
+                (valid_id(user_id), "ai-%"),
             ).fetchall()
         return [
             {

@@ -467,3 +467,19 @@ def test_the_website_easter_egg_gives_one_voucher_per_account(quota):
     assert service.easter_egg("101")["issued"] is False
     with pytest.raises(ValueError):
         service.easter_egg("not-an-id")
+
+
+def test_ai_requests_share_the_allowance_but_not_the_file_history(quota):
+    service, _ = quota
+    job = service.ai_reserve("101", 3)
+    assert job.startswith("ai-")
+    assert service.snapshot("101")["reserved"] == 3
+    assert service.ai_settle("101", job, 1) == 1
+    assert service.ai_settle("101", job, 1) == 0  # settled once
+    assert service.snapshot("101")["weekly"]["used"] == 1
+    assert service.jobs("101") == []  # AI requests are not file jobs
+    failed = service.ai_reserve("101", 3)
+    assert service.ai_settle("101", failed, 0) == 0
+    assert service.snapshot("101")["weekly"]["used"] == 1
+    limit = service.snapshot("101")["rolling"]["limit"]
+    assert service.ai_reserve("101", limit) is None  # more than is left

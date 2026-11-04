@@ -16,8 +16,36 @@ MESSAGES: dict[str, dict[str, str]] = {
         "zh": "嗨嗨！我是晨曦！今天想聊什麼呀？",
     },
     "ai_chat.how_to_talk": {
-        "en": "Talk with /ai chat · switch with /ai choose",
-        "zh": "用 /ai chat 聊天 · 用 /ai choose 換人",
+        "en": "Talk with /ai chat or @BOT. · Dawn draws with /ai image · switch with /ai choose",
+        "zh": "用 /ai chat 或 @BOT. 聊天 · /ai image 請 Dawn 畫圖 · /ai choose 換人",
+    },
+    "ai_chat.no_allowance": {
+        "en": "Not enough allowance left for this (it needs {v0} points). Check it with /usage.",
+        "zh": "你的額度不夠這次使用（需要 {v0} 點），可以用 /usage 查看。",
+    },
+    "ai_chat.dev_usage": {
+        "en": "`>>>{v0} [number] 1` for you only · `>>>{v0} [number] 2` for everyone · `>>>{v0} reset` back to the default",
+        "zh": "`>>>{v0} [編號] 1` 只改自己 · `>>>{v0} [編號] 2` 改全部人 · `>>>{v0} reset` 恢復預設",
+    },
+    "ai_chat.dev_list_title": {"en": "**{v0}** models", "zh": "**{v0}** 可用模型"},
+    "ai_chat.dev_mark_default": {"en": "default", "zh": "預設"},
+    "ai_chat.dev_mark_everyone": {"en": "everyone", "zh": "全部人"},
+    "ai_chat.dev_mark_you": {"en": "you", "zh": "你"},
+    "ai_chat.dev_set_self": {
+        "en": "Your {v0} model is now {v1}.",
+        "zh": "已把你自己的 {v0} 換成 {v1}。",
+    },
+    "ai_chat.dev_set_all": {
+        "en": "Everyone's {v0} model is now {v1} (personal choices still come first).",
+        "zh": "已把所有人的 {v0} 換成 {v1}（個人設定仍優先）。",
+    },
+    "ai_chat.dev_reset": {
+        "en": "{v0} is back to the default for everyone ({v1}).",
+        "zh": "{v0} 已全部恢復預設（{v1}）。",
+    },
+    "ai_chat.dev_bad_number": {
+        "en": "There is no such number; `>>>{v0}` lists them.",
+        "zh": "沒有這個編號，用 `>>>{v0}` 查看清單。",
     },
     "ai_chat.choose_first": {
         "en": "Pick who answers you first with `/ai choose`.",

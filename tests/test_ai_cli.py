@@ -192,7 +192,9 @@ async def test_both_safe_is_approved_and_both_saw_the_image():
     assert item["verdict"] == protocol.APPROVED and item["categories"] == []
     assert [s["verdict"] for s in item["stages"]] == ["safe", "safe"]
     assert {provider for provider, _, _ in tools.calls} == {"claude", "gpt"}
-    assert tools.calls[0][1][tools.calls[0][1].index("--model") + 1] == "haiku"
+    assert (
+        tools.calls[0][1][tools.calls[0][1].index("--model") + 1] == "claude-haiku-5-5"
+    )
 
 
 async def test_one_unsafe_rejects_and_names_the_model():
@@ -282,7 +284,7 @@ async def test_only_the_chosen_character_answers(tmp_path):
     assert (first_reply.provider, first_reply.text, first_reply.model) == (
         "claude",
         "您好。",
-        "haiku",
+        "claude-haiku-5-5",
     )
     assert (second_reply.provider, second_reply.text) == ("gpt", "嗨！")
     assert second_reply.signature.startswith("-# GPT-6.1 Terra ")
@@ -341,10 +343,32 @@ def event():
     )
 
 
-def cog(service):
+class FakeQuota:
+    """The file tools' allowance: holds and charges, with a budget in points."""
+
+    def __init__(self, budget=100):
+        self.budget = budget
+        self.held = {}
+        self.charged = []
+
+    def ai_reserve(self, user_id, cost):
+        if cost > self.budget:
+            return None
+        job = f"ai-{len(self.held)}"
+        self.held[job] = cost
+        return job
+
+    def ai_settle(self, user_id, job, charge):
+        self.charged.append(min(self.held.pop(job), charge))
+        self.budget -= self.charged[-1]
+        return self.charged[-1]
+
+
+def cog(service, quota=None):
     made = object.__new__(AiChat)
     made.bot = SimpleNamespace()
     made.service = service
+    made.quota_service = quota or FakeQuota()
     return made
 
 
@@ -371,7 +395,7 @@ async def test_the_command_reply_is_an_embed_with_the_model_line_and_no_quote(
     assert sent["allowed_mentions"].everyone is False
     assert sent["embed"].author.name == "Dawn"
     assert sent["embed"].author.icon_url == "attachment://avatar.png"
-    assert sent["file"].filename == "avatar.png"
+    assert sent["files"][0].filename == "avatar.png"
 
 
 # ── @BOT. message: the character answers through its webhook ─────
@@ -754,3 +778,181 @@ def test_a_slow_save_never_blocks_another_members_forget(tmp_path, monkeypatch):
     service.forget(2)
     assert time.monotonic() - began < 0.05
     saver.join()
+
+
+# ── exact model, web search, drawing, allowance, developer switch ─
+def test_model_ids_are_shown_by_their_names():
+    from src.services.ai_chat_service import model_label
+
+    assert model_label("claude-haiku-5-5") == "Claude Haiku 5.5"
+    assert model_label("claude-sonnet-5-5-20261001") == "Claude Sonnet 5.5"
+    assert model_label("gpt-6.1-terra") == "GPT-6.1 Terra"
+    assert model_label("mystery-1") == "mystery-1"
+
+
+async def test_claude_reports_the_model_it_ran_and_its_web_searches():
+    async def runner(args, stdin, cwd, seconds):
+        assert args[args.index("--tools") + 1] == "WebSearch"
+        assert "WebFetch" not in " ".join(args)  # never fetches from this machine
+        events = [
+            {"type": "system", "subtype": "init", "model": "claude-haiku-5-5"},
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {"type": "tool_use", "name": "WebSearch"},
+                        {"type": "server_tool_use", "name": "web_search"},
+                        {"type": "text", "text": "..."},
+                    ]
+                },
+            },
+            {"type": "result", "is_error": False, "result": "今天下雨。"},
+        ]
+        return 0, "\n".join(json.dumps(e) for e in events).encode()
+
+    client = AiCli(claude="c.exe", runner=runner)
+    answer = await client.ask_full(
+        ai_cli.CLAUDE, system="s", prompt="p", model="haiku", web=True
+    )
+    assert (answer.text, answer.model, answer.web_searches) == (
+        "今天下雨。",
+        "claude-haiku-5-5",
+        2,
+    )
+
+
+async def test_codex_searches_and_draws_through_code_mode_with_the_shell_still_off(
+    tmp_path,
+):
+    seen = {}
+
+    async def runner(args, stdin, cwd, seconds):
+        seen["args"] = list(args)
+        folder = tmp_path / "codex" / "generated_images" / "0193abcd-ef01"
+        folder.mkdir(parents=True)
+        (folder / "a.png").write_bytes(b"\x89PNG fake")
+        Path(args[args.index("-o") + 1]).write_text("畫好了！", encoding="utf-8")
+        events = [
+            {"type": "thread.started", "thread_id": "0193abcd-ef01"},
+            {"type": "item.completed", "item": {"type": "web_search", "query": "x"}},
+        ]
+        return 0, "\n".join(json.dumps(e) for e in events).encode()
+
+    client = AiCli(codex="x.exe", runner=runner, home=tmp_path)
+    answer = await client.ask_full(
+        ai_cli.GPT, system="s", prompt="p", model="gpt-6.1-terra", web=True, draw=True
+    )
+    args = seen["args"]
+    disabled = {args[i + 1] for i, a in enumerate(args) if a == "--disable"}
+    assert "shell_tool" in disabled and "unified_exec" in disabled
+    assert "code_mode_host" not in disabled and "image_generation" not in disabled
+    assert "tools.web_search=true" in args
+    assert args[args.index("-s") + 1] == "workspace-write"
+    assert answer.drawings == [b"\x89PNG fake"] and answer.web_searches == 1
+    assert not (tmp_path / "codex" / "generated_images" / "0193abcd-ef01").exists()
+    with pytest.raises(ValueError):
+        await client.ask_full(
+            ai_cli.CLAUDE, system="s", prompt="p", model="m", draw=True
+        )
+
+
+async def test_a_plain_reply_costs_one_point_and_a_web_search_three(tmp_path):
+    from src.services.ai_chat_service import Reply
+
+    service, _ = chat(tmp_path, {ai_cli.CLAUDE: ["您好。"]})
+    service.choose(7, ai_cli.CLAUDE)
+    quota = FakeQuota()
+    await AiChat.chat.callback(cog(service, quota), event(), "hi")
+    assert quota.charged == [1]
+    assert Reply("gpt", "t", "m", 1.0, web_searches=2).cost == 3
+    assert Reply("gpt", "t", "m", 1.0, drawings=[b"x"]).cost == 10
+
+
+async def test_without_allowance_nothing_runs_and_a_failure_costs_nothing(tmp_path):
+    service, tools = chat(tmp_path, {ai_cli.CLAUDE: [None]})
+    service.choose(7, ai_cli.CLAUDE)
+    interaction = event()
+    await AiChat.chat.callback(cog(service, FakeQuota(budget=2)), interaction, "hi")
+    assert "3 點" in interaction.followup.send.await_args.args[0]
+    assert tools.calls == []
+    quota = FakeQuota()
+    interaction = event()
+    await AiChat.chat.callback(cog(service, quota), interaction, "hi")
+    assert interaction.followup.send.await_args.args[0] == "此功能暫時維護中 稍後再試"
+    assert quota.charged == [0]
+
+
+async def test_dawn_draws_for_ten_points_and_the_picture_is_in_the_box(tmp_path):
+    from src.services.ai_chat_service import Reply
+
+    service, _ = chat(tmp_path, {})
+
+    async def draw(user_id, request, model=None):
+        return Reply("gpt", "好看嗎！", "gpt-6.1-terra", 30.0, 0, [b"\x89PNG"])
+
+    service.draw = draw
+    quota = FakeQuota()
+    interaction = event()
+    await AiChat.image.callback(cog(service, quota), interaction, "a cat")
+    sent = interaction.followup.send.await_args.kwargs
+    assert sent["embed"].image.url == "attachment://drawing.png"
+    assert [f.filename for f in sent["files"]] == ["avatar.png", "drawing.png"]
+    assert sent["embed"].description.endswith("-# GPT-6.1 Terra 30.0s")
+    assert quota.charged == [10]
+
+
+def dev_message(text, author):
+    return SimpleNamespace(
+        content=text,
+        author=SimpleNamespace(id=author, bot=False),
+        webhook_id=None,
+        guild=SimpleNamespace(id=9),
+        channel=FakeChannel(),
+        reply=AsyncMock(),
+    )
+
+
+async def test_developers_switch_models_for_themselves_or_everyone(
+    tmp_path, monkeypatch
+):
+    from src.cogs.features import ai_chat
+
+    monkeypatch.setattr(ai_chat, "DEVELOPER_IDS", {42})
+    service, _ = chat(tmp_path, {})
+    made = mention_cog(service)
+
+    await made.on_message(dev_message(">>>codex 3 2", 7))  # not a developer
+    assert service.model_for(7, ai_cli.GPT) == "gpt-6.1-terra"
+
+    await made.on_message(dev_message(">>>claude 2 1", 42))
+    assert service.model_for(42, ai_cli.CLAUDE) == "claude-sonnet-5-5"
+    assert service.model_for(7, ai_cli.CLAUDE) == "claude-haiku-5-5"
+
+    done = dev_message(">>>codex 1 2", 42)
+    await made.on_message(done)
+    assert "GPT-6 Luna" in done.reply.await_args.args[0]
+    assert service.model_for(7, ai_cli.GPT) == "gpt-6-luna"
+    await made.on_message(dev_message(">>>codex 3 1", 42))
+    assert service.model_for(42, ai_cli.GPT) == "gpt-6.1-sol"  # personal wins
+
+    listing = dev_message(">>>codex", 42)
+    await made.on_message(listing)
+    text = listing.reply.await_args.args[0]
+    assert "`1` GPT-6 Luna" in text and "`3` GPT-6.1 Sol" in text
+
+    bad = dev_message(">>>codex 99 1", 42)
+    await made.on_message(bad)
+    assert "沒有這個編號" in bad.reply.await_args.args[0]
+
+    await made.on_message(dev_message(">>>codex reset", 42))
+    assert service.model_for(42, ai_cli.GPT) == "gpt-6.1-terra"
+    assert service.model_for(7, ai_cli.GPT) == "gpt-6.1-terra"
+
+
+async def test_the_chosen_model_reaches_the_tool(tmp_path):
+    service, tools = chat(tmp_path, {ai_cli.GPT: ["嗨！"]})
+    service.choose(7, ai_cli.GPT)
+    service.set_model(ai_cli.GPT, 1, "all", 42)
+    await AiChat.chat.callback(cog(service), event(), "hi")
+    args = tools.calls[0][1]
+    assert args[args.index("-m") + 1] == "gpt-6-luna"

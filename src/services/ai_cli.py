@@ -27,10 +27,13 @@ chats or the review policy. The bot's Codex therefore has its own sign-in
 
 import asyncio
 import base64
+from dataclasses import dataclass
+from dataclasses import field
 from datetime import date
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import tempfile
 import time
@@ -41,6 +44,8 @@ PROVIDERS = (CLAUDE, GPT)
 MAX_RUNNING = 2  # model processes at the same time, for chat and review together
 DOWN_SECONDS = 60  # after a failure, that model is not asked for this long
 QUEUE_SECONDS = 45  # how long a request may wait for a free model process
+MAX_DRAWINGS = 4  # images kept from one drawing request
+MAX_DRAWING_BYTES = 20 * 1024 * 1024
 USAGE_FILE = "data/ai_usage.json"
 HOME = Path(os.getenv("AI_CLI_HOME", "data/ai"))
 
@@ -115,6 +120,14 @@ _PASS = {
 }
 
 Runner = Callable[[Sequence[str], bytes, str, float], Awaitable[tuple[int, bytes]]]
+
+
+@dataclass(frozen=True)
+class Answer:
+    text: str
+    model: str  # the model that answered, as the tool reports it
+    web_searches: int = 0
+    drawings: list[bytes] = field(default_factory=list)
 
 
 class AiCliError(Exception):
@@ -329,8 +342,10 @@ class AiCli:
         codex: Optional[str] = None,
         runner: Runner = run_process,
         usage: Optional[UsageLog] = None,
+        home: Optional[Path] = None,
     ) -> None:
         self.usage = usage
+        self.home = home or HOME
         self._paths = {CLAUDE: claude, GPT: codex}
         self._looked = {CLAUDE: claude is not None, GPT: codex is not None}
         self._run = runner
@@ -364,9 +379,39 @@ class AiCli:
         images: Sequence[str] = (),
         seconds: float = 90,
     ) -> str:
-        """One answer from ``provider``. ``images`` are base64 JPEGs."""
+        """One answer from ``provider``, as text. ``images`` are base64 JPEGs."""
+        answer = await self.ask_full(
+            provider,
+            system=system,
+            prompt=prompt,
+            model=model,
+            images=images,
+            seconds=seconds,
+        )
+        return answer.text
+
+    async def ask_full(
+        self,
+        provider: str,
+        *,
+        system: str,
+        prompt: str,
+        model: str,
+        images: Sequence[str] = (),
+        seconds: float = 90,
+        web: bool = False,
+        draw: bool = False,
+    ) -> Answer:
+        """One answer with the model that gave it, its web searches and drawings.
+
+        ``web`` lets the model search the web (Claude's server-side search; Codex's
+        web search, which needs Codex's code mode while its shell stays off).
+        ``draw`` lets GPT generate images; Claude cannot draw.
+        """
         if provider not in PROVIDERS:
             raise ValueError("unknown provider")
+        if draw and provider != GPT:
+            raise ValueError("only GPT draws")
         if time.monotonic() < self._down_until[provider]:
             raise AiCliError("模型暫停使用中")
         executable = self.path(provider)
@@ -385,30 +430,44 @@ class AiCli:
                 with tempfile.TemporaryDirectory(
                     prefix="bot-ai-", ignore_cleanup_errors=True
                 ) as folder:
-                    ask = self._claude if provider == CLAUDE else self._codex
-                    answer = await ask(
-                        executable,
-                        folder,
-                        system,
-                        prompt,
-                        model,
-                        images,
-                        seconds,
-                        spent,
-                    )
+                    if provider == CLAUDE:
+                        answer = await self._claude(
+                            executable,
+                            folder,
+                            system,
+                            prompt,
+                            model,
+                            images,
+                            seconds,
+                            spent,
+                            web,
+                        )
+                    else:
+                        answer = await self._codex(
+                            executable,
+                            folder,
+                            system,
+                            prompt,
+                            model,
+                            images,
+                            seconds,
+                            spent,
+                            web,
+                            draw,
+                        )
             except AiCliError:
                 self._down_until[provider] = time.monotonic() + DOWN_SECONDS
                 if self.usage is not None:
                     self.usage.record(provider, model, spent[0], ok=False)
                 raise
             if self.usage is not None:
-                self.usage.record(provider, model, spent[0], ok=True)
+                self.usage.record(provider, answer.model, spent[0], ok=True)
             return answer
         finally:
             self._slots.release()
 
     async def _claude(
-        self, executable, folder, system, prompt, model, images, seconds, spent
+        self, executable, folder, system, prompt, model, images, seconds, spent, web
     ):
         content: list[dict[str, Any]] = [
             {
@@ -419,13 +478,19 @@ class AiCli:
         ]
         content.append({"type": "text", "text": prompt})
         message = {"type": "user", "message": {"role": "user", "content": content}}
+        # WebSearch runs on Anthropic's side; WebFetch (which would fetch from this
+        # machine, local network included) is never offered.
+        tools = (
+            ["--tools", "WebSearch", "--allowedTools", "WebSearch"]
+            if web
+            else ["--tools", ""]
+        )
         args = [
             executable,
             "-p",
             "--model",
             model,
-            "--tools",
-            "",
+            *tools,
             "--safe-mode",
             "--strict-mcp-config",
             "--no-session-persistence",
@@ -442,9 +507,23 @@ class AiCli:
         _, output = await self._run(
             args, (json.dumps(message) + "\n").encode("utf-8"), folder, seconds
         )
-        result = None
+        result, used, searches = None, model, 0
         for event in _events(output):
-            if event.get("type") == "result":
+            kind = event.get("type")
+            if kind == "system" and isinstance(event.get("model"), str):
+                used = event["model"]  # the model Claude Code really ran
+            elif kind == "assistant":
+                blocks = (event.get("message") or {}).get("content") or []
+                searches += sum(
+                    1
+                    for block in blocks
+                    if isinstance(block, dict)
+                    # Claude Code reports its WebSearch tool as a tool_use;
+                    # the API's own search would be a server_tool_use.
+                    and (block.get("type"), block.get("name"))
+                    in (("tool_use", "WebSearch"), ("server_tool_use", "web_search"))
+                )
+            elif kind == "result":
                 result = event
                 spent[0] = _tokens(event.get("usage"))
         # A used-up quota or an expired sign-in comes back as an error result.
@@ -455,10 +534,20 @@ class AiCli:
             or not result["result"].strip()
         ):
             raise AiCliError("Claude 沒有回覆")
-        return result["result"].strip()
+        return Answer(result["result"].strip(), used, searches)
 
     async def _codex(
-        self, executable, folder, system, prompt, model, images, seconds, spent
+        self,
+        executable,
+        folder,
+        system,
+        prompt,
+        model,
+        images,
+        seconds,
+        spent,
+        web,
+        draw,
     ):
         answer = Path(folder) / "answer.txt"
         attached: list[str] = []
@@ -466,6 +555,8 @@ class AiCli:
             path = Path(folder) / f"image-{index}.jpg"
             path.write_bytes(base64.b64decode(data))
             attached += ["-i", str(path)]
+        # Drawing saves a file, so it needs a writable workspace (the empty
+        # temporary folder); without a shell the model cannot write anything else.
         args = [
             executable,
             "exec",
@@ -475,25 +566,58 @@ class AiCli:
             "--ignore-user-config",
             "--ignore-rules",
             "-s",
-            "read-only",
+            "workspace-write" if draw else "read-only",
             "-m",
             model,
             "-c",
             'model_reasoning_effort="low"',
         ]
+        if web:
+            args += ["-c", "tools.web_search=true"]
+        if draw:
+            args += ["--enable", "image_generation"]
         for feature in CODEX_DISABLED:
+            # Web search and drawing run through code mode; the shell stays off.
+            if feature == "code_mode_host" and (web or draw):
+                continue
+            if feature == "image_generation" and draw:
+                continue
             args += ["--disable", feature]
         args += ["-C", folder, "-o", str(answer), "--color", "never", "--json", "-"]
         # Codex has no separate system prompt in exec mode: the instructions lead.
         stdin = f"<instructions>\n{system}\n</instructions>\n\n{prompt}"
         code, output = await self._run(args, stdin.encode("utf-8"), folder, seconds)
+        thread, searches = "", 0
         for event in _events(output):
-            if event.get("type") == "turn.completed":
+            if event.get("type") == "thread.started":
+                thread = str(event.get("thread_id") or "")
+            elif event.get("type") == "turn.completed":
                 spent[0] += _tokens(event.get("usage"))
+            elif event.get("type") == "item.completed":
+                item = event.get("item") or {}
+                if item.get("type") == "web_search" and item.get("query"):
+                    searches += 1
+        drawn = self._drawings(thread) if draw else []
         text = answer.read_text(encoding="utf-8").strip() if answer.is_file() else ""
-        if code != 0 or not text:
+        if code != 0 or not (text or drawn):
             raise AiCliError("GPT 沒有回覆")
-        return text
+        return Answer(text, model, searches, drawn)
+
+    def _drawings(self, thread: str) -> list[bytes]:
+        """Images Codex saved for this session, read and then removed."""
+        if not re.fullmatch(r"[0-9a-f-]{8,64}", thread):
+            return []
+        folder = self.home / "codex" / "generated_images" / thread
+        if not folder.is_dir():
+            return []
+        found = []
+        for path in sorted(folder.iterdir()):
+            if path.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp"):
+                data = path.read_bytes()
+                if 0 < len(data) <= MAX_DRAWING_BYTES:
+                    found.append(data)
+        shutil.rmtree(folder, ignore_errors=True)
+        return found[:MAX_DRAWINGS]
 
 
 _shared: Optional[AiCli] = None

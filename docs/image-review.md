@@ -15,7 +15,7 @@
 
 | 審核者 | 程式 | 預設模型 | 換模型 |
 | --- | --- | --- | --- |
-| Claude | Claude 桌面版附帶的 Claude Code（`%LOCALAPPDATA%\Claude-Data\…\claude-code\<版本>\…\claude.exe`，自動找最新版） | `haiku`（Haiku 系列最新版） | `IMAGE_REVIEW_CLAUDE_MODEL` |
+| Claude | Claude 桌面版附帶的 Claude Code（`%LOCALAPPDATA%\Claude-Data\…\claude-code\<版本>\…\claude.exe`，自動找最新版） | `claude-haiku-5-5`（Claude Haiku 5.5） | `IMAGE_REVIEW_CLAUDE_MODEL` |
 | GPT | Codex CLI（`codex`；npm 安裝時直接執行套件內的 `codex.exe`） | `gpt-6-luna`，推理強度 `low` | `IMAGE_REVIEW_GPT_MODEL` |
 
 程式位置也可以用 `CLAUDE_CLI`、`CODEX_CLI` 指定。
