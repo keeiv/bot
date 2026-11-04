@@ -577,7 +577,12 @@ class AiCli:
         if draw:
             args += ["--enable", "image_generation"]
         for feature in CODEX_DISABLED:
-            # Web search and drawing run through code mode; the shell stays off.
+            # Web search and drawing only exist through Codex's code mode (checked
+            # with Codex 0.162: both fail without it). Code mode runs JavaScript in an
+            # isolate with no require, Deno, process or fetch: it can only call the
+            # tools left on here, never read files, the environment or the network.
+            # The shell and program execution stay off, and CODEX_HOME holds only the
+            # bot's own sign-in.
             if feature == "code_mode_host" and (web or draw):
                 continue
             if feature == "image_generation" and draw:

@@ -956,3 +956,41 @@ async def test_the_chosen_model_reaches_the_tool(tmp_path):
     await AiChat.chat.callback(cog(service), event(), "hi")
     args = tools.calls[0][1]
     assert args[args.index("-m") + 1] == "gpt-6-luna"
+
+
+# ── 希雨 on the allowance: delivery first, file jobs unaffected ────
+async def test_a_reply_that_never_reaches_discord_costs_nothing(tmp_path):
+    service, _ = chat(tmp_path, {ai_cli.CLAUDE: ["您好。"]})
+    service.choose(7, ai_cli.CLAUDE)
+    quota = FakeQuota()
+    interaction = event()
+    sends = []
+
+    async def refuse(*args, **kwargs):
+        sends.append(kwargs)
+        if "embed" in kwargs:
+            raise discord.HTTPException(SimpleNamespace(status=413, reason=""), "")
+
+    interaction.followup.send = refuse
+    await AiChat.chat.callback(cog(service, quota), interaction, "hi")
+    assert quota.charged == [0]
+
+
+def test_a_large_drawing_is_shrunk_to_fit_the_upload_limit():
+    import random
+
+    from src.cogs.features.ai_chat import fit_image
+
+    random.seed(1)
+    picture = Image.frombytes(
+        "RGB",
+        (1200, 1200),
+        bytes(random.getrandbits(8) for _ in range(1200 * 1200 * 3)),
+    )
+    out = io.BytesIO()
+    picture.save(out, format="PNG")
+    data = out.getvalue()
+    assert len(data) > 2_000_000
+    small, name = fit_image(data, 1_000_000)
+    assert len(small) <= 1_000_000 and name == "drawing.jpg"
+    assert fit_image(b"tiny", 100) == (b"tiny", "drawing.png")

@@ -483,3 +483,11 @@ def test_ai_requests_share_the_allowance_but_not_the_file_history(quota):
     assert service.snapshot("101")["weekly"]["used"] == 1
     limit = service.snapshot("101")["rolling"]["limit"]
     assert service.ai_reserve("101", limit) is None  # more than is left
+
+
+def test_an_ai_request_in_progress_does_not_block_a_file_job(quota):
+    service, _ = quota
+    job = service.ai_reserve("101", 3)
+    quote = service.quote("101", [100], "png")
+    assert service.reserve("101", quote)  # the AI hold is not a file job
+    service.ai_settle("101", job, 0)

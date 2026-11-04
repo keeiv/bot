@@ -346,8 +346,9 @@ class ToolQuota:
                     tx("tool_quota.this_processing_request_has_already_been")
                 )
             if db.execute(
-                "SELECT 1 FROM tool_jobs WHERE user_id=? AND state='pending' AND expires_at>?",
-                (user[0], self.clock()),
+                # AI requests hold points too, but they are not file jobs.
+                "SELECT 1 FROM tool_jobs WHERE user_id=? AND state='pending' AND expires_at>? AND job_id NOT LIKE ?",
+                (user[0], self.clock(), "ai-%"),
             ).fetchone():
                 raise ValueError(tx("tool_quota.a_file_job_is_already_in"))
             cost = quote["maximumPoints"]
