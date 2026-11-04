@@ -53,3 +53,20 @@ def test_mysql_quota_reservation_and_coupon_transactions(monkeypatch):
     assert ToolQuota().snapshot(uid)["tier"]["name"] == "Nova 20x."
     assert quota.set_nova(developer, uid, False)["tier"]["name"] == "Free."
     assert quota.inventory(uid, used=True)["total"] == 1
+
+
+@pytest.mark.skipif(
+    os.getenv("MYSQL_INTEGRATION_TEST") != "1",
+    reason="Requires isolated MySQL test database",
+)
+def test_mysql_easter_egg_voucher_is_issued_once_even_at_once(monkeypatch):
+    database = os.environ.get("MYSQL_TEST_DATABASE", "")
+    assert database.endswith("_test"), "Never run against production"
+    monkeypatch.setenv("MYSQL_DATABASE", database)
+    monkeypatch.setenv("STORAGE_BACKEND", "mysql")
+    quota = ToolQuota()
+    uid = str(uuid.uuid4().int % 10**18)
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        results = list(pool.map(lambda _: quota.easter_egg(uid), range(3)))
+    assert sum(r["issued"] for r in results) == 1
+    assert quota.inventory(uid)["total"] == 1

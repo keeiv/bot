@@ -451,3 +451,19 @@ async def test_batch_outputs_are_downloadable_zip(quota):
             assert json.loads(archive.read("02-b.json"))[0]["name"] == "b"
     finally:
         await service.close()
+
+
+def test_the_website_easter_egg_gives_one_voucher_per_account(quota):
+    service, _ = quota
+    first = service.easter_egg("101")
+    assert first == {"issued": True, "couponId": "egg-rm-rf-101"}
+    assert service.easter_egg("101") == {"issued": False, "couponId": "egg-rm-rf-101"}
+    assert service.easter_egg("102")["issued"] is True
+    assert service.inventory("101")["total"] == 1
+    complete(service, "101")
+    service.redeem("101", "egg-rm-rf-101")  # it is an ordinary reset voucher
+    assert service.snapshot("101")["weekly"]["used"] == 0
+    # once used it is still the one this account got
+    assert service.easter_egg("101")["issued"] is False
+    with pytest.raises(ValueError):
+        service.easter_egg("not-an-id")
