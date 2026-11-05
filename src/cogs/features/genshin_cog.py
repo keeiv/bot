@@ -111,6 +111,8 @@ class CookieBindModal(LocalizedModal):
             accounts = await self.service.bind_account(
                 interaction.user.id, cookie_str, self.region
             )
+            # The AI characters read the new link at once (see ai_chat).
+            interaction.client.dispatch("mhy_bound", interaction.user.id)
 
             region_display = (
                 tx("genshin_cog.china_miyoushe")
@@ -416,6 +418,7 @@ class GenshinCog(commands.Cog):
 
         success = await run_storage(self.service.unbind_account, interaction.user.id)
         if success:
+            interaction.client.dispatch("mhy_unbound", interaction.user.id)
             await interaction.followup.send(
                 tx("genshin_cog.account_unlinked_the_stored_encrypted_cookies"),
                 ephemeral=True,

@@ -1,4 +1,6 @@
 import asyncio
+from datetime import timedelta
+from datetime import timezone
 import io
 import logging
 from pathlib import Path
@@ -9,6 +11,7 @@ import aiohttp
 import discord
 from discord import app_commands
 from discord.ext import commands
+from discord.ext import tasks
 from PIL import Image
 
 from src.config.constants import DEVELOPER_IDS
@@ -24,6 +27,7 @@ from src.services.ai_cli import AiCliError
 from src.services.ai_cli import CLAUDE
 from src.services.ai_cli import GPT
 from src.services.ai_game_profile import GameProfiles
+from src.services.ai_game_profile import REFRESH_MINUTES
 from src.utils.i18n import text as tx
 from src.utils.lang_context import localized
 from src.utils.storage_worker import run_blocking
@@ -45,8 +49,43 @@ NO_MENTIONS = discord.AllowedMentions.none()
 DEV_COMMAND = re.compile(r"^>>>(claude|codex)(?:\s+(.*))?$", re.IGNORECASE | re.DOTALL)
 DEV_PROVIDER = {"claude": CLAUDE, "codex": GPT}
 
+# What an @BOT. answer sees of the channel: the latest messages before it.
+CONTEXT_MESSAGES = 50
+MAX_CONTEXT = 6000  # characters, the newest kept
+MAX_CONTEXT_LINE = 300
+TZ_OFFSET = timezone(timedelta(hours=8))
+
 Hookable = Union[discord.TextChannel, discord.VoiceChannel, discord.ForumChannel]
 Deliver = Callable[[Reply], Awaitable[None]]
+
+
+def context_line(message: discord.Message) -> Optional[str]:
+    """``[21:04] 名字 → 對象: 內容`` for one channel message; None for an empty one."""
+    lines = [
+        line
+        for line in message.clean_content.splitlines()
+        if not line.startswith("-# ")
+    ]  # not the model line under the characters' replies
+    text = " ".join(" ".join(lines).split())
+    if not text and message.embeds:
+        embed = message.embeds[0]
+        text = " ".join(f"{embed.title or ''} {embed.description or ''}".split())
+    extras = []
+    if message.attachments:
+        extras.append(f"[{len(message.attachments)} attachment(s)]")
+    if message.stickers:
+        extras.append("[sticker]")
+    if not text and not extras:
+        return None
+    name = " ".join(message.author.display_name.split())[:40]
+    if message.author.bot:
+        name += " (bot)"
+    reference = message.reference.resolved if message.reference else None
+    if isinstance(reference, discord.Message):
+        name += " → " + " ".join(reference.author.display_name.split())[:40]
+    when = message.created_at.astimezone(TZ_OFFSET).strftime("%H:%M")
+    body = " ".join(part for part in (text[:MAX_CONTEXT_LINE], *extras) if part)
+    return f"[{when}] {name}: {body}"
 
 
 def fit_image(data: bytes, limit: int) -> tuple[bytes, str]:
@@ -84,6 +123,32 @@ class AiChat(commands.Cog):
         )
         # Let the control panel show which models are installed right away.
         self.service.cli.report_installed()
+        self.refresh_profiles.start()
+
+    async def cog_unload(self) -> None:
+        self.refresh_profiles.cancel()
+
+    # ── the members' /mhy links, kept fresh for @BOT. ─────────────
+    @tasks.loop(minutes=REFRESH_MINUTES)
+    async def refresh_profiles(self) -> None:
+        """背景定期重讀所有綁定的米哈遊帳號，HoYoLAB 一時讀不到時才有較新的資料可用"""
+        await self.bot.wait_until_ready()
+        try:
+            await self.profiles.refresh_all()
+        except Exception:
+            logger.exception("Could not refresh the HoYoLAB profiles")
+
+    @commands.Cog.listener()
+    async def on_mhy_bound(self, user_id: int) -> None:
+        """剛綁定或換綁的帳號立刻讀一次"""
+        try:
+            await self.profiles.refresh(user_id)
+        except Exception:
+            logger.exception("Could not read a new HoYoLAB link for the AI")
+
+    @commands.Cog.listener()
+    async def on_mhy_unbound(self, user_id: int) -> None:
+        self.profiles.forget(user_id)
 
     ai_group = app_commands.Group(name="ai", description="Chat with an AI character")
 
@@ -230,7 +295,7 @@ class AiChat(commands.Cog):
                 )
 
         async with message.channel.typing():
-            notice = await self.ask(message.author.id, text, deliver, games=True)
+            notice = await self.ask(message.author.id, text, deliver, mention=message)
         if notice:
             await message.reply(notice, mention_author=False)
 
@@ -281,24 +346,36 @@ class AiChat(commands.Cog):
             await run_blocking(quota.ai_settle, user_id, job, cost)
 
     async def ask(
-        self, user_id: int, text: str, deliver: Deliver, games: bool = False
+        self,
+        user_id: int,
+        text: str,
+        deliver: Deliver,
+        mention: Optional[discord.Message] = None,
     ) -> Optional[str]:
         """Send the character's reply through ``deliver``; else the message to show.
 
-        With ``games`` the character also sees the member's linked HoYoLAB games.
+        For an @BOT. (``mention``) the character also sees the member's linked
+        HoYoLAB games, read now, and the channel's latest messages.
         """
         try:
             provider = await run_storage(self.service.choice, user_id)
             if provider is None:
                 return tx("ai_chat.choose_first")
             model = await run_storage(self.service.model_for, user_id, provider)
-            if games and self.service.busy(user_id):
-                raise ChatBusy()  # before reading HoYoLAB for a message that waits
-            profile = await self.game_profile(user_id) if games else None
+            profile = channel = speaker = None
+            if mention is not None:
+                if self.service.busy(user_id):
+                    raise ChatBusy()  # before reading HoYoLAB for a message that waits
+                profile, channel = await asyncio.gather(
+                    self.game_profile(user_id), self.channel_context(mention)
+                )
+                speaker = " ".join(mention.author.display_name.split())[:40]
             return await self.charged(
                 user_id,
                 MAX_CHAT_COST,
-                lambda: self.service.reply(user_id, text, provider, model, profile),
+                lambda: self.service.reply(
+                    user_id, text, provider, model, profile, channel, speaker
+                ),
                 deliver,
             )
         except ChatBusy:
@@ -321,6 +398,37 @@ class AiChat(commands.Cog):
         except Exception:
             logger.exception("Could not read the HoYoLAB profile for the AI")
             return None
+
+    async def channel_context(self, message: discord.Message) -> Optional[str]:
+        """The channel's latest messages before ``message``, oldest first; None if unreadable."""
+        # Only what the member could scroll back to themselves: the bot's own
+        # access must not let them read history the channel hides from them.
+        try:
+            allowed = message.channel.permissions_for(message.author)
+        except (AttributeError, TypeError, ValueError):
+            return None
+        if not getattr(allowed, "read_message_history", False):
+            return None
+        lines = []
+        try:
+            async for earlier in message.channel.history(
+                limit=CONTEXT_MESSAGES, before=message
+            ):
+                line = context_line(earlier)
+                if line:
+                    lines.append(line)  # newest first
+        except (discord.Forbidden, discord.HTTPException, AttributeError):
+            return None  # no Read Message History here
+        except Exception:
+            logger.exception("Could not read the channel for the AI")
+            return None
+        kept, size = [], 0
+        for line in lines:
+            size += len(line) + 1
+            if size > MAX_CONTEXT:
+                break
+            kept.append(line)
+        return "\n".join(reversed(kept)) or None
 
     async def ask_drawing(
         self, user_id: int, prompt: str, deliver: Deliver
