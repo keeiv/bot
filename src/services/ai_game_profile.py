@@ -1,6 +1,6 @@
 """What the AI characters may know of a member's HoYoLAB games.
 
-The accounts come from /genshin's links; nothing is asked of the member. The
+The accounts come from /mhy bind; nothing is asked of the member. The
 cookie and the UID never reach a model: only the nickname, a few numbers and
 the characters the member owns with their gear, so a character can suggest teams.
 """
@@ -83,7 +83,7 @@ def describe_roster(roster: list[dict[str, Any]]) -> str:
 
 
 def fingerprint(bound: dict[str, Any]) -> Hashable:
-    """Which link a profile was read for: a new /genshin bind gives a new one."""
+    """Which link a profile was read for: a new /mhy bind gives a new one."""
     uids = sorted(str(account.get("uid")) for account in bound.get("game_accounts", []))
     return bound.get("encrypted_cookie"), tuple(uids)
 
@@ -96,7 +96,7 @@ class GameProfiles:
         source: Callable[[], Any],
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        self.source = source  # the GenshinService, or None while /genshin is not up
+        self.source = source  # the GenshinService, or None while /mhy is not up
         self.clock = clock
         # member -> (read at, which link it was read for, the text)
         self._cache: dict[int, tuple[float, Hashable, str]] = {}

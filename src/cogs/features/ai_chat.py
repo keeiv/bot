@@ -78,7 +78,7 @@ class AiChat(commands.Cog):
         self.service = AiChatService()
         # (channel id, provider) -> the character's webhook in that channel
         self.webhooks: dict[tuple[int, str], discord.Webhook] = {}
-        # What an @BOT. answer may know of the member's /genshin links.
+        # What an @BOT. answer may know of the member's /mhy links.
         self.profiles = GameProfiles(
             lambda: getattr(self.bot.get_cog("GenshinCog"), "service", None)
         )
