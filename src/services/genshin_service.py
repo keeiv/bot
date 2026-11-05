@@ -3,6 +3,7 @@
 import asyncio
 import copy
 import json
+import logging
 import os
 import threading
 from typing import Any, Optional
@@ -11,6 +12,7 @@ from cryptography.fernet import Fernet
 from dotenv import dotenv_values
 from dotenv import set_key
 import genshin
+import pydantic
 
 from src.utils.document_store import open_document
 from src.utils.document_store import read_document
@@ -21,7 +23,37 @@ from src.utils.lang_context import localized
 from src.utils.storage_worker import run_storage
 from src.utils.text_converter import to_traditional_chinese
 
+logger = logging.getLogger(__name__)
+
 _DATA_FILE = "data/storage/genshin_accounts.json"
+
+
+# 遊戲更新加入新代碼（新屬性、新特性）而 genshin.py 還不認得時，只略過那位角色，不讓整份清單讀不到。
+def _readable(model, data: dict, key: str, clear=()) -> dict:
+    """``data`` 去掉 ``key`` 清單中 ``model`` 讀不懂的項目；``clear`` 的清單在檢查時先清空"""
+    base = {**data, **{name: [] for name in clear}}
+    kept = []
+    for item in data.get(key) or []:
+        try:
+            model(**{**base, key: [item]})
+        except pydantic.ValidationError:
+            logger.info("略過一筆 genshin.py 還讀不懂的 %s 資料", model.__name__)
+            continue
+        kept.append(item)
+    return {**data, key: kept}
+
+
+def _each(model, items) -> list:
+    """逐筆讀取 ``items``，讀不懂的略過"""
+    parsed = []
+    for item in items:
+        try:
+            parsed.append(model(**item))
+        except pydantic.ValidationError:
+            logger.info("略過一筆 genshin.py 還讀不懂的 %s 資料", model.__name__)
+    return parsed
+
+
 _SIGNIN_LOG_FILE = "data/storage/genshin_signin_log.json"
 
 
@@ -468,7 +500,19 @@ class GenshinService:
         client.uids[self._get_game_enum(game_str)] = uid
 
         if game_str == "genshin":
-            data = await client.get_genshin_user(uid)
+            try:
+                data = await client.get_genshin_user(uid)
+            except pydantic.ValidationError:
+                index, listed = await asyncio.gather(
+                    client._request_genshin_record("index", uid),
+                    client._request_genshin_record(
+                        "character/list", uid, method="POST"
+                    ),
+                )
+                stats_model = genshin.models.GenshinUserStats
+                data = stats_model(
+                    **_readable(stats_model, {**index, **listed}, "list")
+                )
             return {
                 "nickname": data.info.nickname,
                 "level": data.info.level,
@@ -485,7 +529,18 @@ class GenshinService:
                 "teapot_level": data.teapot.level if data.teapot else 0,
             }
         elif game_str == "starrail":
-            starrail_data = await client.get_starrail_user(uid)
+            try:
+                starrail_data = await client.get_starrail_user(uid)
+            except pydantic.ValidationError:
+                index, basic = await asyncio.gather(
+                    client._request_starrail_record("index", uid),
+                    client._request_starrail_record("role/basicInfo", uid),
+                )
+                raw = {**index, "info": genshin.models.StarRailUserInfo(**basic)}
+                stats_model = genshin.models.StarRailUserStats
+                starrail_data = stats_model(
+                    **_readable(stats_model, raw, "avatar_list")
+                )
             return {
                 "nickname": starrail_data.info.nickname,
                 "level": starrail_data.info.level,
@@ -495,7 +550,13 @@ class GenshinService:
                 "chests_opened": starrail_data.stats.chest_num,
             }
         elif game_str == "zzz":
-            zzz_data = await client.get_zzz_user(uid)
+            try:
+                zzz_data = await client.get_zzz_user(uid)
+            except pydantic.ValidationError:
+                raw = await client._request_zzz_record("index", uid)
+                stats_model = genshin.models.ZZZUserStats
+                raw = _readable(stats_model, raw, "avatar_list", clear=("buddy_list",))
+                zzz_data = stats_model(**_readable(stats_model, raw, "buddy_list"))
             acc_info = next(
                 (
                     acc
@@ -542,7 +603,14 @@ class GenshinService:
 
         roster = []
         if game_str == "genshin":
-            data = await client.get_genshin_detailed_characters(uid)
+            try:
+                data = await client.get_genshin_detailed_characters(uid)
+            except pydantic.ValidationError:
+                raw = await client.get_genshin_detailed_characters(
+                    uid, return_raw_data=True
+                )
+                detail_model = genshin.models.GenshinDetailCharacters
+                data = detail_model(**_readable(detail_model, raw, "list"))
             for char in data.characters:
                 weapon = char.weapon
                 roster.append(
@@ -557,7 +625,14 @@ class GenshinService:
                     }
                 )
         elif game_str == "starrail":
-            data = await client.get_starrail_characters(uid)
+            try:
+                data = await client.get_starrail_characters(uid)
+            except pydantic.ValidationError:
+                raw = await client._request_starrail_record(
+                    "avatar/info", uid, payload={"need_wiki": "true"}
+                )
+                detail_model = genshin.models.StarRailDetailCharacterResponse
+                data = detail_model(**_readable(detail_model, raw, "avatar_list"))
             for char in data.avatar_list:
                 cone = char.equip
                 roster.append(
@@ -577,14 +652,25 @@ class GenshinService:
                     }
                 )
         elif game_str == "zzz":
-            agents = await client.get_zzz_agents(uid)
-            full = (
-                await client.get_zzz_agent_info([a.id for a in agents], uid=uid)
-                if agents
-                else []
+            try:
+                agents = await client.get_zzz_agents(uid)
+            except pydantic.ValidationError:
+                raw = await client._request_zzz_record("avatar/basic", uid)
+                agents = _each(genshin.models.ZZZPartialAgent, raw["avatar_list"])
+            # one request per agent (genshin.py does the same), so one it cannot read
+            # is skipped alone
+            details = await asyncio.gather(
+                *(client.get_zzz_agent_info(a.id, uid=uid) for a in agents),
+                return_exceptions=True,
             )
-            if not isinstance(full, (list, tuple)):
-                full = [full]
+            full = []
+            for detail in details:
+                if isinstance(detail, pydantic.ValidationError):
+                    logger.info("略過一位 genshin.py 還讀不懂的絕區零代理人")
+                elif isinstance(detail, BaseException):
+                    raise detail
+                else:
+                    full.append(detail)
             for agent in full:
                 engine = agent.w_engine
                 roster.append(

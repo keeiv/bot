@@ -1,8 +1,10 @@
 """@BOT. answers that know the member's linked HoYoLAB games, on every server."""
 
 import asyncio
+import enum
 from types import SimpleNamespace
 
+import pydantic
 import pytest
 
 from src.services import ai_game_profile
@@ -392,8 +394,8 @@ async def test_the_roster_reads_each_games_characters_and_gear():
     async def zzz_agents(uid):
         return [SimpleNamespace(id=1041)]
 
-    async def zzz_agent_info(ids, uid):
-        asked.append(ids)
+    async def zzz_agent_info(agent_id, uid):
+        asked.append(agent_id)
         disc = SimpleNamespace(set_effect=SimpleNamespace(name="Woodpecker"))
         return SimpleNamespace(
             name="Soldier 11",
@@ -410,7 +412,7 @@ async def test_the_roster_reads_each_games_characters_and_gear():
         get_zzz_agents=zzz_agents, get_zzz_agent_info=zzz_agent_info
     )
     (agent,) = await _service(client, "nap_global").get_roster(7, "zzz")
-    assert asked == [[1041]]
+    assert asked == [1041]  # one request per agent
     assert agent == {
         "name": "Soldier 11",
         "kind": "Fire / Attack",
@@ -485,3 +487,165 @@ async def test_a_read_of_an_old_link_never_replaces_the_new_one():
     assert new and profiles._last[7][1][0] == "another-account"
     genshin.fail = {"everything"}
     assert (await profiles.snapshot(7)).split("\n")[1:] == new.split("\n")[1:]
+
+
+# ── a code genshin.py does not know yet skips that character only ──
+class Kind(enum.IntEnum):
+    ATTACK = 1
+    STUN = 2
+
+
+class Agent(pydantic.BaseModel):
+    id: int = 0
+    name: str
+    kind: Kind
+
+
+class Roster(pydantic.BaseModel):
+    avatar_list: list[Agent]
+    buddy_list: list[Agent] = []
+
+
+def unreadable():
+    try:
+        Agent(name="new", kind=7)
+    except pydantic.ValidationError as error:
+        return error
+
+
+def test_unreadable_entries_are_left_out_and_the_rest_kept():
+    from src.services.genshin_service import _each
+    from src.services.genshin_service import _readable
+
+    raw = {
+        "avatar_list": [
+            {"name": "a", "kind": 1},
+            {"name": "new", "kind": 7},
+            {"name": "b", "kind": 2},
+        ],
+        "buddy_list": [{"name": "x", "kind": 9}],
+    }
+    kept = _readable(Roster, raw, "avatar_list", clear=("buddy_list",))
+    assert [a["name"] for a in kept["avatar_list"]] == ["a", "b"]
+    assert kept["buddy_list"] == raw["buddy_list"]  # only cleared while checking
+    assert Roster(**_readable(Roster, kept, "buddy_list")).buddy_list == []
+    assert [a.name for a in _each(Agent, raw["avatar_list"])] == ["a", "b"]
+
+
+async def test_a_zzz_agent_with_a_new_code_is_skipped_not_the_whole_roster(monkeypatch):
+    import genshin
+
+    monkeypatch.setattr(genshin.models, "ZZZPartialAgent", Agent)
+    asked = []
+
+    async def zzz_agents(uid):
+        raise unreadable()  # genshin.py rejects the whole list
+
+    async def raw_record(endpoint, uid):
+        assert (endpoint, uid) == ("avatar/basic", 5)
+        return {
+            "avatar_list": [
+                {"id": 1, "name": "old", "kind": 1},
+                {"id": 2, "name": "new", "kind": 7},
+            ]
+        }
+
+    async def zzz_agent_info(agent_id, uid):
+        asked.append(agent_id)
+        return SimpleNamespace(
+            name="Old",
+            element=genshin.models.ZZZElementType.FIRE,
+            specialty=genshin.models.ZZZSpecialty.ATTACK,
+            rarity="A",
+            level=50,
+            rank=0,
+            w_engine=None,
+            discs=[],
+        )
+
+    client = SimpleNamespace(
+        get_zzz_agents=zzz_agents,
+        _request_zzz_record=raw_record,
+        get_zzz_agent_info=zzz_agent_info,
+    )
+    roster = await _service(client, "nap_global").get_roster(7, "zzz")
+    assert [c["name"] for c in roster] == ["Old"] and asked == [1]  # "new" skipped
+
+
+async def test_an_agent_whose_details_cannot_be_read_is_skipped_alone():
+    import genshin
+
+    async def zzz_agents(uid):
+        return [SimpleNamespace(id=1), SimpleNamespace(id=2)]
+
+    async def zzz_agent_info(agent_id, uid):
+        if agent_id == 2:
+            raise unreadable()
+        return SimpleNamespace(
+            name="One",
+            element=genshin.models.ZZZElementType.ICE,
+            specialty=genshin.models.ZZZSpecialty.STUN,
+            rarity="S",
+            level=60,
+            rank=1,
+            w_engine=None,
+            discs=[],
+        )
+
+    client = SimpleNamespace(
+        get_zzz_agents=zzz_agents, get_zzz_agent_info=zzz_agent_info
+    )
+    roster = await _service(client, "nap_global").get_roster(7, "zzz")
+    assert [c["name"] for c in roster] == ["One"]
+
+    async def broken(agent_id, uid):
+        raise RuntimeError("HoYoLAB is down")
+
+    client.get_zzz_agent_info = broken
+    with pytest.raises(RuntimeError):  # other errors are not hidden
+        await _service(client, "nap_global").get_roster(7, "zzz")
+
+
+async def test_the_overview_skips_an_agent_it_cannot_read(monkeypatch):
+    import genshin
+
+    monkeypatch.setattr(genshin.models, "ZZZUserStats", StatsModel)
+
+    async def zzz_user(uid):
+        raise unreadable()
+
+    async def raw_record(endpoint, uid):
+        assert endpoint == "index"
+        return {
+            "stats": {
+                "active_days": 9,
+                "achievement_count": 3,
+                "character_num": 2,
+                "bangboo_obtained": 1,
+            },
+            "avatar_list": [{"name": "old", "kind": 1}, {"name": "new", "kind": 7}],
+            "buddy_list": [],
+        }
+
+    client = SimpleNamespace(get_zzz_user=zzz_user, _request_zzz_record=raw_record)
+    service = _service(client, "nap_global")
+    service._accounts["7"]["game_accounts"][0].update(nickname="Proxy", level=50)
+    data = await service.get_stats(7, "zzz")
+    assert (
+        data["days_active"] == 9
+        and data["characters"] == 2
+        and data["nickname"] == "Proxy"
+    )
+
+
+class ZZZStatsBlock(pydantic.BaseModel):
+    active_days: int
+    achievement_count: int
+    character_num: int
+    bangboo_obtained: int
+
+
+class StatsModel(pydantic.BaseModel):
+    stats: ZZZStatsBlock
+    avatar_list: list[Agent]
+    buddy_list: list[Agent] = []
