@@ -60,6 +60,7 @@ class DashboardAccount:
                 await run_storage(service.unbind, user_id)
             else:
                 await run_storage(service.unbind_account, user_id)
+                self.bot.dispatch("mhy_unbound", int(user_id))
         elif game == "osu":
             username = body["username"]
             if not isinstance(username, str) or not 1 <= len(username.strip()) <= 32:
@@ -90,4 +91,6 @@ class DashboardAccount:
             except Exception:
                 # Upstream exceptions can contain credentials. Never return or log them.
                 raise ValueError("Unable to verify HoYoLAB account") from None
+            # The AI characters read the new link at once (see ai_chat).
+            self.bot.dispatch("mhy_bound", int(user_id))
         return self.read(user_id)

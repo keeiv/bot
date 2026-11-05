@@ -253,24 +253,32 @@ class GenshinService:
 
     # ─────────────── 業務 API ───────────────
 
-    async def get_notes(self, discord_user_id: int, game_str: str) -> dict[Any, Any]:
-        """獲取指定遊戲的實時便箋"""
-        client = self.get_client(discord_user_id)
-        user_data = self._accounts[str(discord_user_id)]
-
-        # 尋找對應遊戲的 UID
+    def _pick_uid(
+        self, discord_user_id: int, game_str: str, uid: Optional[int] = None
+    ) -> int:
+        """該成員自己綁定的 UID：未指定時取該遊戲的第一個，指定時必須是他綁定的"""
+        user_data = self._accounts.get(str(discord_user_id)) or {}
         uids = [
-            acc["uid"]
+            int(acc["uid"])
             for acc in user_data.get("game_accounts", [])
             if self.map_game_biz_to_str(acc["game_biz"]) == game_str
         ]
+        if uid is None and uids:
+            return uids[0]
+        if uid is not None and int(uid) in uids:
+            return int(uid)
+        raise ValueError(
+            tx("genshin_service.no_linked_account_was_found", v0=(game_str))
+        )
 
-        uid = int(uids[0]) if uids else None
-
-        if uid is None:
-            raise ValueError(
-                tx("genshin_service.no_linked_account_was_found", v0=(game_str))
-            )
+    async def get_notes(
+        self, discord_user_id: int, game_str: str, uid: Optional[int] = None
+    ) -> dict[Any, Any]:
+        """獲取指定遊戲的實時便箋（uid：該成員綁定的其他伺服器帳號）"""
+        client = self.get_client(discord_user_id)
+        uid = self._pick_uid(discord_user_id, game_str, uid)
+        # genshin.py 依這個 UID 挑帳號的伺服器（崩壞3 不從 UID 推算伺服器）
+        client.uids[self._get_game_enum(game_str)] = uid
 
         if game_str == "genshin":
             notes = await client.get_genshin_notes(uid)
@@ -449,21 +457,15 @@ class GenshinService:
 
         return results
 
-    async def get_stats(self, discord_user_id: int, game_str: str) -> dict[Any, Any]:
-        """獲取使用者的遊戲統計數據"""
+    async def get_stats(
+        self, discord_user_id: int, game_str: str, uid: Optional[int] = None
+    ) -> dict[Any, Any]:
+        """獲取使用者的遊戲統計數據（uid：該成員綁定的其他伺服器帳號）"""
         client = self.get_client(discord_user_id)
         user_data = self._accounts[str(discord_user_id)]
-
-        uids = [
-            acc["uid"]
-            for acc in user_data.get("game_accounts", [])
-            if self.map_game_biz_to_str(acc["game_biz"]) == game_str
-        ]
-        uid = int(uids[0]) if uids else None
-        if not uid:
-            raise ValueError(
-                tx("genshin_service.no_linked_account_was_found", v0=(game_str))
-            )
+        uid = self._pick_uid(discord_user_id, game_str, uid)
+        # genshin.py 依這個 UID 挑帳號的伺服器（崩壞3 不從 UID 推算伺服器）
+        client.uids[self._get_game_enum(game_str)] = uid
 
         if game_str == "genshin":
             data = await client.get_genshin_user(uid)
@@ -498,7 +500,7 @@ class GenshinService:
                 (
                     acc
                     for acc in user_data.get("game_accounts", [])
-                    if acc["uid"] == uid
+                    if int(acc["uid"]) == uid
                 ),
                 None,
             )
@@ -524,21 +526,13 @@ class GenshinService:
             raise ValueError(tx("genshin_service.unsupported_game_type_fdbb37"))
 
     async def get_roster(
-        self, discord_user_id: int, game_str: str
+        self, discord_user_id: int, game_str: str, uid: Optional[int] = None
     ) -> list[dict[str, Any]]:
         """獲取擁有的角色與裝備（給 AI 推薦配隊用），等級高的在前"""
         client = self.get_client(discord_user_id)
-        user_data = self._accounts[str(discord_user_id)]
-        uids = [
-            acc["uid"]
-            for acc in user_data.get("game_accounts", [])
-            if self.map_game_biz_to_str(acc["game_biz"]) == game_str
-        ]
-        if not uids:
-            raise ValueError(
-                tx("genshin_service.no_linked_account_was_found", v0=(game_str))
-            )
-        uid = int(uids[0])
+        uid = self._pick_uid(discord_user_id, game_str, uid)
+        # genshin.py 依這個 UID 挑帳號的伺服器（崩壞3 不從 UID 推算伺服器）
+        client.uids[self._get_game_enum(game_str)] = uid
 
         def sets(names) -> list[str]:
             counts: dict[str, int] = {}
