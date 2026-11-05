@@ -23,6 +23,7 @@ from src.services.ai_chat_service import Reply
 from src.services.ai_cli import AiCliError
 from src.services.ai_cli import CLAUDE
 from src.services.ai_cli import GPT
+from src.services.ai_game_profile import GameProfiles
 from src.utils.i18n import text as tx
 from src.utils.lang_context import localized
 from src.utils.storage_worker import run_blocking
@@ -77,6 +78,10 @@ class AiChat(commands.Cog):
         self.service = AiChatService()
         # (channel id, provider) -> the character's webhook in that channel
         self.webhooks: dict[tuple[int, str], discord.Webhook] = {}
+        # What an @BOT. answer may know of the member's /genshin links.
+        self.profiles = GameProfiles(
+            lambda: getattr(self.bot.get_cog("GenshinCog"), "service", None)
+        )
         # Let the control panel show which models are installed right away.
         self.service.cli.report_installed()
 
@@ -225,7 +230,7 @@ class AiChat(commands.Cog):
                 )
 
         async with message.channel.typing():
-            notice = await self.ask(message.author.id, text, deliver)
+            notice = await self.ask(message.author.id, text, deliver, games=True)
         if notice:
             await message.reply(notice, mention_author=False)
 
@@ -275,17 +280,25 @@ class AiChat(commands.Cog):
         finally:
             await run_blocking(quota.ai_settle, user_id, job, cost)
 
-    async def ask(self, user_id: int, text: str, deliver: Deliver) -> Optional[str]:
-        """Send the character's reply through ``deliver``; else the message to show."""
+    async def ask(
+        self, user_id: int, text: str, deliver: Deliver, games: bool = False
+    ) -> Optional[str]:
+        """Send the character's reply through ``deliver``; else the message to show.
+
+        With ``games`` the character also sees the member's linked HoYoLAB games.
+        """
         try:
             provider = await run_storage(self.service.choice, user_id)
             if provider is None:
                 return tx("ai_chat.choose_first")
             model = await run_storage(self.service.model_for, user_id, provider)
+            if games and self.service.busy(user_id):
+                raise ChatBusy()  # before reading HoYoLAB for a message that waits
+            profile = await self.game_profile(user_id) if games else None
             return await self.charged(
                 user_id,
                 MAX_CHAT_COST,
-                lambda: self.service.reply(user_id, text, provider, model),
+                lambda: self.service.reply(user_id, text, provider, model, profile),
                 deliver,
             )
         except ChatBusy:
@@ -300,6 +313,14 @@ class AiChat(commands.Cog):
             # Storage down or anything unexpected: the member sees maintenance, the log the cause.
             logger.exception("AI chat failed")
             return tx("ai_chat.maintenance")
+
+    async def game_profile(self, user_id: int) -> Optional[str]:
+        """The member's linked games for the prompt; None (and a log line) on any failure."""
+        try:
+            return await self.profiles.snapshot(user_id)
+        except Exception:
+            logger.exception("Could not read the HoYoLAB profile for the AI")
+            return None
 
     async def ask_drawing(
         self, user_id: int, prompt: str, deliver: Deliver

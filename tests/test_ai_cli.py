@@ -450,10 +450,26 @@ class _Nothing:
         return False
 
 
-def mention_cog(service):
+class FakeProfiles:
+    """GameProfiles with fixed answers: member id -> their games, or an error."""
+
+    def __init__(self, games=None):
+        self.games = games or {}
+        self.asked = []
+
+    async def snapshot(self, user_id):
+        self.asked.append(user_id)
+        found = self.games.get(user_id)
+        if isinstance(found, Exception):
+            raise found
+        return found
+
+
+def mention_cog(service, profiles=None):
     made = cog(service)
     made.bot = SimpleNamespace(user=SimpleNamespace(id=1), blacklist_manager=None)
     made.webhooks = {}
+    made.profiles = profiles or FakeProfiles()
     return made
 
 
@@ -487,6 +503,40 @@ async def test_a_mention_is_answered_by_the_characters_webhook_in_plain_text(
     # the same webhook is reused for the next message
     await made.on_message(mention("<@!1> 再一次", channel))
     assert len(channel.made) == 1 and len(hook.sent) == 2
+
+
+async def test_a_mention_brings_the_members_linked_games_and_the_command_does_not(
+    tmp_path,
+):
+    service, tools = chat(
+        tmp_path, {ai_cli.CLAUDE: ["您的樹脂還有 120。", "好的。", "嗯。"]}
+    )
+    service.choose(7, ai_cli.CLAUDE)
+    service.choose(8, ai_cli.CLAUDE)
+    profiles = FakeProfiles(
+        {7: "Genshin Impact — now: current resin 120", 8: RuntimeError("down")}
+    )
+    made = mention_cog(service, profiles)
+    channel = FakeChannel([])
+    await made.on_message(mention("<@1> 我的樹脂多少", channel))
+    prompt = json.loads(tools.calls[0][2])["message"]["content"][-1]["text"]
+    assert "HoYoLAB" in prompt and "current resin 120" in prompt
+    assert prompt.index("current resin 120") < prompt.index("我的樹脂多少")
+    # a failed read still gets an answer, just without the games
+    await made.on_message(mention("<@1> 你好", channel, author=8))
+    assert "HoYoLAB" not in tools.calls[1][2].decode()
+    assert channel.made[0].sent[-1][0].startswith("好的。")
+    # a member still waiting for a reply is told so before HoYoLAB is read
+    service._busy.add(7)
+    assert (
+        await made.ask(7, "again", AsyncMock(), games=True)
+        == "上一則訊息還在回覆中，請稍等一下。"
+    )
+    service._busy.discard(7)
+    # /ai chat does not read the games
+    await made.ask(7, "hi", AsyncMock())
+    assert profiles.asked == [7, 8]
+    assert "HoYoLAB" not in tools.calls[2][2].decode()
 
 
 async def test_only_a_written_mention_from_a_member_starts_a_reply(tmp_path):

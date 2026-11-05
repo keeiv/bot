@@ -523,6 +523,96 @@ class GenshinService:
         else:
             raise ValueError(tx("genshin_service.unsupported_game_type_fdbb37"))
 
+    async def get_roster(
+        self, discord_user_id: int, game_str: str
+    ) -> list[dict[str, Any]]:
+        """獲取擁有的角色與裝備（給 AI 推薦配隊用），等級高的在前"""
+        client = self.get_client(discord_user_id)
+        user_data = self._accounts[str(discord_user_id)]
+        uids = [
+            acc["uid"]
+            for acc in user_data.get("game_accounts", [])
+            if self.map_game_biz_to_str(acc["game_biz"]) == game_str
+        ]
+        if not uids:
+            raise ValueError(
+                tx("genshin_service.no_linked_account_was_found", v0=(game_str))
+            )
+        uid = int(uids[0])
+
+        def sets(names) -> list[str]:
+            counts: dict[str, int] = {}
+            for name in names:
+                counts[name] = counts.get(name, 0) + 1
+            return [f"{count}x {name}" for name, count in counts.items()]
+
+        roster = []
+        if game_str == "genshin":
+            data = await client.get_genshin_detailed_characters(uid)
+            for char in data.characters:
+                weapon = char.weapon
+                roster.append(
+                    {
+                        "name": char.name,
+                        "kind": char.element,
+                        "rarity": f"{char.rarity}★",
+                        "level": char.level,
+                        "rank": f"C{char.constellation}",
+                        "gear": f"{weapon.name} R{weapon.refinement} Lv{weapon.level}",
+                        "sets": sets(a.set.name for a in char.artifacts),
+                    }
+                )
+        elif game_str == "starrail":
+            data = await client.get_starrail_characters(uid)
+            for char in data.avatar_list:
+                cone = char.equip
+                roster.append(
+                    {
+                        "name": char.name,
+                        "kind": f"{char.element.title()} / {char.path.name.replace('_', ' ').title()}",
+                        "rarity": f"{char.rarity}★",
+                        "level": char.level,
+                        "rank": f"E{char.rank}",
+                        "gear": (
+                            f"{cone.name} S{cone.rank} Lv{cone.level}" if cone else None
+                        ),
+                        "sets": [
+                            f"{len(char.relics)} relics",
+                            f"{len(char.ornaments)} ornaments",
+                        ],
+                    }
+                )
+        elif game_str == "zzz":
+            agents = await client.get_zzz_agents(uid)
+            full = (
+                await client.get_zzz_agent_info([a.id for a in agents], uid=uid)
+                if agents
+                else []
+            )
+            if not isinstance(full, (list, tuple)):
+                full = [full]
+            for agent in full:
+                engine = agent.w_engine
+                roster.append(
+                    {
+                        "name": agent.name,
+                        "kind": f"{agent.element.name.title()} / {agent.specialty.name.title()}",
+                        "rarity": agent.rarity,
+                        "level": agent.level,
+                        "rank": f"M{agent.rank}",
+                        "gear": (
+                            f"{engine.name} P{engine.refinement} Lv{engine.level}"
+                            if engine
+                            else None
+                        ),
+                        "sets": sets(d.set_effect.name for d in agent.discs),
+                    }
+                )
+        else:
+            raise ValueError(tx("genshin_service.unsupported_game_type_fdbb37"))
+        roster.sort(key=lambda char: -char["level"])
+        return roster
+
     async def get_abyss_stats(
         self, discord_user_id: int, game_str: str
     ) -> dict[Any, Any]:
