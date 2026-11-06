@@ -197,7 +197,9 @@ class DashboardAPI(commands.Cog):
         return int(actor)
 
     async def account(self, request):
-        return web.json_response(self.accounts.read(self.account_actor(request)))
+        return web.json_response(
+            await self.accounts.read_full(self.account_actor(request))
+        )
 
     async def update_account(self, request):
         actor = self.account_actor(request)

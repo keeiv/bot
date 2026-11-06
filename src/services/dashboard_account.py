@@ -1,15 +1,53 @@
 """Account self-service adapter. Only explicitly public profile fields leave the bot."""
 
 import asyncio
+import logging
 
 from src.services.endfield_service import EndfieldError
 from src.services.endfield_service import UID_RE
 from src.utils.storage_worker import run_storage
 
+logger = logging.getLogger(__name__)
+
+PROFILE_SECONDS = 6  # the page waits no longer than this for the game card
+
 
 class DashboardAccount:
     def __init__(self, bot):
         self.bot = bot
+
+    async def read_full(self, user_id):
+        """What read() gives, plus the linked Endfield player's public card."""
+        account = self.read(user_id)
+        endfield = account["endfield"]
+        endfield["profile"] = None
+        cog = self.bot.get_cog("EndfieldCog")
+        if cog is None or not endfield["uid"]:
+            return account
+        try:
+            zh, en = await asyncio.wait_for(
+                asyncio.gather(
+                    cog.service.profile(endfield["uid"], "zh"),
+                    cog.service.profile(endfield["uid"], "en"),
+                ),
+                PROFILE_SECONDS,
+            )
+        except (EndfieldError, asyncio.TimeoutError) as error:
+            logger.info("Endfield card unreadable for the account centre: %s", error)
+            return account
+        endfield["profile"] = {
+            "name": zh.name,
+            "region": {"zh": zh.region, "en": en.region},
+            "level": zh.adventure_level,
+            "worldLevel": zh.world_level,
+            "operators": zh.operators_owned,
+            "weapons": zh.weapons_owned,
+            "showcase": [
+                {"zh": z.name, "en": e.name, "level": z.level}
+                for z, e in zip(zh.showcase, en.showcase)
+            ],
+        }
+        return account
 
     def read(self, user_id):
         osu = self.bot.get_cog("OsuInfo")
@@ -60,7 +98,7 @@ class DashboardAccount:
             raise ValueError("Invalid account request")
         if game == "endfield":
             await self._update_endfield(user_id, action, body)
-            return self.read(user_id)
+            return await self.read_full(user_id)
         expected = {"game", "action"}
         if action == "bind":
             expected |= {"username"} if game == "osu" else {"cookie", "region"}
@@ -108,7 +146,7 @@ class DashboardAccount:
                 raise ValueError("Unable to verify HoYoLAB account") from None
             # The AI characters read the new link at once (see ai_chat).
             self.bot.dispatch("mhy_bound", int(user_id))
-        return self.read(user_id)
+        return await self.read_full(user_id)
 
     async def _update_endfield(self, user_id, action, body):
         """Link a UID or a SKPORT token, or remove the link. Errors name no credential."""
