@@ -82,8 +82,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "zh": "[終末地] 取得 SKPORT 帳號憑證",
     },
     "endfield.tutorial_body": {
-        "en": "1. Sign in at {v0} with your game account, in a computer browser.\n2. In the same browser, open {v1}\n3. Copy everything on the page.\n4. Use /endfield link and paste it.\n\n**The token signs in to your SKPORT account, so treat it like a password.** Only paste it into /endfield link and never into a chat. It is stored encrypted and used only to read your own game card; /endfield unbind deletes it. Signing out of SKPORT may end it, and then you link again. SKPORT has no official API, so this could stop working. Servers in mainland China are not supported.",
-        "zh": "1. 用電腦瀏覽器到 {v0} 登入遊戲帳號。\n2. 在同一個瀏覽器開啟 {v1}\n3. 複製頁面上的全部內容。\n4. 使用 /endfield link 貼上。\n\n**憑證可以登入你的 SKPORT 帳號，請當成密碼看待。** 只貼在 /endfield link，不要貼到任何聊天裡。它會加密保存，只用來讀取你自己的遊戲資料；/endfield unbind 可以刪除。登出 SKPORT 後憑證可能失效，屆時重新連結即可。SKPORT 沒有官方 API，這項功能之後可能失效。不支援中國大陸伺服器。",
+        "en": "1. Sign in at {v0} with your game account, in a computer browser.\n2. In the same browser, open {v1}\n3. Copy everything on the page.\n4. Use /endfield link and paste it.\n\n**The token signs in to your SKPORT account, so treat it like a password.** Only paste it into /endfield link or the website's account centre, never into a chat. It is stored encrypted and used only to read your own game card; /endfield unbind deletes it. Signing out of SKPORT may end it, and then you link again. SKPORT has no official API, so this could stop working. Servers in mainland China are not supported.",
+        "zh": "1. 用電腦瀏覽器到 {v0} 登入遊戲帳號。\n2. 在同一個瀏覽器開啟 {v1}\n3. 複製頁面上的全部內容。\n4. 使用 /endfield link 貼上。\n\n**憑證可以登入你的 SKPORT 帳號，請當成密碼看待。** 只貼在 /endfield link 或官網的帳號中心，不要貼到任何聊天裡。它會加密保存，只用來讀取你自己的遊戲資料；/endfield unbind 可以刪除。登出 SKPORT 後憑證可能失效，屆時重新連結即可。SKPORT 沒有官方 API，這項功能之後可能失效。不支援中國大陸伺服器。",
     },
     "endfield.not_bound": {
         "en": "[Info] No Endfield UID is linked. Use /endfield bind with the UID from the game's profile menu.",

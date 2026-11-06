@@ -126,7 +126,7 @@
   - 紀錄：`/mhy stats` 遊戲統計、`/mhy abyss` 挑戰紀錄。
 - **明日方舟：終末地**：兩種綁定方式，資料範圍不同（國際服）。
   - 只綁 UID：`/endfield bind`，不需要憑證，透過 [Enka.Network](https://enka.network) 讀公開展示，只看得到玩家在遊戲內選擇展示的幹員。
-  - 連結帳號：`/endfield link` 在私密視窗貼上 SKPORT 帳號憑證（加密保存，`/endfield tutorial` 有取得步驟），可以用 `/endfield roster` 看全部幹員，`/endfield operator` 查任何一名。
+  - 連結帳號：`/endfield link` 在私密視窗貼上 SKPORT 帳號憑證，或到官網的帳號中心貼上（加密保存，`/endfield tutorial` 有取得步驟），可以用 `/endfield roster` 看全部幹員，`/endfield operator` 查任何一名。
   - 查詢：`/endfield profile` 查名片與展示中的幹員，`/endfield operator` 查武器、裝備套組與技能，兩者都可填別的 UID；`unbind` 解除綁定並刪除憑證。`@BOT.` 的 AI 角色會讀綁定者本人的資料，詳見 [AI 聊天](docs/ai-chat.md)。
 
 > [!WARNING]

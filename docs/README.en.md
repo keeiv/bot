@@ -129,7 +129,7 @@ Six actions are available: warn, delete message, mute, kick, ban and lock channe
   - Records: `/mhy stats` for game stats, `/mhy abyss` for challenge records.
 - **Arknights: Endfield**: two ways to link, with different reach (global servers).
   - UID only: `/endfield bind`, no credentials, reads the public showcase through [Enka.Network](https://enka.network), so only the operators a player chose to show are visible.
-  - Account: `/endfield link` takes your SKPORT account token in a private window (stored encrypted; `/endfield tutorial` shows how to get it), and `/endfield roster` then lists every operator, `/endfield operator` any one of them.
+  - Account: `/endfield link` takes your SKPORT account token in a private window, as does the website's account centre (stored encrypted; `/endfield tutorial` shows how to get it), and `/endfield roster` then lists every operator, `/endfield operator` any one of them.
   - Lookups: `/endfield profile` shows the card and showcased operators, `/endfield operator` a weapon, gear sets and skills, either for another UID too; `unbind` removes the link and deletes the token. The `@BOT.` AI characters read the linked member's own data (see the AI chat guide, Chinese).
 
 > [!WARNING]
