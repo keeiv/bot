@@ -939,3 +939,26 @@ async def test_a_read_dropped_from_a_full_cache_is_still_returned(key, monkeypat
     svc.skport.detail = another_member_links_meanwhile
     account = await svc.account(7)
     assert account.uid == UID and account.operators
+
+
+def test_the_roster_fills_one_message_and_counts_what_did_not_fit():
+    from src.cogs.features.endfield_cog import roster_embed
+
+    def roster(size):
+        return ef.Account(
+            uid=UID,
+            name="Nova",
+            operators=[
+                ef.Operator(f"幹員{n}", 6, "灼熱", "突擊", "單手劍", 90, 2, None)
+                for n in range(size)
+            ],
+            stamina=None,
+            stamina_max=None,
+            read_at=100.0,
+        )
+
+    assert roster_embed(roster(40)).description.count("\n") == 39  # all of them
+    long = roster_embed(roster(500))
+    assert len(long.description) <= 4096
+    shown = long.description.count("\n") + 1
+    assert str(500 - shown) in long.footer.text

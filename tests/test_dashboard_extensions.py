@@ -148,3 +148,88 @@ def test_diagnostics_explain_permissions_without_writing():
     service.write.assert_not_called()
     with pytest.raises(ValueError):
         inspect_settings(service, guild, {"unknown": {}})
+
+
+# ── Endfield in the account centre ────────────────────────────────
+def endfield_bot(service):
+    cog = SimpleNamespace(service=service)
+    return SimpleNamespace(get_cog={"EndfieldCog": cog}.get, dispatch=MagicMock())
+
+
+def endfield_service(uid=None, account=False):
+    return SimpleNamespace(
+        bound_uid=MagicMock(return_value=uid),
+        has_account=MagicMock(return_value=account),
+        profile=AsyncMock(),
+        bind=MagicMock(),
+        unbind=MagicMock(),
+        link_account=AsyncMock(),
+    )
+
+
+def test_the_account_response_says_a_token_is_linked_but_not_what_it_is():
+    bot = endfield_bot(endfield_service("4225399080", True))
+    assert DashboardAccount(bot).read("7")["endfield"] == {
+        "available": True,
+        "uid": "4225399080",
+        "account": True,
+    }
+
+
+async def test_endfield_binds_a_uid_after_checking_it():
+    from src.services.endfield_service import EndfieldError
+
+    service = endfield_service()
+    bot = endfield_bot(service)
+    accounts = DashboardAccount(bot)
+    request = {"game": "endfield", "action": "bind", "uid": " 4225399080 "}
+    await accounts.update("7", request)
+    service.bind.assert_called_once_with(7, "4225399080")
+    bot.dispatch.assert_called_once_with("endfield_bound", 7)
+    service.bind.reset_mock()
+    service.profile.side_effect = EndfieldError("not_found")
+    with pytest.raises(ValueError, match="Unable to find Endfield player"):
+        await accounts.update("7", request)
+    service.bind.assert_not_called()
+    with pytest.raises(ValueError, match="Invalid Endfield UID"):
+        await accounts.update("7", {**request, "uid": "../etc"})
+
+
+async def test_endfield_token_failures_name_no_credential():
+    from src.services.endfield_service import EndfieldError
+
+    service = endfield_service()
+    accounts = DashboardAccount(endfield_bot(service))
+    request = {"game": "endfield", "action": "bind", "token": "private-token"}
+    await accounts.update("7", request)
+    service.link_account.assert_awaited_once_with(7, "private-token")
+    for failure in (EndfieldError("bad_token"), RuntimeError("private-token")):
+        service.link_account.side_effect = failure
+        with pytest.raises(ValueError) as caught:
+            await accounts.update("7", request)
+        assert str(caught.value) == "Unable to verify SKPORT account"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"game": "endfield", "action": "bind"},
+        {"game": "endfield", "action": "bind", "uid": "1", "token": "x"},
+        {"game": "endfield", "action": "bind", "cookie": "x"},
+        {"game": "endfield", "action": "unbind", "uid": "1"},
+    ],
+)
+async def test_endfield_requests_must_have_the_exact_fields(body):
+    service = endfield_service()
+    with pytest.raises(ValueError, match="Invalid account request"):
+        await DashboardAccount(endfield_bot(service)).update("7", body)
+    service.bind.assert_not_called()
+    service.link_account.assert_not_awaited()
+
+
+async def test_endfield_unbind_tells_the_ai():
+    service = endfield_service("4225399080")
+    bot = endfield_bot(service)
+    await DashboardAccount(bot).update("7", {"game": "endfield", "action": "unbind"})
+    service.unbind.assert_called_once_with("7")
+    bot.dispatch.assert_called_once_with("endfield_unbound", 7)

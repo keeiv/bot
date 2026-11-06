@@ -27,7 +27,7 @@ COLOR = discord.Color.from_rgb(255, 196, 0)  # Endfield's warning yellow
 ENKA_PAGE = "https://enka.network/ef/{uid}"
 TOKEN_PAGE = "https://web-api.skport.com/cookie_store/account_token"
 SKPORT_SITE = "https://www.skport.com"
-ROSTER_LINES = 25  # operators on one reply; the rest are counted
+ROSTER_LIMIT = 4000  # characters of operators on one reply; any others are counted
 
 
 def _stars(rarity: int) -> str:
@@ -136,12 +136,17 @@ def find_operator(operators: list[Operator], name: str) -> Optional[Operator]:
 
 
 def roster_embed(account: Account) -> discord.Embed:
+    lines: list[str] = []
+    size = 0
+    for op in account.operators:
+        line = operator_line(op)
+        size += len(line) + 1
+        if size > ROSTER_LIMIT:
+            break
+        lines.append(line)
     embed = discord.Embed(
         title=tx("endfield.roster_title", v0=(account.name or account.uid)),
-        description="\n".join(
-            operator_line(op) for op in account.operators[:ROSTER_LINES]
-        )
-        or tx("endfield.nobody"),
+        description="\n".join(lines) or tx("endfield.nobody"),
         color=COLOR,
         timestamp=datetime.fromtimestamp(account.read_at, timezone.utc),
     )
@@ -156,7 +161,7 @@ def roster_embed(account: Account) -> discord.Embed:
             value=f"{account.stamina}/{account.stamina_max}",
             inline=True,
         )
-    hidden = len(account.operators) - ROSTER_LINES
+    hidden = len(account.operators) - len(lines)
     embed.set_footer(
         text=(
             tx("endfield.roster_more", v0=(hidden))
