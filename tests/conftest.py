@@ -12,6 +12,7 @@ os.environ["GENSHIN_ENCRYPTION_KEY"] = base64.urlsafe_b64encode(b"0" * 32).decod
 for credential in (
     "DISCORD_TOKEN",
     "BLACKLIST_API_KEY",
+    "MORI_BLACK_TOKEN",
     "OSU_CLIENT_ID",
     "OSU_CLIENT_SECRET",
     "GITHUB_TOKEN",

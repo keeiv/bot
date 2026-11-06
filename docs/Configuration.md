@@ -13,6 +13,8 @@
 | `OSU_CLIENT_ID`／`OSU_CLIENT_SECRET` | 啟用 osu! API；綁定資料與 API 是否可用是不同狀態 |
 | `GITHUB_TOKEN` | 選用；GitHub 認證查詢 |
 | `BLACKLIST_API_KEY` | 外部黑名單查詢 |
+| `MORI_BLACK_TOKEN` | Mori.black 共享黑名單的 token（擁有者權限，接受申訴時可撤銷紀錄）；未設定則不查 |
+| `MORI_BLACK_URL` | 選用；預設 `https://botweb.shizune.life/api/mori/v1` |
 | `BOT_API_ENABLED` | 預設 `false`；設為 `true` 才啟動儀表板 API |
 | `BOT_API_HOST`／`BOT_API_PORT` | 預設 `127.0.0.1`／`8080` |
 | `BOT_API_SECRET` | 啟用 API 時至少 32 字元，與網站伺服器設定一致 |

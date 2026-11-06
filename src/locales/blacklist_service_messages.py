@@ -27,6 +27,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "The appeal was **accepted**. The local blacklist entry has been removed.",
         "zh": "申訴已被 **接受**，本地黑名單紀錄已移除。",
     },
+    "blacklist_service.the_appeal_was_accepted_the_mori": {
+        "en": "The appeal was **accepted**. The Mori.black entry has been revoked.",
+        "zh": "申訴已被 **接受**，Mori.black 共享黑名單的紀錄已撤銷。",
+    },
+    "blacklist_service.the_appeal_was_accepted_the_mori_pending": {
+        "en": "The appeal was **accepted**. A developer will revoke the Mori.black entry shortly.",
+        "zh": "申訴已被 **接受**，Mori.black 的紀錄將由開發者盡快撤銷。",
+    },
     "blacklist_service.the_appeal_was_accepted_the_cathome": {
         "en": "The appeal was **accepted**. The CatHome API block remains until its external administrator removes it.",
         "zh": "申訴已被 **接受**。CatHome API 的封鎖尚未解除，需由外部黑名單管理者處理。",

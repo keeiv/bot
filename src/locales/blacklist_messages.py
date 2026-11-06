@@ -1,6 +1,10 @@
 """English and Traditional Chinese copy for blacklist."""
 
 MESSAGES: dict[str, dict[str, str]] = {
+    "blacklist.failed_mori_revoke": {
+        "en": "[Failed] The appeal is accepted, but the Mori.black entry could not be revoked: {v0}",
+        "zh": "[失敗] 申訴已接受，但 Mori.black 的紀錄撤銷失敗：{v0}",
+    },
     "blacklist.accept_appeal": {"en": "Accept appeal", "zh": "接受申訴"},
     "blacklist.reason_optional": {"en": "Reason (optional)", "zh": "原因 (可留空)"},
     "blacklist.enter_an_acceptance_reason_or_leave": {

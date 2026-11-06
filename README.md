@@ -71,7 +71,7 @@
 
 處理方式共六種：警告、刪除訊息、禁言、踢出、封禁、封鎖頻道。10 分鐘內累計 3 次違規（預設值，可用 `escalation` 調整），會比這次最重的處分再升一級（最高到封鎖頻道）。洪水、重複、提及、連結與突襲的門檻可調整，也能設定白名單身分組與頻道；表情與換行目前使用預設門檻。
 
-**黑名單與申訴**：`/blacklist add`／`remove`／`list`／`info` 管理本地黑名單並查詢 CatHome API（開發者限定）。被擋下的使用者可用 `/appeal` 提交、`/appeal_status` 查詢，由開發者審核；提交時沿用原本的封鎖原因，沒有另外填寫的表單。接受申訴只會移除本地黑名單，CatHome API 的封鎖仍須由對方解除。詳見 [黑名單指南](BLACKLIST_GUIDE.md)。
+**黑名單與申訴**：`/blacklist add`／`remove`／`list`／`info` 管理本地黑名單並查詢 Mori.black 共享黑名單與 CatHome API（開發者限定）。被擋下的使用者可用 `/appeal` 提交、`/appeal_status` 查詢，由開發者審核；提交時沿用原本的封鎖原因，沒有另外填寫的表單。接受申訴會移除本地黑名單或撤銷 Mori.black 的紀錄，CatHome API 的封鎖仍須由對方解除。詳見 [黑名單指南](BLACKLIST_GUIDE.md)。
 
 **舉報**：右鍵訊息 → 應用程式 → `舉報訊息`（英文介面為 `Report message`），送到 `/report_channel set` 設定的頻道；管理員可直接按按鈕禁言、封禁或警告，每個動作都附表單。`/report_channel status` 查看目前設定。
 
@@ -205,6 +205,7 @@ OSU_CLIENT_ID=
 OSU_CLIENT_SECRET=
 GITHUB_TOKEN=
 BLACKLIST_API_KEY=
+MORI_BLACK_TOKEN=
 GENSHIN_ENCRYPTION_KEY=
 STORAGE_BACKEND=json
 STORAGE_ROOT=
