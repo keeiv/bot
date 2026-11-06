@@ -1211,8 +1211,9 @@ class AntiSpamManager:
         if len(users) < s["similar_users"]:
             return None
         # Whoever said it first may be the one being copied: alts repeating someone's
-        # post must not get that person punished, or their message removed.
-        first = min(alike, key=lambda m: m[0])[1]
+        # words must not get that person punished, or their message removed. Not for
+        # a link, though: that is what a wave spreads, so it does not stay up.
+        first = None if URL_RE.search(signature) else min(alike, key=lambda m: m[0])[1]
         evidence.users.update(users - {user_id, first})
         evidence.messages.update((m[2], m[3]) for m in alike if m[3] and m[1] != first)
         self.hot_signatures[guild_id].append((now + window, signature))

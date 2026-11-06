@@ -72,7 +72,7 @@ Details for each area are below.
 | Line breaks | 30 line breaks in one message | Delete message |
 | Raid | 10 members joining within 30 seconds | Lock channels, lifted by itself after 30 minutes; accounts in the wave younger than 7 days are kicked |
 | Cross-channel spam | One member posting alike messages (or the same file) in 3 channels within 30 seconds | Mute |
-| Multi-account spam | 4 accounts posting alike long messages or links within 30 seconds | The account that tripped it gets the set action, the rest at most a timeout; the first poster is left alone, so nobody is framed by copies of their words |
+| Multi-account spam | 4 accounts posting alike long messages or links within 30 seconds | The account that tripped it gets the set action, the rest at most a timeout; for plain text the first poster is left alone, so nobody is framed by copies of their words |
 | Attachments | 8 attachments or stickers in 15 seconds | Delete message |
 | Malicious links | Domains imitating Discord or Steam, links showing a Discord or Steam address but going elsewhere, free Nitro bait with a link shortener or bait-named domain | Always delete, then mute |
 | New accounts | Off by default; catch accounts younger than a number of hours | DM the reason, then kick |
