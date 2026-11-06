@@ -262,9 +262,13 @@ LURE_TEXT_RE = re.compile(
 
 
 def link_host(url: str) -> str:
-    """The host of a link, lower case, with IDN labels decoded and no "www."."""
+    """The host of a link, lower case, with IDN labels decoded and no "www.".
+
+    A backslash counts as a slash, as it does in browsers, so a backslash before
+    "@discord.com" cannot pass evil.example off as discord.com.
+    """
     try:
-        host = urlsplit(url).hostname or ""
+        host = urlsplit(url.replace("\\", "/")).hostname or ""
     except ValueError:
         return ""
     labels = []
@@ -1206,8 +1210,11 @@ class AntiSpamManager:
         users = {m[1] for m in alike}
         if len(users) < s["similar_users"]:
             return None
-        evidence.users.update(users - {user_id})
-        evidence.messages.update((m[2], m[3]) for m in alike if m[3])
+        # Whoever said it first may be the one being copied: alts repeating someone's
+        # post must not get that person punished, or their message removed.
+        first = min(alike, key=lambda m: m[0])[1]
+        evidence.users.update(users - {user_id, first})
+        evidence.messages.update((m[2], m[3]) for m in alike if m[3] and m[1] != first)
         self.hot_signatures[guild_id].append((now + window, signature))
         self.guild_messages[guild_id] = [m for m in log if m not in alike]
         return (
