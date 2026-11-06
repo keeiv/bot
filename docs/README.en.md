@@ -45,7 +45,7 @@ plus a web dashboard where you can set most of it up.
 
 | Area | What it does | Main commands |
 | --- | --- | --- |
-| Protection & moderation | Seven spam detectors, automatic escalation, blacklist and appeals, reports, message and audit logs | `/anti_spam` `/blacklist` `/appeal` `/clear` `/kick` `/ban` `/mute` `/warn` |
+| Protection & moderation | 13 detectors (including cross-channel spam, malicious links, raids and anti-nuke), automatic escalation, blacklist and appeals, reports, message and audit logs | `/anti_spam` `/blacklist` `/appeal` `/clear` `/kick` `/ban` `/mute` `/warn` |
 | Welcoming members | Welcome message templates, auto roles, age guard | `/welcome` `/auto_role` `/age_guard` |
 | Server services | Tickets, temporary voice, giveaways, roles and emojis, a server settings panel | `>>>ticket` `/temp_voice` `/giveaway` `/role` `/emoji` `/settings` |
 | Games & achievements | Two two-player mini-games, 18 achievements | `/deep-sea-oxygen` `/russian-roulette` `/achievements` |
@@ -60,21 +60,30 @@ Details for each area are below.
 
 ### Protection & moderation
 
-**Anti-spam**: the `/anti_spam` group has 11 subcommands (`setup`, `flood`, `duplicate`, `mention`, `link`, `raid`, `escalation`, `whitelist`, `lockdown_off`, `status`, `mute_duration`).
+**Anti-spam**: the `/anti_spam` group has 19 subcommands (`setup`, `flood`, `duplicate`, `mention`, `link`, `raid`, `escalation`, `whitelist`, `lockdown_off`, `status`, `mute_duration`, `similar`, `attachment`, `phishing`, `domain`, `new_account`, `nuke`, `nuke_trust`, `nuke_restore`).
 
 | Detector | Default threshold | Default action |
 | --- | --- | --- |
 | Flood | More than 10 messages in 10 seconds | Mute |
-| Duplicates | The same content 4 times in 30 seconds | Delete message |
+| Duplicates | The same or nearly the same content 4 times in 30 seconds | Delete message |
 | Mass mentions | 8 mentions in one message | Mute |
 | Links | 5 links in 15 seconds (Discord invites are deleted on sight) | Delete message |
 | Emoji | 20 emojis in one message | Delete message |
 | Line breaks | 30 line breaks in one message | Delete message |
-| Raid | 10 members joining within 30 seconds | Lock channel |
+| Raid | 10 members joining within 30 seconds | Lock channels, lifted by itself after 30 minutes; accounts in the wave younger than 7 days are kicked |
+| Cross-channel spam | One member posting alike messages (or the same file) in 3 channels within 30 seconds | Mute |
+| Multi-account spam | 4 accounts posting alike long messages, links or files within 30 seconds | Mute every account |
+| Attachments | 8 attachments or stickers in 15 seconds | Delete message |
+| Malicious links | Domains imitating Discord or Steam, links showing a Discord or Steam address but going elsewhere, free Nitro bait with a link shortener or bait-named domain | Always delete, then mute |
+| New accounts | Off by default; catch accounts younger than a number of hours | DM the reason, then kick |
+| Anti-nuke | One member deleting channels or roles, banning, kicking, pruning or creating webhooks 5 times in 30 seconds | Take their roles and tell the owner |
 
-Six actions are available: warn, delete message, mute, kick, ban and lock channel. If a member racks up 3 violations within 10 minutes (the default; adjustable with `escalation`), the response goes one level above the harshest action triggered this time (up to locking the channel). Flood, duplicate, mention, link and raid thresholds are adjustable, and you can whitelist roles and channels; emoji and line-break detection use fixed defaults for now.
+Six actions are available: warn, delete message, mute, kick, ban and lock channel. If a member racks up 3 violations within 10 minutes (the default; adjustable with `escalation`), the response goes one level above the harshest action triggered this time (up to locking the channel). Actions from delete upward also clear the member's messages from the last minute in every channel. Flood, duplicate, mention, link, raid, similar, attachment, malicious link and new account settings are adjustable, you can whitelist roles and channels, and `domain` trusts or blocks a domain; emoji and line-break detection use fixed defaults for now.
 
-**Blacklist and appeals**: `/blacklist add` / `remove` / `list` / `info` manage the local blacklist and look users up on the Mori.black shared blacklist and the CatHome API (developer only). Blocked users can file an appeal with `/appeal` and check on it with `/appeal_status`; a developer reviews each one. Appeals carry over the original block reason, so there is no form to fill in. Accepting an appeal removes the local entry or revokes the Mori.black entries; a block on the CatHome API has to be lifted by CatHome. See the [blacklist guide](../BLACKLIST_GUIDE.md) (Chinese).
+> [!IMPORTANT]
+> Only the server owner can configure anti-nuke (`nuke`, `nuke_trust`, `nuke_restore`), and the `setup` switch does not turn it off; the owner's and BOT.'s own actions never count, nor do bans and kicks of a raid's own accounts during that raid. Roles taken are recorded first, so `nuke_restore` gives them back after a false alarm. BOT. can only act on members below its own role: place BOT.'s role above your moderator roles and give it View Audit Log.
+
+**Blacklist and appeals**: `/blacklist add` / `remove` / `list` / `info` manage the local blacklist and look users up on the Mori.black shared blacklist and the CatHome API (developer only). Blocked users can file an appeal with `/appeal` and check on it with `/appeal_status`; a developer reviews each one. Appeals carry over the original block reason, so there is no form to fill in. A `global_ban` entry bans the user ahead of time in every server BOT. is in (checked every 5 minutes, and at once when BOT. joins a server); once the entry is gone, only the bans BOT. made are lifted. Accepting an appeal removes the local entry or revokes the Mori.black entries that appeal was about; a block on the CatHome API has to be lifted by CatHome. See the [blacklist guide](../BLACKLIST_GUIDE.md) (Chinese).
 
 **Reports**: right-click a message → Apps → `Report message`. Reports go to the channel chosen with `/report_channel set`, where admins can mute, ban or warn straight from the buttons (each opens a form). `/report_channel status` shows the current setup.
 

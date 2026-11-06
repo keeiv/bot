@@ -222,4 +222,228 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Spam protection: lockdown lifted",
         "zh": "防炸群: 封鎖模式解除",
     },
+    # --- 跨頻道、附件、惡意連結、新帳號、防破壞 ---
+    "anti_spam.detect_similar": {"en": "Cross-channel spam", "zh": "跨頻道洗版"},
+    "anti_spam.detect_coordinated": {"en": "Multi-account spam", "zh": "多帳號洗版"},
+    "anti_spam.detect_attachment": {"en": "Attachment spam", "zh": "附件轟炸"},
+    "anti_spam.detect_phishing": {"en": "Malicious link", "zh": "惡意連結"},
+    "anti_spam.detect_new_account": {"en": "New account", "zh": "新帳號"},
+    "anti_spam.detect_nuke": {"en": "Anti-nuke", "zh": "防破壞"},
+    "anti_spam.similar_detail": {
+        "en": "Alike messages in {v1} channels within {v0}s",
+        "zh": "{v0} 秒內在 {v1} 個頻道發送相似內容",
+    },
+    "anti_spam.coordinated_detail": {
+        "en": "{v1} accounts posted alike messages within {v0}s",
+        "zh": "{v0} 秒內有 {v1} 個帳號發送相似內容",
+    },
+    "anti_spam.coordinated_more": {
+        "en": "Joined a multi-account spam wave already caught",
+        "zh": "加入已確認的多帳號洗版",
+    },
+    "anti_spam.attachment_detail": {
+        "en": "{v1} attachments or stickers within {v0}s",
+        "zh": "{v0} 秒內 {v1} 個附件或貼圖",
+    },
+    "anti_spam.phishing_blocked": {
+        "en": "Link to a blocked domain: {v0}",
+        "zh": "連到封鎖清單上的網域：{v0}",
+    },
+    "anti_spam.phishing_lookalike": {
+        "en": "Domain imitating {v1}: {v0}",
+        "zh": "仿冒 {v1} 的網域：{v0}",
+    },
+    "anti_spam.phishing_masked": {
+        "en": "Link shows {v0} but goes to {v1}",
+        "zh": "連結顯示 {v0}，實際前往 {v1}",
+    },
+    "anti_spam.phishing_lure": {
+        "en": "Free Nitro / Steam gift bait with a link to {v0}",
+        "zh": "免費 Nitro／Steam 禮物誘餌，附連結 {v0}",
+    },
+    "anti_spam.new_account_detail": {
+        "en": "Account is {v0} hours old (limit {v1} hours)",
+        "zh": "帳號建立 {v0} 小時（門檻 {v1} 小時）",
+    },
+    "anti_spam.new_account_dm": {
+        "en": "{v0} does not accept accounts younger than {v1} hours yet. Please try again later.",
+        "zh": "{v0} 暫時不接受建立未滿 {v1} 小時的帳號加入，請晚點再試。",
+    },
+    "anti_spam.young_during_raid": {
+        "en": "New account joined during a raid",
+        "zh": "突襲期間加入的新帳號",
+    },
+    "anti_spam.raid_handled": {"en": "Raid accounts", "zh": "這一波的帳號"},
+    "anti_spam.raid_handled_value": {
+        "en": "{v0} of {v1} new accounts → {v2}",
+        "zh": "{v1} 個新帳號中 {v0} 個 → {v2}",
+    },
+    "anti_spam.auto_lift": {"en": "Lifts by itself", "zh": "自動解除"},
+    "anti_spam.after_minutes": {"en": "after {v0} minutes", "zh": "{v0} 分鐘後"},
+    "anti_spam.by_hand": {"en": "By hand only", "zh": "只能手動"},
+    "anti_spam.young_accounts": {"en": "New accounts", "zh": "新帳號"},
+    "anti_spam.younger_than_days": {
+        "en": "younger than {v0} days",
+        "zh": "未滿 {v0} 天",
+    },
+    "anti_spam.younger_than_hours": {
+        "en": "younger than {v0} hours",
+        "zh": "未滿 {v0} 小時",
+    },
+    "anti_spam.success_raid_mode_ended": {
+        "en": "[Success] Raid mode ended",
+        "zh": "[成功] 突襲模式已結束",
+    },
+    "anti_spam.lockdown_auto_lifted": {
+        "en": "[Spam protection] Lockdown lifted by itself",
+        "zh": "[防炸群] 封鎖模式已自動解除",
+    },
+    "anti_spam.join_report_title": {
+        "en": "[Spam protection] {v0} joins handled",
+        "zh": "[防炸群] 處置了 {v0} 位加入者",
+    },
+    "anti_spam.join_report_line": {
+        "en": "{v0} ({v1}) — {v2} → {v3} {v4}",
+        "zh": "{v0}（{v1}）— {v2} → {v3} {v4}",
+    },
+    "anti_spam.done": {"en": "[Done]", "zh": "[成功]"},
+    "anti_spam.not_done": {"en": "[Failed]", "zh": "[失敗]"},
+    "anti_spam.and_more": {"en": "…and {v0} more", "zh": "…另有 {v0} 筆"},
+    "anti_spam.also_handled": {"en": "Also handled", "zh": "一併處置"},
+    "anti_spam.accounts": {"en": "{v0} accounts", "zh": "{v0} 個帳號"},
+    "anti_spam.settings_similar_detection": {
+        "en": "[Settings] Similar message detection: {v0}",
+        "zh": "[設定] 相似內容偵測 — {v0}",
+    },
+    "anti_spam.channels_threshold": {
+        "en": "Channels (one member)",
+        "zh": "頻道數（同一人）",
+    },
+    "anti_spam.accounts_threshold": {"en": "Accounts", "zh": "帳號數"},
+    "anti_spam.settings_attachment_detection": {
+        "en": "[Settings] Attachment detection: {v0}",
+        "zh": "[設定] 附件偵測 — {v0}",
+    },
+    "anti_spam.attachment_limit": {"en": "Attachment limit", "zh": "附件上限"},
+    "anti_spam.settings_phishing_detection": {
+        "en": "[Settings] Malicious link detection: {v0}",
+        "zh": "[設定] 惡意連結偵測 — {v0}",
+    },
+    "anti_spam.failed_domain_usage": {
+        "en": "[Failed] kind must be allow or block, and action add or remove",
+        "zh": "[失敗] kind 必須為 allow 或 block，action 必須為 add 或 remove",
+    },
+    "anti_spam.failed_invalid_domain": {
+        "en": "[Failed] That is not a domain, like example.com",
+        "zh": "[失敗] 這不是網域，請輸入像 example.com 的格式",
+    },
+    "anti_spam.settings_domain_list_updated": {
+        "en": "[Settings] Domain list updated",
+        "zh": "[設定] 網域清單已更新",
+    },
+    "anti_spam.allowed_domains": {"en": "Trusted domains", "zh": "信任網域"},
+    "anti_spam.blocked_domains": {"en": "Blocked domains", "zh": "封鎖網域"},
+    "anti_spam.settings_new_account_updated": {
+        "en": "[Settings] New account rule updated",
+        "zh": "[設定] 新帳號門檻已更新",
+    },
+    "anti_spam.failed_owner_only": {
+        "en": "[Failed] Only the server owner can change anti-nuke",
+        "zh": "[失敗] 只有伺服器擁有者可以變更防破壞設定",
+    },
+    "anti_spam.settings_nuke": {
+        "en": "[Settings] Anti-nuke: {v0}",
+        "zh": "[設定] 防破壞 — {v0}",
+    },
+    "anti_spam.nuke_threshold": {"en": "Dangerous actions", "zh": "危險操作次數"},
+    "anti_spam.settings_nuke_trust_updated": {
+        "en": "[Settings] Anti-nuke trust list updated",
+        "zh": "[設定] 防破壞信任名單已更新",
+    },
+    "anti_spam.nuke_trusted": {"en": "Trusted", "zh": "信任名單"},
+    "anti_spam.info_nothing_to_restore": {
+        "en": "[Info] Anti-nuke took no roles from this member",
+        "zh": "[提示] 防破壞沒有拔過這位成員的身分組",
+    },
+    "anti_spam.nuke_restore_reason": {
+        "en": "Anti-nuke: roles given back by the owner",
+        "zh": "防破壞：擁有者還原身分組",
+    },
+    "anti_spam.success_roles_restored": {
+        "en": "[Success] Gave {v0} back {v1} roles ({v2} no longer exist or are above BOT.)",
+        "zh": "[成功] 已還原 {v0} 的 {v1} 個身分組（{v2} 個已不存在或高於 BOT.）",
+    },
+    "anti_spam.nuke_strip": {"en": "Take their roles", "zh": "拔除身分組"},
+    "anti_spam.nuke_kind_channel_delete": {"en": "channel deleted", "zh": "刪除頻道"},
+    "anti_spam.nuke_kind_channel_create": {"en": "channel created", "zh": "建立頻道"},
+    "anti_spam.nuke_kind_role_delete": {"en": "role deleted", "zh": "刪除身分組"},
+    "anti_spam.nuke_kind_ban": {"en": "ban", "zh": "封禁"},
+    "anti_spam.nuke_kind_kick": {"en": "kick", "zh": "踢出"},
+    "anti_spam.nuke_kind_prune": {"en": "prune", "zh": "清除成員"},
+    "anti_spam.nuke_kind_webhook_create": {
+        "en": "webhook created",
+        "zh": "建立 Webhook",
+    },
+    "anti_spam.nuke_detail": {
+        "en": "{v1} dangerous actions within {v0}s: {v2}",
+        "zh": "{v0} 秒內 {v1} 次危險操作：{v2}",
+    },
+    "anti_spam.nuke_alert_title": {
+        "en": "[Anti-nuke] Mass destruction stopped",
+        "zh": "[防破壞] 偵測到大量破壞",
+    },
+    "anti_spam.nuke_actor": {"en": "Done by", "zh": "操作者"},
+    "anti_spam.nuke_reason": {
+        "en": "Anti-nuke: too many dangerous actions",
+        "zh": "防破壞：短時間內過多危險操作",
+    },
+    "anti_spam.nuke_member_gone": {
+        "en": "[Failed] They are no longer in the server",
+        "zh": "[失敗] 對方已不在伺服器中",
+    },
+    "anti_spam.nuke_role_too_high": {
+        "en": "[Failed] Their role is not below BOT.'s: move BOT.'s role higher",
+        "zh": "[失敗] 對方的身分組不低於 BOT.，請把 BOT. 的身分組往上移",
+    },
+    "anti_spam.nuke_stripped": {
+        "en": "Took {v0} roles",
+        "zh": "已拔除 {v0} 個身分組",
+    },
+    "anti_spam.nuke_stripped_and_kicked": {
+        "en": "Took {v0} roles; still had dangerous permissions (e.g. a bot's own role), so kicked",
+        "zh": "已拔除 {v0} 個身分組；仍留有危險權限（例如機器人自己的身分組），已踢出",
+    },
+    "anti_spam.nuke_next_steps": {
+        "en": "Check the audit log. If it was a mistake, give the roles back with /anti_spam nuke_restore; trusted members and bots go in /anti_spam nuke_trust.",
+        "zh": "請檢查稽核日誌。若是誤判，用 /anti_spam nuke_restore 還原身分組；可信任的成員或機器人可加入 /anti_spam nuke_trust。",
+    },
+    "anti_spam.similar_status": {
+        "en": "Similar messages ({v0})",
+        "zh": "相似內容 ({v0})",
+    },
+    "anti_spam.similar_status_value": {
+        "en": "{v0} channels or {v1} accounts / {v2}s → {v3}",
+        "zh": "{v0} 個頻道或 {v1} 個帳號 / {v2}s → {v3}",
+    },
+    "anti_spam.attachment_status": {
+        "en": "Attachments ({v0})",
+        "zh": "附件轟炸 ({v0})",
+    },
+    "anti_spam.phishing_status": {
+        "en": "Malicious links ({v0})",
+        "zh": "惡意連結 ({v0})",
+    },
+    "anti_spam.phishing_status_value": {
+        "en": "Delete + {v0}; {v1} trusted, {v2} blocked domains",
+        "zh": "刪除 + {v0}；信任 {v1}、封鎖 {v2} 個網域",
+    },
+    "anti_spam.young_status_value": {
+        "en": "On join: {v0} → {v1}\nDuring a raid: younger than {v2} days\nLockdown lifts: {v3}",
+        "zh": "加入時：{v0} → {v1}\n突襲期間：未滿 {v2} 天\n封鎖解除：{v3}",
+    },
+    "anti_spam.nuke_status": {"en": "Anti-nuke ({v0})", "zh": "防破壞 ({v0})"},
+    "anti_spam.nuke_status_value": {
+        "en": "{v0} actions / {v1}s → {v2}; {v3} trusted",
+        "zh": "{v0} 次 / {v1}s → {v2}；信任 {v3} 位",
+    },
 }

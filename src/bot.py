@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import pkgutil
 from typing import Any
@@ -8,6 +9,7 @@ from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 
+from src.services.global_ban_service import REASON as GLOBAL_BAN_REASON
 from src.utils.blacklist_manager import BlacklistManager
 from src.utils.command_translator import CommandTranslator
 from src.utils.i18n import Lang
@@ -18,6 +20,8 @@ from src.utils.runtime import close_optimizations
 from src.utils.runtime import initialize_optimizations
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 def blacklist_embed(lang: Lang, entry: dict[str, Any]) -> discord.Embed:
@@ -34,6 +38,26 @@ def blacklist_embed(lang: Lang, entry: dict[str, Any]) -> discord.Embed:
         ),
         color=discord.Color.red(),
     )
+
+
+async def global_ban(
+    bot: commands.Bot,
+    guild: discord.Guild,
+    user: discord.abc.Snowflake,
+    entry: dict[str, Any],
+) -> None:
+    """Ban a global_ban user here, and note it so it can be lifted with the entry."""
+    reason = entry.get("reason") or "No reason given"
+    try:
+        await guild.ban(user, reason=f"{GLOBAL_BAN_REASON}: {reason}")
+    except Exception:
+        return
+    cog = bot.get_cog("GlobalBan")
+    if cog is not None:
+        try:
+            await cog.remember(guild.id, user.id, entry.get("source") or "")
+        except Exception:
+            logger.exception("Could not record a global ban in %s", guild.id)
 
 
 class BlacklistCheckTree(app_commands.CommandTree):
@@ -58,17 +82,10 @@ class BlacklistCheckTree(app_commands.CommandTree):
         if not entry:
             return True
         mode = entry.get("mode")
-        reason = entry.get("reason") or "No reason given"
         # Only ban where the bot is a member, never via a personal-app command.
         guild = bot.get_guild(interaction.guild_id) if interaction.guild_id else None
         if mode == "global_ban" and guild is not None:
-            try:
-                await guild.ban(
-                    interaction.user,
-                    reason=f"Global Ban: {reason}",
-                )
-            except Exception:
-                pass
+            await global_ban(bot, guild, interaction.user, entry)
         embed = blacklist_embed(await interaction_lang(interaction), entry)
         # 動態載入申訴按鈕 (避免循環 import)
         from src.cogs.core.blacklist import Blacklist
@@ -156,15 +173,8 @@ class Bot(commands.Bot):
         entry = await self.blacklist_manager.check(message.author.id)
         if entry:
             mode = entry.get("mode")
-            reason = entry.get("reason") or "No reason given"
             if mode == "global_ban" and message.guild:
-                try:
-                    await message.guild.ban(
-                        message.author,
-                        reason=f"Global Ban: {reason}",
-                    )
-                except Exception:
-                    pass
+                await global_ban(self, message.guild, message.author, entry)
             embed = blacklist_embed(
                 await message_lang(message.guild, message.author.id), entry
             )
@@ -185,15 +195,8 @@ class Bot(commands.Bot):
         entry = await self.blacklist_manager.check(member.id)
         if entry:
             mode = entry.get("mode")
-            reason = entry.get("reason") or "No reason given"
             if mode == "global_ban":
-                try:
-                    await member.guild.ban(
-                        member,
-                        reason=f"Global Ban: {reason}",
-                    )
-                except Exception:
-                    pass
+                await global_ban(self, member.guild, member, entry)
             elif mode == "block":
                 # block 模式只擋指令，不踢人
                 pass
