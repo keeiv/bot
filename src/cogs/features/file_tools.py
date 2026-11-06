@@ -58,7 +58,9 @@ class RedeemView(PrivateView):
             )
             self.stop()
         except ValueError as exc:
-            await interaction.followup.send(str(exc), ephemeral=True)
+            await interaction.followup.send(
+                tx("file_tools.failed", v0=str(exc)), ephemeral=True
+            )
 
 
 class CouponView(PrivateView):
@@ -245,7 +247,9 @@ class ConvertView(PrivateView):
                     ephemeral=True,
                 )
         except ValueError as exc:
-            await interaction.followup.send(str(exc), ephemeral=True)
+            await interaction.followup.send(
+                tx("file_tools.failed", v0=str(exc)), ephemeral=True
+            )
         except Exception:
             log.exception("Discord file tool delivery failed")
             await interaction.followup.send(
@@ -347,7 +351,9 @@ class FileToolsCog(commands.Cog):
                 ephemeral=True,
             )
         except ValueError as exc:
-            await interaction.followup.send(str(exc), ephemeral=True)
+            await interaction.followup.send(
+                tx("file_tools.failed", v0=str(exc)), ephemeral=True
+            )
 
     @app_commands.command(
         name="convert",
@@ -426,7 +432,7 @@ class FileToolsCog(commands.Cog):
                 ),
             )
         except ValueError as exc:
-            await ctx.reply(str(exc))
+            await ctx.reply(tx("file_tools.failed", v0=str(exc)))
 
     @commands.Cog.listener()
     @localized("message")
@@ -451,7 +457,7 @@ class FileToolsCog(commands.Cog):
             return
         if message.author.id not in DEVELOPER_IDS:
             await message.reply(
-                tx("file_tools.developers_only"),
+                tx("file_tools.denied", v0=tx("file_tools.developers_only")),
                 allowed_mentions=discord.AllowedMentions.none(),
             )
             return
@@ -517,7 +523,7 @@ class FileToolsCog(commands.Cog):
                 allowed_mentions=discord.AllowedMentions.none(),
             )
         except (ValueError, PermissionError) as exc:
-            await message.reply(str(exc))
+            await message.reply(tx("file_tools.failed", v0=str(exc)))
         except Exception:
             log.exception("Tool quota administration failed")
             await message.reply(

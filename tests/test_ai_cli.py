@@ -547,7 +547,7 @@ async def test_a_mention_brings_the_members_linked_games_and_the_command_does_no
     service._busy.add(7)
     assert (
         await made.ask(7, "again", AsyncMock(), mention=mention("again", channel))
-        == "上一則訊息還在回覆中，請稍等一下。"
+        == "[提示] 上一則訊息還在回覆中，請稍等一下。"
     )
     service._busy.discard(7)
     # /ai chat does not read the games

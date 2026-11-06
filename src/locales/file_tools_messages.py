@@ -16,8 +16,8 @@ MESSAGES: dict[str, dict[str, str]] = {
     },
     "file_tools.confirm_processing": {"en": "Confirm processing", "zh": "確認處理"},
     "file_tools.this_action_is_restricted_to_the": {
-        "en": "This action is restricted to the account that made the request",
-        "zh": "此操作僅限原請求帳號",
+        "en": "[Denied] This action is restricted to the account that made the request",
+        "zh": "[拒絕] 此操作僅限原請求帳號",
     },
     "file_tools.page_vouchers_vouchers_do_not_change": {
         "en": "Page {v0} · {v1} vouchers · Vouchers do not change account tenure",
@@ -31,8 +31,8 @@ MESSAGES: dict[str, dict[str, str]] = {
     "file_tools.reset_voucher": {"en": "Reset voucher · {v0}", "zh": "重置券 · {v0}"},
     "file_tools.at_t_f": {"en": "{v0} at: <t:{v1}:f>", "zh": "{v0}時間：<t:{v1}:f>"},
     "file_tools.job_already_submitted": {
-        "en": "Job already submitted",
-        "zh": "工作已提交",
+        "en": "[Info] Job already submitted",
+        "zh": "[提示] 工作已提交",
     },
     "file_tools.file_processing_estimate": {
         "en": "File processing estimate",
@@ -47,8 +47,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "zh": "結果暫存 20 分鐘",
     },
     "file_tools.attach_files_and_use_convert_png": {
-        "en": "Attach files and use !convert png / jpg / webp / pdf / csv / tsv / json / compress.",
-        "zh": "附加檔案後使用 !convert png／jpg／webp／pdf／csv／tsv／json／compress。",
+        "en": "[Info] Attach files and use !convert png / jpg / webp / pdf / csv / tsv / json / compress.",
+        "zh": "[提示] 附加檔案後使用 !convert png／jpg／webp／pdf／csv／tsv／json／compress。",
     },
     "file_tools.file_processing_files_up_to_points": {
         "en": "File processing · {v0} files · Up to {v1} points reserved\nThe final charge depends on file size and processing time.",
@@ -60,12 +60,12 @@ MESSAGES: dict[str, dict[str, str]] = {
         "zh": "格式：>>>reset／>>>ureset [userid]／>>>sreset [serverid]／>>>ireset／>>>nova [userid]／>>>unova [userid]",
     },
     "file_tools.completed_accounts_account_tenure_is_preserved": {
-        "en": "{v0} completed · {v1} accounts. Account tenure is preserved.",
-        "zh": "{v0}完成 · {v1} 個帳號。使用年資保留。",
+        "en": "[Success] {v0} completed · {v1} accounts. Account tenure is preserved.",
+        "zh": "[成功] {v0}完成 · {v1} 個帳號。使用年資保留。",
     },
     "file_tools.weekly_and_three_hour_usage_reset": {
-        "en": "Weekly and three-hour usage reset. Jobs in progress are charged when completed.",
-        "zh": "本週與近三小時已用額度已重置。處理中的工作仍於完成後計點。",
+        "en": "[Success] Weekly and three-hour usage reset. Jobs in progress are charged when completed.",
+        "zh": "[成功] 本週與近三小時已用額度已重置。處理中的工作仍於完成後計點。",
     },
     "file_tools.this_voucher_resets_weekly_and_three": {
         "en": "This voucher resets weekly and three-hour usage. Redemption history is retained permanently.",
@@ -76,16 +76,16 @@ MESSAGES: dict[str, dict[str, str]] = {
         "zh": "檔案處理失敗",
     },
     "file_tools.the_file_job_response_was_not": {
-        "en": "The file job response was not completed. Results can be checked in the website job history.",
-        "zh": "檔案工作未完成回覆。處理結果可於網站工作紀錄查詢。",
+        "en": "[Warning] The file job response was not completed. Results can be checked in the website job history.",
+        "zh": "[警告] 檔案工作未完成回覆。處理結果可於網站工作紀錄查詢。",
     },
     "file_tools.tier_updated_account_tenure_usage_and": {
-        "en": "Tier updated · {v0} · {v1}. Account tenure, usage and vouchers are preserved.",
-        "zh": "等級授權已更新 · {v0} · {v1}。年資、用量與重置券保留。",
+        "en": "[Success] Tier updated · {v0} · {v1}. Account tenure, usage and vouchers are preserved.",
+        "zh": "[成功] 等級授權已更新 · {v0} · {v1}。年資、用量與重置券保留。",
     },
     "file_tools.operation_incomplete_the_same_message_event": {
-        "en": "Operation incomplete. The same message event can be used to verify unconfirmed results.",
-        "zh": "操作未完成，未確認的結果可使用相同訊息事件重新核對。",
+        "en": "[Failed] Operation incomplete. The same message event can be used to verify unconfirmed results.",
+        "zh": "[失敗] 操作未完成，未確認的結果可使用相同訊息事件重新核對。",
     },
     "file_tools.attachment_size_mismatch": {
         "en": "Attachment size mismatch",
@@ -151,4 +151,6 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "File processing failed or timed out; no points were charged",
         "zh": "檔案處理失敗或超時；本次未扣點",
     },
+    "file_tools.failed": {"en": "[Failed] {v0}", "zh": "[失敗] {v0}"},
+    "file_tools.denied": {"en": "[Denied] {v0}", "zh": "[拒絕] {v0}"},
 }
