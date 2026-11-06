@@ -47,7 +47,13 @@ class BlacklistService:
 
         source = entry.get("source", "local")
         reason = entry.get("reason", tx("blacklist_service.no_reason_given"))
-        await run_storage(manager.add_appeal, user.id, reason, source=source)
+        await run_storage(
+            manager.add_appeal,
+            user.id,
+            reason,
+            source=source,
+            entry_ids=entry.get("entry_ids"),
+        )
         return "ok"
 
     def build_review_embed(

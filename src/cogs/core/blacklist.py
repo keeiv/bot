@@ -64,6 +64,7 @@ class AppealAcceptModal(LocalizedModal, title="Accept appeal"):
         reason_text = self.reason.value.strip() if self.reason.value else ""
         manager = self.cog.bot.blacklist_manager
 
+        appeal = await run_storage(manager.get_appeal, self.target_user_id) or {}
         source = await run_storage(
             _service.accept_appeal,
             manager,
@@ -72,9 +73,13 @@ class AppealAcceptModal(LocalizedModal, title="Accept appeal"):
             reason_text,
         )
         if source == "mori":
-            # BOT.'s Mori.black token belongs to the owner's app: it can revoke them all.
+            # Only the entries this appeal was filed about; BOT.'s token belongs to
+            # the owner's app, so it may revoke ones other apps added.
             try:
-                await manager.mori_revoke_all(self.target_user_id)
+                entry_ids = appeal.get("entry_ids") or []
+                if not entry_ids:
+                    raise LookupError("the appeal names no Mori.black entry")
+                await manager.mori_revoke(self.target_user_id, entry_ids)
             except Exception as exc:
                 source = "mori_pending"
                 await interaction.followup.send(

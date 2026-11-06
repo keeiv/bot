@@ -86,8 +86,8 @@ class BlacklistManager:
         self._mori: Dict[str, list[Dict[Any, Any]]] = {}
         self._mori_synced_at: float | None = None
         self._mori_sync: asyncio.Future[Any] | None = None
-        # user id -> when their entries were revoked here; a sync that started
-        # before then must not bring them back
+        # entry id -> when it was revoked here; a sync that started before then
+        # must not bring it back
         self._mori_revoked: Dict[str, float] = {}
         self.session: aiohttp.ClientSession | None = None
         self._local_cache: dict[Any, Any] | None = None
@@ -251,13 +251,17 @@ class BlacklistManager:
         except Exception:
             self._api_down_until[MORI] = loop.time() + self.API_FAILURE_SECONDS
             return
-        for user, revoked_at in self._mori_revoked.items():
-            if revoked_at >= started:
-                copy_.pop(user, None)
+        gone = {entry for entry, at in self._mori_revoked.items() if at >= started}
+        if gone:
+            copy_ = {
+                user: kept
+                for user, entries in copy_.items()
+                if (kept := [e for e in entries if str(e.get("id")) not in gone])
+            }
         self._mori = copy_
         self._mori_synced_at = loop.time()
         self._mori_revoked = {
-            user: at for user, at in self._mori_revoked.items() if at >= started
+            entry: at for entry, at in self._mori_revoked.items() if at >= started
         }
 
     def _configured(self, source: str) -> bool:
@@ -362,9 +366,10 @@ class BlacklistManager:
         self._api_cache_time[(source, user_id)] = loop.time()
         return result
 
-    async def mori_revoke_all(self, user_id: int) -> int:
-        """Revoke every Mori.black entry for the user (an accepted appeal); returns how many.
+    async def mori_revoke(self, user_id: int, entry_ids: list[str]) -> int:
+        """Revoke the Mori.black entries an accepted appeal was about; returns how many.
 
+        Only those: an entry added after the appeal was filed was not reviewed.
         BOT.'s token is the owner's app, so it may revoke entries other apps added.
         """
         if not self._configured(MORI):
@@ -373,26 +378,32 @@ class BlacklistManager:
             await self.setup()
         assert self.session is not None
         headers = {"Authorization": f"Bearer {self.mori_token}"}
+        ids = [str(entry) for entry in entry_ids if str(entry).isdigit()]
         revoked = 0
         try:
-            async with self.session.get(
-                f"{self.mori_url}/users/{user_id}", headers=headers
-            ) as resp:
-                resp.raise_for_status()
-                data = await resp.json(content_type=None)
-            for entry in data.get("entries") or []:
+            for entry in ids:
                 async with self.session.delete(
-                    f"{self.mori_url}/entries/{entry['id']}", headers=headers
+                    f"{self.mori_url}/entries/{entry}", headers=headers
                 ) as resp:
                     if resp.status == 200:
                         revoked += 1
                     elif resp.status != 404:  # 404: someone revoked it already
                         resp.raise_for_status()
         finally:
-            # Even when some failed: the accepted appeal stops this copy blocking
-            # them, and a sync already reading cannot put them back.
-            self._mori.pop(str(user_id), None)
-            self._mori_revoked[str(user_id)] = asyncio.get_running_loop().time()
+            # Even when some failed: the accepted entries stop counting in this copy,
+            # and a sync already reading cannot put them back.
+            now = asyncio.get_running_loop().time()
+            for entry in ids:
+                self._mori_revoked[entry] = now
+            kept = [
+                e
+                for e in self._mori.get(str(user_id), [])
+                if str(e.get("id")) not in ids
+            ]
+            if kept:
+                self._mori[str(user_id)] = kept
+            else:
+                self._mori.pop(str(user_id), None)
         return revoked
 
     async def check(self, user_id: int) -> Optional[Dict[Any, Any]]:
@@ -445,7 +456,13 @@ class BlacklistManager:
         """儲存申訴資料"""
         _save_json(APPEALS_FILE, appeals)
 
-    def add_appeal(self, user_id: int, reason: str, source: str = "local") -> bool:
+    def add_appeal(
+        self,
+        user_id: int,
+        reason: str,
+        source: str = "local",
+        entry_ids: Optional[list[str]] = None,
+    ) -> bool:
         """提交申訴"""
         appeals = self.load_appeals()
         user_id_str = str(user_id)
@@ -457,6 +474,9 @@ class BlacklistManager:
             "user_id": user_id,
             "reason": reason,
             "source": source,
+            # the remote entries this appeal is about (Mori.black); accepting it
+            # revokes only these
+            "entry_ids": list(entry_ids or []),
             "status": "待處理",
             "created_at": datetime.now(TZ_OFFSET).isoformat(),
             "reviewed_at": None,
