@@ -141,8 +141,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "zh": "<@{v0}> 申請的{v1}變更已通過審核並套用",
     },
     "bot_appearance.ai_reviewing_title": {
-        "en": "Reviewing the {v0} with AI...",
-        "zh": "正在用 AI 審核{v0}...",
+        "en": "[Review] Reviewing the {v0} with AI...",
+        "zh": "[審核] 正在用 AI 審核{v0}...",
     },
     "bot_appearance.ai_reviewing_description": {
         "en": "AI models are checking it. This can take a minute or two. If the AI is unavailable, a developer reviews it instead.",

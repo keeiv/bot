@@ -56,16 +56,16 @@ MESSAGES: dict[str, dict[str, str]] = {
         "zh": "**國家排名**: 未排名\n",
     },
     "osu_info.user_was_not_found_or_an": {
-        "en": "User '{v0}' was not found, or an error occurred: {v1}",
-        "zh": "無法找到用戶 '{v0}' 或發生錯誤: {v1}",
+        "en": "[Failed] User '{v0}' was not found, or an error occurred: {v1}",
+        "zh": "[失敗] 無法找到用戶 '{v0}' 或發生錯誤: {v1}",
     },
     "osu_info.osu_account_unlinked": {
-        "en": "osu! account unlinked: {v0}",
-        "zh": "已解除綁定 osu! 帳號: {v0}",
+        "en": "[Success] osu! account unlinked: {v0}",
+        "zh": "[成功] 已解除綁定 osu! 帳號: {v0}",
     },
     "osu_info.no_osu_account_is_linked_use": {
-        "en": "No osu! account is linked. Use /osu bind <username> first",
-        "zh": "你尚未綁定 osu! 帳號，請先使用 /osu bind <username>",
+        "en": "[Info] No osu! account is linked. Use /osu bind <username> first",
+        "zh": "[提示] 你尚未綁定 osu! 帳號，請先使用 /osu bind <username>",
     },
     "osu_info.unknown_beatmap": {"en": "Unknown beatmap", "zh": "未知圖譜"},
     "osu_info.osu_user_info": {
@@ -80,19 +80,25 @@ MESSAGES: dict[str, dict[str, str]] = {
         "zh": "用戶 ID: {v0} | 加入時間: {v1}",
     },
     "osu_info.osu_account_linked": {
-        "en": "osu! account linked: {v0}",
-        "zh": "已綁定 osu! 帳號: {v0}",
+        "en": "[Success] osu! account linked: {v0}",
+        "zh": "[成功] 已綁定 osu! 帳號: {v0}",
     },
     "osu_info.no_osu_account_is_linked": {
-        "en": "No osu! account is linked",
-        "zh": "你尚未綁定 osu! 帳號",
+        "en": "[Info] No osu! account is linked",
+        "zh": "[提示] 你尚未綁定 osu! 帳號",
     },
     "osu_info.scores": {"en": "Scores", "zh": "成績"},
     "osu_info.osu_recent_plays": {
         "en": "osu! recent plays — {v0}",
         "zh": "osu! 最近遊玩 - {v0}",
     },
-    "osu_info.linking_failed": {"en": "Linking failed: {v0}", "zh": "綁定失敗: {v0}"},
+    "osu_info.linking_failed": {
+        "en": "[Failed] Linking failed: {v0}",
+        "zh": "[失敗] 綁定失敗: {v0}",
+    },
     "osu_info.no_data": {"en": "No data", "zh": "無資料"},
-    "osu_info.query_failed": {"en": "Query failed: {v0}", "zh": "查詢失敗: {v0}"},
+    "osu_info.query_failed": {
+        "en": "[Failed] Query failed: {v0}",
+        "zh": "[失敗] 查詢失敗: {v0}",
+    },
 }
