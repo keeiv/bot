@@ -890,3 +890,14 @@ async def test_bans_through_bot_s_commands_count_for_the_moderator():
     for target in (20, 21, 22):
         await c.count_moderation(guild, 1, "ban", target)  # the owner
     c._stop_nuker.assert_awaited_once()
+
+
+def test_the_first_message_of_a_wave_of_links_does_not_stay_up():
+    m = manager(flood_messages=100, similar_users=3)
+    text = "come and see this https://example.org/landing"
+    for user in (1, 2):
+        assert post(m, user, 10 + user, text, user) == []
+    evidence = Evidence()
+    assert spam.DETECT_COORDINATED in post(m, 3, 13, text, 3, evidence)
+    assert evidence.users == {1, 2}
+    assert (11, 1) in evidence.messages
