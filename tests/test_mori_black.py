@@ -212,10 +212,10 @@ async def test_an_accepted_appeal_revokes_every_entry_even_if_one_fails():
     )
     await made.mori_check(USER)
     with pytest.raises(RuntimeError):
-        await made.mori_revoke_all(USER)
+        await made.mori_revoke(USER, ["7", "9"])
     assert await made.mori_check(USER) is None  # not blocked here any more
     made.session.routes[("DELETE", f"{MORI_URL}/entries/9")] = (404, {})
-    assert await made.mori_revoke_all(USER) == 1  # 7 again, 9 already gone
+    assert await made.mori_revoke(USER, ["7", "9"]) == 1  # 7 again, 9 already gone
 
 
 async def test_a_sync_from_before_a_revoke_cannot_bring_the_entries_back():
@@ -231,7 +231,7 @@ async def test_a_sync_from_before_a_revoke_cannot_bring_the_entries_back():
     )
     reading = asyncio.ensure_future(made.mori_check(USER))
     await asyncio.sleep(0.01)  # the sync has asked and waits on the answer
-    assert await made.mori_revoke_all(USER) == 2
+    assert await made.mori_revoke(USER, ["7", "9"]) == 2
     gate.set()
     assert await reading is None
     assert await made.mori_check(USER) is None
@@ -240,7 +240,33 @@ async def test_a_sync_from_before_a_revoke_cannot_bring_the_entries_back():
 async def test_revoking_without_a_token_is_an_error_not_a_success():
     made = manager({}, mori=False)
     with pytest.raises(RuntimeError):
-        await made.mori_revoke_all(USER)
+        await made.mori_revoke(USER, ["7"])
+
+
+async def test_an_appeal_revokes_only_the_entries_it_was_filed_about():
+    later = {"id": "11", "user_id": str(USER), "mode": "global_ban", "reason": "new"}
+    made = manager(
+        {
+            ("GET", FIRST_PAGE): page(BANNED + [later]),
+            ("DELETE", f"{MORI_URL}/entries/7"): (200, {}),
+            ("DELETE", f"{MORI_URL}/entries/9"): (200, {}),
+        }
+    )
+    await made.mori_check(USER)
+    assert await made.mori_revoke(USER, ["7", "9"]) == 2
+    deleted = [c[1] for c in made.session.calls if c[0] == "DELETE"]
+    assert all(not url.endswith("/11") for url in deleted)
+    still = await made.mori_check(USER)
+    assert (still["mode"], still["entry_ids"]) == ("global_ban", ["11"])
+
+
+def test_an_appeal_keeps_the_entry_ids_it_was_filed_about():
+    made = manager({})
+    made.save_appeals = lambda appeals: saved.update(appeals)
+    made.load_appeals = lambda: {}
+    saved = {}
+    assert made.add_appeal(USER, "raids", source="mori", entry_ids=["7", "9"])
+    assert saved[str(USER)]["entry_ids"] == ["7", "9"]
 
 
 def test_people_see_mori_black_named_as_the_source():
