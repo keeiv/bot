@@ -49,7 +49,7 @@ plus a web dashboard where you can set most of it up.
 | Welcoming members | Welcome message templates, auto roles, age guard | `/welcome` `/auto_role` `/age_guard` |
 | Server services | Tickets, temporary voice, giveaways, roles and emojis, a server settings panel | `>>>ticket` `/temp_voice` `/giveaway` `/role` `/emoji` `/settings` |
 | Games & achievements | Two two-player mini-games, 18 achievements | `/deep-sea-oxygen` `/russian-roulette` `/achievements` |
-| Account integrations | osu!, HoYoLAB / Miyoushe, GitHub repository notifications | `/osu` `/mhy` `/repo_watch` `/repo_track` |
+| Account integrations | osu!, HoYoLAB / Miyoushe, Arknights: Endfield, GitHub repository notifications | `/osu` `/mhy` `/endfield` `/repo_watch` `/repo_track` |
 | Tools | File conversion and compression (NovaGrid), message translation, AI chat | `/convert` `/compress` `/usage` `Translate message` `/ai` |
 | Language | English and Chinese interface, set per server and per user | `/language` |
 
@@ -127,6 +127,7 @@ Six actions are available: warn, delete message, mute, kick, ban and lock channe
   - Account: `/mhy bind` (your cookie is stored encrypted), `unbind`, `status`, `tutorial` (how to get your cookie).
   - Daily: `/mhy toggle_autosignin` for automatic daily check-in, `checkin` to check in manually, `notes` for real-time notes, `redeem` for redemption codes.
   - Records: `/mhy stats` for game stats, `/mhy abyss` for challenge records.
+- **Arknights: Endfield**: `/endfield bind` links the UID on your in-game business card (no password or token needed), `unbind` removes it; `/endfield profile` shows the card and showcased operators, `/endfield operator` one operator's weapon, gear sets and skills, either for another UID too. Data comes from the public showcase via [Enka.Network](https://enka.network), so only the operators a player chose to show are visible; the `@BOT.` AI characters read the linked member's own showcase as well (see the AI chat guide, Chinese).
 - **GitHub**: `/repo_watch set` / `status` / `disable` follow commits on any repository; `/repo_track add` / `remove` / `status` follow new commits and newly opened PRs on keeiv/bot (merges are not reported). Requests use `GITHUB_TOKEN`, a shared cache and ETags, and back off for the retry period when rate-limited.
 
 ### Tools
