@@ -23,11 +23,10 @@ load_dotenv()
 def blacklist_embed(lang: Lang, entry: dict[str, Any]) -> discord.Embed:
     """The notice shown to a blacklisted user, in the language of where they are."""
     reason = entry.get("reason") or t(lang, "blacklist.no_reason")
-    source_key = (
-        "blacklist.source_local"
-        if entry.get("source") == "local"
-        else "blacklist.source_api"
-    )
+    source_key = {
+        "local": "blacklist.source_local",
+        "mori": "blacklist.source_mori",
+    }.get(entry.get("source"), "blacklist.source_api")
     return discord.Embed(
         title=t(lang, "blacklist.title"),
         description=t(
@@ -105,7 +104,12 @@ class Bot(commands.Bot):
         )
         self.api_key = os.getenv("BLACKLIST_API_KEY")
         self.api_base = "https://api.cathome.shop/v1/blacklist"
-        self.blacklist_manager = BlacklistManager(self.api_key, self.api_base)
+        self.blacklist_manager = BlacklistManager(
+            self.api_key,
+            self.api_base,
+            mori_token=os.getenv("MORI_BLACK_TOKEN"),
+            mori_url=os.getenv("MORI_BLACK_URL"),
+        )
 
     async def setup_hook(self) -> None:
         await initialize_optimizations()

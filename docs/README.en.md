@@ -74,7 +74,7 @@ Details for each area are below.
 
 Six actions are available: warn, delete message, mute, kick, ban and lock channel. If a member racks up 3 violations within 10 minutes (the default; adjustable with `escalation`), the response goes one level above the harshest action triggered this time (up to locking the channel). Flood, duplicate, mention, link and raid thresholds are adjustable, and you can whitelist roles and channels; emoji and line-break detection use fixed defaults for now.
 
-**Blacklist and appeals**: `/blacklist add` / `remove` / `list` / `info` manage the local blacklist and look users up on the CatHome API (developer only). Blocked users can file an appeal with `/appeal` and check on it with `/appeal_status`; a developer reviews each one. Appeals carry over the original block reason, so there is no form to fill in. Accepting an appeal only removes the local entry; a block on the CatHome API has to be lifted by CatHome. See the [blacklist guide](../BLACKLIST_GUIDE.md) (Chinese).
+**Blacklist and appeals**: `/blacklist add` / `remove` / `list` / `info` manage the local blacklist and look users up on the Mori.black shared blacklist and the CatHome API (developer only). Blocked users can file an appeal with `/appeal` and check on it with `/appeal_status`; a developer reviews each one. Appeals carry over the original block reason, so there is no form to fill in. Accepting an appeal removes the local entry or revokes the Mori.black entries; a block on the CatHome API has to be lifted by CatHome. See the [blacklist guide](../BLACKLIST_GUIDE.md) (Chinese).
 
 **Reports**: right-click a message → Apps → `Report message`. Reports go to the channel chosen with `/report_channel set`, where admins can mute, ban or warn straight from the buttons (each opens a form). `/report_channel status` shows the current setup.
 
@@ -208,6 +208,7 @@ OSU_CLIENT_ID=
 OSU_CLIENT_SECRET=
 GITHUB_TOKEN=
 BLACKLIST_API_KEY=
+MORI_BLACK_TOKEN=
 GENSHIN_ENCRYPTION_KEY=
 STORAGE_BACKEND=json
 STORAGE_ROOT=

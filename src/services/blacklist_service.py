@@ -10,6 +10,15 @@ from src.utils.storage_worker import run_storage
 from src.utils.time_utils import TZ_OFFSET
 
 
+def source_label(source: str | None) -> str:
+    """Where a blacklist entry came from, as shown to people."""
+    if source == "local":
+        return tx("blacklist.local_blacklist")
+    if source == "mori":
+        return "Mori.black"
+    return "CatHome API"
+
+
 class BlacklistService:
     """黑名單申訴流程邏輯 - 提交、接受、駁回與通知"""
 
@@ -48,9 +57,6 @@ class BlacklistService:
     ) -> discord.Embed:
         """建立供開發者審核的申訴 Embed"""
         source = entry.get("source", "local")
-        source_label = (
-            tx("blacklist.local_blacklist") if source == "local" else "CatHome API"
-        )
         reason = entry.get("reason", tx("blacklist_service.no_reason_given"))
 
         embed = discord.Embed(
@@ -65,7 +71,7 @@ class BlacklistService:
         )
         embed.add_field(
             name=tx("blacklist_service.blacklist_source"),
-            value=source_label,
+            value=source_label(source),
             inline=True,
         )
         embed.add_field(
@@ -118,10 +124,12 @@ class BlacklistService:
     ) -> discord.Embed:
         """建立通知用戶申訴結果的 Embed"""
         if accepted:
-            description = (
-                tx("blacklist_service.the_appeal_was_accepted_the_local")
-                if source == "local"
-                else tx("blacklist_service.the_appeal_was_accepted_the_cathome")
+            description = tx(
+                {
+                    "local": "blacklist_service.the_appeal_was_accepted_the_local",
+                    "mori": "blacklist_service.the_appeal_was_accepted_the_mori",
+                    "mori_pending": "blacklist_service.the_appeal_was_accepted_the_mori_pending",
+                }.get(source, "blacklist_service.the_appeal_was_accepted_the_cathome")
             )
             embed = discord.Embed(
                 title=tx("blacklist_service.notice_appeal_result"),

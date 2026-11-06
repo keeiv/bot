@@ -89,6 +89,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     "blacklist.no_reason": {"en": "No reason given", "zh": "未提供原因"},
     "blacklist.source_local": {"en": "Local blacklist", "zh": "本地黑名單"},
     "blacklist.source_api": {"en": "CatHome API", "zh": "CatHome API"},
+    "blacklist.source_mori": {"en": "Mori.black", "zh": "Mori.black 共享黑名單"},
     # ── Translate message (context menu) ───────────────────────────
     "translate.no_text": {
         "en": "That message has no text to translate.",

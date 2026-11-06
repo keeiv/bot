@@ -10,6 +10,7 @@ from discord.ext import commands
 
 from src.config.constants import DEVELOPER_IDS
 from src.services.blacklist_service import BlacklistService
+from src.services.blacklist_service import source_label
 from src.utils.domain_text import appeal_status
 from src.utils.i18n import text as tx
 from src.utils.lang_context import localized
@@ -70,6 +71,16 @@ class AppealAcceptModal(LocalizedModal, title="Accept appeal"):
             interaction.user,
             reason_text,
         )
+        if source == "mori":
+            # BOT.'s Mori.black token belongs to the owner's app: it can revoke them all.
+            try:
+                await manager.mori_revoke_all(self.target_user_id)
+            except Exception as exc:
+                source = "mori_pending"
+                await interaction.followup.send(
+                    tx("blacklist.failed_mori_revoke", v0=(type(exc).__name__)),
+                    ephemeral=True,
+                )
 
         # 更新原訊息外觀
         embed = interaction.message.embeds[0] if interaction.message.embeds else None
@@ -329,12 +340,11 @@ class Blacklist(commands.Cog):
         embed.add_field(
             name=tx("blacklist.status"), value=appeal_status(status), inline=True
         )
-        source_label = (
-            tx("blacklist.local_blacklist")
-            if appeal.get("source") == "local"
-            else "CatHome API"
+        embed.add_field(
+            name=tx("blacklist.source"),
+            value=source_label(appeal.get("source")),
+            inline=True,
         )
-        embed.add_field(name=tx("blacklist.source"), value=source_label, inline=True)
         embed.add_field(
             name=tx("blacklist.submitted_at"),
             value=appeal.get("created_at", tx("audit_log.unknown")),
@@ -503,6 +513,12 @@ class Blacklist(commands.Cog):
             api_entry = await asyncio.wait_for(manager.api_check(user.id), timeout=3.0)
         except asyncio.TimeoutError:
             api_entry = None
+        try:
+            mori_entry = await asyncio.wait_for(
+                manager.mori_check(user.id), timeout=3.0
+            )
+        except asyncio.TimeoutError:
+            mori_entry = None
 
         embed = discord.Embed(
             title=tx("blacklist.info_blacklist_status_for", v0=(user)),
@@ -532,6 +548,16 @@ class Blacklist(commands.Cog):
         else:
             api_text = tx("blacklist.not_blocked")
         embed.add_field(name="CatHome API", value=api_text, inline=False)
+        mori_text = (
+            tx(
+                "blacklist.reason_mode",
+                v0=(mori_entry.get("reason") or tx("blacklist.not_provided")),
+                v1=(mori_entry.get("mode", tx("audit_log.unknown"))),
+            )
+            if mori_entry
+            else tx("blacklist.not_blocked")
+        )
+        embed.add_field(name="Mori.black", value=mori_text, inline=False)
 
         appeal = await run_storage(manager.get_appeal, user.id)
         if appeal:
