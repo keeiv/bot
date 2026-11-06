@@ -127,7 +127,13 @@ Six actions are available: warn, delete message, mute, kick, ban and lock channe
   - Account: `/mhy bind` (your cookie is stored encrypted), `unbind`, `status`, `tutorial` (how to get your cookie).
   - Daily: `/mhy toggle_autosignin` for automatic daily check-in, `checkin` to check in manually, `notes` for real-time notes, `redeem` for redemption codes.
   - Records: `/mhy stats` for game stats, `/mhy abyss` for challenge records.
-- **Arknights: Endfield**: `/endfield bind` links the UID on your in-game business card (no password or token needed), `unbind` removes it; `/endfield profile` shows the card and showcased operators, `/endfield operator` one operator's weapon, gear sets and skills, either for another UID too. Data comes from the public showcase via [Enka.Network](https://enka.network), so only the operators a player chose to show are visible; the `@BOT.` AI characters read the linked member's own showcase as well (see the AI chat guide, Chinese).
+- **Arknights: Endfield**: two ways to link, with different reach (global servers).
+  - UID only: `/endfield bind`, no credentials, reads the public showcase through [Enka.Network](https://enka.network), so only the operators a player chose to show are visible.
+  - Account: `/endfield link` takes your SKPORT account token in a private window (stored encrypted; `/endfield tutorial` shows how to get it), and `/endfield roster` then lists every operator, `/endfield operator` any one of them.
+  - Lookups: `/endfield profile` shows the card and showcased operators, `/endfield operator` a weapon, gear sets and skills, either for another UID too; `unbind` removes the link and deletes the token. The `@BOT.` AI characters read the linked member's own data (see the AI chat guide, Chinese).
+
+> [!WARNING]
+> A SKPORT account token signs in to that account, so treat it like a password. SKPORT has no official API, so account linking may stop working.
 - **GitHub**: `/repo_watch set` / `status` / `disable` follow commits on any repository; `/repo_track add` / `remove` / `status` follow new commits and newly opened PRs on keeiv/bot (merges are not reported). Requests use `GITHUB_TOKEN`, a shared cache and ETags, and back off for the retry period when rate-limited.
 
 ### Tools

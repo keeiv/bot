@@ -31,6 +31,7 @@ from src.services.ai_game_profile import FETCH_SECONDS
 from src.services.ai_game_profile import GameProfiles
 from src.services.ai_game_profile import REFRESH_MINUTES
 from src.services.endfield_service import describe as describe_endfield
+from src.services.endfield_service import describe_account as describe_endfield_account
 from src.services.endfield_service import EndfieldError
 from src.utils.i18n import text as tx
 from src.utils.lang_context import localized
@@ -418,21 +419,37 @@ class AiChat(commands.Cog):
         return "\n\n".join(parts) or None
 
     async def endfield_profile(self, user_id: int) -> Optional[str]:
-        """The member's own linked Endfield showcase; None when unlinked or unreadable."""
+        """The member's own Endfield data; None when unlinked or unreadable.
+
+        Every operator with a linked account, else the public showcase.
+        """
         service = getattr(self.bot.get_cog("EndfieldCog"), "service", None)
         if service is None:
             return None
-        uid = await run_storage(service.bound_uid, user_id)
+        uid, mark = await run_storage(service.link_snapshot, user_id)
         if uid is None:
             return None
+        text = None
         try:
-            profile = await asyncio.wait_for(service.profile(uid, "zh"), FETCH_SECONDS)
+            account = await asyncio.wait_for(
+                service.account(user_id, "zh"), FETCH_SECONDS
+            )
+            if account is not None:
+                text = describe_endfield_account(account, time.time())
         except (EndfieldError, asyncio.TimeoutError) as error:
-            logger.info("Endfield showcase unreadable for %s: %s", user_id, error)
-            return None
-        if await run_storage(service.bound_uid, user_id) != uid:
+            logger.info("Endfield account unreadable for %s: %s", user_id, error)
+        if text is None:
+            try:
+                profile = await asyncio.wait_for(
+                    service.profile(uid, "zh"), FETCH_SECONDS
+                )
+            except (EndfieldError, asyncio.TimeoutError) as error:
+                logger.info("Endfield showcase unreadable for %s: %s", user_id, error)
+                return None
+            text = describe_endfield(profile, time.time())
+        if (await run_storage(service.link_snapshot, user_id))[1] != mark:
             return None  # unlinked or linked anew while reading: this read is stale
-        return describe_endfield(profile, time.time())
+        return text
 
     async def channel_context(self, message: discord.Message) -> Optional[str]:
         """The channel's latest messages before ``message``, oldest first; None if unreadable."""

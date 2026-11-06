@@ -1,10 +1,14 @@
-"""Arknights: Endfield profiles through Enka.Network.
+"""Arknights: Endfield profiles through Enka.Network and SKPORT.
 
-A member links the UID shown in the game's profile menu; nothing secret is asked.
-Enka.Network reads the public showcase (the business card and the operators the
-player chose to show), and its store files on GitHub name the operators, weapons
-and gear sets. Enka asks for a User-Agent and for each UID to be read again only
-after the ``ttl`` it returns, so both are cached here.
+A member can link just the UID from the game's profile menu: Enka.Network then
+reads the public showcase (the business card and the operators the player chose
+to show). Enka asks for a User-Agent and for each UID to be read again only after
+the ``ttl`` it returns, so both are cached here. Its store files on GitHub name
+the operators, weapons and gear sets.
+
+A member can also link their SKPORT account token, which shows every operator
+they own. The token is stored encrypted with the same key as the HoYoLAB cookies
+and is only ever used for that member's own account.
 """
 
 import asyncio
@@ -20,9 +24,17 @@ import time
 from typing import Any, Callable, Optional
 
 import aiohttp
+from cryptography.fernet import Fernet
+from cryptography.fernet import InvalidToken
+from dotenv import dotenv_values
 
+from src.services.skport_client import Login
+from src.services.skport_client import parse_token
+from src.services.skport_client import SkportClient
+from src.services.skport_client import SkportError
 from src.utils.document_store import read_document
 from src.utils.document_store import write_document
+from src.utils.storage_worker import run_storage
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +82,33 @@ SKILLS = {
     "ComboSkill": ("連攜技", "Combo skill"),
     "UltimateSkill": ("終結技", "Ultimate"),
 }
+# What SKPORT calls these (in English), to the codes above
+SKPORT_ELEMENTS = {
+    "Physical": "Physical",
+    "Heat": "Fire",
+    "Cryo": "Cryst",
+    "Electric": "Pulse",
+    "Nature": "Natural",
+}
+SKPORT_PROFESSIONS = {
+    "Guard": "GUARD",
+    "Caster": "CASTER",
+    "Defender": "DEFENDER",
+    "Supporter": "SUPPORTER",
+    "Vanguard": "VANGUARD",
+    "Striker": "ASSAULT",
+}
+SKPORT_SKILLS = {
+    "skill_type_normal_attack": "NormalAttack",
+    "skill_type_normal_skill": "NormalSkill",
+    "skill_type_combo_skill": "ComboSkill",
+    "skill_type_ultimate_skill": "UltimateSkill",
+}
+GEAR_SLOTS = ("bodyEquip", "armEquip", "firstAccessory", "secondAccessory")
+LOGIN_SECONDS = 1800  # SKPORT's credential is reused this long
+ACCOUNT_SECONDS = 300  # a linked account is read at most this often
+ACCOUNT_CACHE_LIMIT = 500  # members' cards kept in memory, the oldest read leaves
+MAX_ROSTER = 60  # operators listed for the AI, the highest first
 REGIONS = {
     "ASIA": ("亞洲", "Asia"),
     "NA": ("美洲", "Americas"),
@@ -80,7 +119,8 @@ REGIONS = {
 class EndfieldError(Exception):
     """Why a profile could not be read: ``code`` is one of the keys below."""
 
-    # bad_uid, not_found, maintenance, rate_limited, unavailable
+    # bad_uid, not_found, maintenance, rate_limited, unavailable,
+    # bad_token, no_role, no_key
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
@@ -122,6 +162,18 @@ class Profile:
     read_at: float
 
 
+@dataclass
+class Account:
+    """A member's own game card, read with their SKPORT token."""
+
+    uid: str
+    name: str
+    operators: list[Operator]
+    stamina: Optional[int]
+    stamina_max: Optional[int]
+    read_at: float
+
+
 def _pick(names: tuple[str, str], lang: str) -> str:
     return names[1] if lang == "en" else names[0]
 
@@ -137,6 +189,14 @@ def _text(value: Any, limit: int = 60) -> str:
     return " ".join(str(value or "").split())[:limit]
 
 
+def _rarity(value: Any) -> int:
+    """``{"key": "rarity_6"}``, ``{"value": "6"}`` or ``6`` -> 6."""
+    if isinstance(value, dict):
+        value = value.get("key") or value.get("value")
+    found = re.search(r"(\d+)$", str(value or ""))
+    return int(found.group(1)) if found else 0
+
+
 class Store:
     """Enka.Network's tables: template id -> operator, weapon and gear names."""
 
@@ -145,11 +205,83 @@ class Store:
         self.weapons = tables["weapons"]
         self.equips = tables["equips"]
         self.locs = tables["locs"]
+        self._english: Optional[dict[str, str]] = None
 
     def name(self, name_hash: Any, lang: str) -> str:
         table = self.locs.get("en" if lang == "en" else "zh-tw", {})
         return table.get(str(name_hash)) or self.locs.get("en", {}).get(
             str(name_hash), "?"
+        )
+
+    def translated(self, english: str, lang: str) -> str:
+        """A name SKPORT gave in English, in the member's language."""
+        if self._english is None:
+            self._english = {v: k for k, v in self.locs.get("en", {}).items()}
+        key = self._english.get(english)
+        return self.name(key, lang) if key else english
+
+    def account_operator(self, raw: dict[str, Any], lang: str) -> Optional[Operator]:
+        """One entry of SKPORT's ``chars``."""
+        data = raw.get("charData") or {}
+        english = _text(data.get("name"), 40)
+        if not english:
+            return None
+        hash_of_name = (self._english or {}).get(english)
+        avatar = next(
+            (
+                a
+                for a in self.avatars.values()
+                if hash_of_name is not None and a.get("NameHash") == hash_of_name
+            ),
+            {},
+        )
+        element = SKPORT_ELEMENTS.get(
+            str((data.get("property") or {}).get("value")), ""
+        )
+        profession = SKPORT_PROFESSIONS.get(
+            str((data.get("profession") or {}).get("value")), ""
+        )
+        weapon_type = avatar.get("WeaponType", "")
+        weapon = None
+        raw_weapon = raw.get("weapon") or {}
+        weapon_data = raw_weapon.get("weaponData") or {}
+        if weapon_data:
+            weapon = Weapon(
+                name=self.translated(_text(weapon_data.get("name"), 40), lang),
+                rarity=_rarity(weapon_data.get("rarity")),
+                level=_int(raw_weapon.get("level")),
+                potential=_int(raw_weapon.get("refineLevel")),
+            )
+        pieces: dict[str, int] = {}
+        for slot in GEAR_SLOTS:
+            suit = ((raw.get(slot) or {}).get("equipData") or {}).get("suit") or {}
+            if suit.get("name"):
+                name = self.translated(_text(suit["name"], 40), lang)
+                pieces[name] = pieces.get(name, 0) + 1
+        user_skills = raw.get("userSkills") or {}
+        skills = []
+        for skill in data.get("skills") or []:
+            if not isinstance(skill, dict):
+                continue
+            kind = SKPORT_SKILLS.get(str((skill.get("type") or {}).get("key")))
+            if kind:
+                level = (user_skills.get(str(skill.get("id"))) or {}).get("level", 1)
+                skills.append((_pick(SKILLS[kind], lang), _int(level)))
+        return Operator(
+            name=self.translated(english, lang),
+            rarity=_rarity(data.get("rarity")),
+            element=_pick(ELEMENTS.get(element, (element, element)), lang),
+            profession=_pick(
+                PROFESSIONS.get(profession, (profession, profession)), lang
+            ),
+            weapon_type=_pick(
+                WEAPON_TYPES.get(weapon_type, (weapon_type, weapon_type)), lang
+            ),
+            level=_int(raw.get("level")),
+            potential=_int(raw.get("potentialLevel")),
+            weapon=weapon,
+            sets=sorted(pieces.items(), key=lambda item: -item[1]),
+            skills=skills,
         )
 
     def operator(self, raw: dict[str, Any], lang: str) -> Optional[Operator]:
@@ -224,6 +356,28 @@ def parse(data: dict[str, Any], store: Store, lang: str, read_at: float) -> Prof
     )
 
 
+def parse_account(
+    detail: dict[str, Any], store: Store, lang: str, uid: str, name: str, read_at: float
+) -> Account:
+    store.translated("", lang)  # builds the English names
+    operators = [
+        op
+        for raw in detail.get("chars") or []
+        if isinstance(raw, dict)
+        and (op := store.account_operator(raw, lang)) is not None
+    ]
+    operators.sort(key=lambda op: (-op.rarity, -op.level, op.name))
+    dungeon = detail.get("dungeon") or {}
+    return Account(
+        uid=uid,
+        name=_text(name, 40),
+        operators=operators,
+        stamina=_int(dungeon["curStamina"]) if "curStamina" in dungeon else None,
+        stamina_max=_int(dungeon["maxStamina"]) if "maxStamina" in dungeon else None,
+        read_at=read_at,
+    )
+
+
 class EndfieldService:
     def __init__(
         self,
@@ -239,6 +393,13 @@ class EndfieldService:
         # uid -> (fresh until, raw answer, read at)
         self._raw: dict[str, tuple[float, dict[str, Any], float]] = {}
         self._pending: dict[str, asyncio.Future] = {}
+        self.skport = SkportClient(self._http, clock)
+        # member -> (the stored token, credential good until, the login)
+        self._logins: dict[int, tuple[str, float, Login]] = {}
+        # member -> (the stored token, fresh until, card, read at, UID, name)
+        self._cards: dict[int, tuple[str, float, dict[str, Any], float, str, str]] = {}
+        # member -> [the lock, how many are using or waiting for it]
+        self._account_locks: dict[int, list[Any]] = {}
 
     async def close(self) -> None:
         if self._session is not None:
@@ -267,18 +428,73 @@ class EndfieldService:
         if not UID_RE.match(uid):
             raise EndfieldError("bad_uid")
         links = self._links()
+        # Linking a UID by hand replaces any linked account: the two must agree.
         links[str(user_id)] = {
             "uid": uid,
             "bound_at": datetime.now(timezone.utc).isoformat(),
         }
         write_document(BINDINGS, links)
+        self._forget_account(user_id)
 
     def unbind(self, user_id: int) -> bool:
         links = self._links()
+        self._forget_account(user_id)
         if links.pop(str(user_id), None) is None:
             return False
         write_document(BINDINGS, links)
         return True
+
+    def _forget_account(self, user_id: int) -> None:
+        self._logins.pop(user_id, None)
+        self._cards.pop(user_id, None)
+
+    def link_snapshot(self, user_id: int) -> tuple[Optional[str], Optional[str]]:
+        """The member's UID and a mark that changes with their link, read together."""
+        link = self._links().get(str(user_id))
+        if not link:
+            return None, None
+        uid = str(link.get("uid") or "")
+        mark = f"{uid}:{link.get('token')}:{link.get('bound_at')}"
+        return (uid if UID_RE.match(uid) else None), mark
+
+    def has_account(self, user_id: int) -> bool:
+        return bool((self._links().get(str(user_id)) or {}).get("token"))
+
+    def _cipher(self) -> Fernet:
+        """The key that protects the HoYoLAB cookies; it is created with /mhy."""
+        key = os.getenv("GENSHIN_ENCRYPTION_KEY")
+        if not key:
+            try:
+                with open(".env", encoding="utf-8") as stream:
+                    key = dotenv_values(stream=stream, interpolate=False).get(
+                        "GENSHIN_ENCRYPTION_KEY"
+                    )
+            except OSError:
+                key = None
+        if not key:
+            raise EndfieldError("no_key")
+        return Fernet(key.encode())
+
+    def _store_token(self, user_id: int, uid: str, token: str) -> str:
+        """Save the token encrypted; returns what was saved, the mark of this link."""
+        stored = self._cipher().encrypt(token.encode()).decode()
+        links = self._links()
+        links[str(user_id)] = {
+            "uid": uid,
+            "token": stored,
+            "bound_at": datetime.now(timezone.utc).isoformat(),
+        }
+        write_document(BINDINGS, links)
+        return stored
+
+    def _stored_token(self, user_id: int) -> Optional[str]:
+        return (self._links().get(str(user_id)) or {}).get("token")
+
+    def _open_token(self, stored: str) -> str:
+        try:
+            return self._cipher().decrypt(stored.encode()).decode()
+        except InvalidToken:
+            raise EndfieldError("bad_token") from None
 
     def bound_uid(self, user_id: int) -> Optional[str]:
         link = self._links().get(str(user_id))
@@ -413,9 +629,159 @@ class EndfieldService:
         self._raw[uid] = (now + ttl, data, now)
         return data, now
 
+    # ── SKPORT ────────────────────────────────────────────────────
+    async def link_account(
+        self, user_id: int, pasted: str, lang: str = "zh"
+    ) -> Account:
+        """Check a pasted account token against SKPORT, then keep it, encrypted."""
+        try:
+            token = parse_token(pasted)
+            login = await self.skport.login(token)
+            detail = await self.skport.detail(login)
+        except SkportError as error:
+            raise EndfieldError(error.code) from None
+        if not UID_RE.match(login.role_id):
+            raise EndfieldError("no_role")
+        stored = await run_storage(self._store_token, user_id, login.role_id, token)
+        now = self.clock()
+        self._publish(user_id, stored, login, detail, now)
+        return parse_account(
+            detail, await self.store(), lang, login.role_id, login.nickname, now
+        )
+
+    def _publish(
+        self,
+        user_id: int,
+        stored: str,
+        login: Login,
+        detail: dict[str, Any],
+        now: float,
+    ) -> tuple[str, float, dict[str, Any], float, str, str]:
+        """Keep a read, tagged with the token it came from; returns it.
+
+        The card carries its own UID and name, so nothing shown can come from two
+        different links. The caller uses what is returned: a read older than the
+        others may already have been dropped here.
+        """
+        held = self._logins.get(user_id)
+        until = held[1] if held and held[0] == stored and held[2] is login else None
+        card = (
+            stored,
+            now + ACCOUNT_SECONDS,
+            detail,
+            now,
+            login.role_id,
+            login.nickname,
+        )
+        self._logins[user_id] = (stored, until or now + LOGIN_SECONDS, login)
+        self._cards[user_id] = card
+        while len(self._cards) > ACCOUNT_CACHE_LIMIT:
+            oldest = min(self._cards, key=lambda member: self._cards[member][3])
+            self._forget_account(oldest)
+        return card
+
+    async def account(self, user_id: int, lang: str = "zh") -> Optional[Account]:
+        """The member's own card; None when no token is linked.
+
+        When SKPORT is unreachable, the last good read is used. A token SKPORT
+        turned down raises ``bad_token``: the member has to link again.
+        """
+        stored = await run_storage(self._stored_token, user_id)
+        if not stored:
+            return None
+        # One read per member at a time; messages sent meanwhile share it. The
+        # entry goes with its last user, so idle members hold nothing here.
+        entry = self._account_locks.setdefault(user_id, [asyncio.Lock(), 0])
+        entry[1] += 1
+        try:
+            async with entry[0]:
+                card = self._cards.get(user_id)
+                usable = card if card and card[0] == stored else None
+                if not usable or usable[1] <= self.clock():
+                    read = None
+                    try:
+                        read = await self._read_card(user_id, stored)
+                    except EndfieldError as error:
+                        if not usable or error.code != "unavailable":
+                            raise
+                    # Unlinked or linked anew during the read: neither the new
+                    # read nor the old card is theirs to see now.
+                    if await run_storage(self._stored_token, user_id) != stored:
+                        return None
+                    if read:
+                        usable = self._publish(user_id, stored, *read)
+        finally:
+            entry[1] -= 1
+            if entry[1] == 0:
+                self._account_locks.pop(user_id, None)
+        return parse_account(
+            usable[2], await self.store(), lang, usable[4], usable[5], usable[3]
+        )
+
+    async def _read_card(
+        self, user_id: int, stored: str
+    ) -> tuple[Login, dict[str, Any], float]:
+        now = self.clock()
+        cached = self._logins.get(user_id)
+        fresh = cached if cached and cached[0] == stored and cached[1] > now else None
+        try:
+            for attempt in (fresh[2] if fresh else None, None):
+                login = attempt or await self.skport.login(
+                    await asyncio.to_thread(self._open_token, stored)
+                )
+                try:
+                    return login, await self.skport.detail(login), now
+                except SkportError as error:
+                    # an old credential is the likely cause: once more with a new one
+                    if attempt is None or error.code != "bad_token":
+                        raise
+        except SkportError as error:
+            raise EndfieldError(error.code) from None
+        raise EndfieldError("unavailable")
+
     async def profile(self, uid: str, lang: str = "zh") -> Profile:
         data, read_at = await self.raw(uid)
         return parse(data, await self.store(), lang, read_at)
+
+
+def _when(read_at: float, now: float, service: str) -> str:
+    age = now - read_at
+    if age < 600:  # a linked account is read every few minutes at most
+        return "read just now"
+    return f"read {int(age // 60)} min ago ({service} did not answer just now)"
+
+
+def _operator_line(op: Operator) -> str:
+    parts = [
+        f"{op.name} {op.rarity}★ {op.element} {op.profession} Lv{op.level} potential {op.potential}"
+    ]
+    if op.weapon:
+        parts.append(
+            f"{op.weapon.name} {op.weapon.rarity}★ Lv{op.weapon.level} weapon potential {op.weapon.potential}"
+        )
+    if op.sets:
+        parts.append(", ".join(f"{name} ×{count}" for name, count in op.sets))
+    if op.skills:
+        parts.append(" ".join(f"{kind} {level}" for kind, level in op.skills))
+    return "- " + " · ".join(parts)
+
+
+def describe_account(account: Account, now: float) -> str:
+    """The member's whole roster for the AI characters; the UID and token stay out."""
+    head = f"Arknights: Endfield — name {account.name or 'unknown'}"
+    if account.stamina is not None:
+        head += f", stamina {account.stamina}/{account.stamina_max}"
+    lines = [
+        f"({_when(account.read_at, now, 'SKPORT')})",
+        head,
+        f"operators owned ({len(account.operators)}):",
+    ]
+    lines += [_operator_line(op) for op in account.operators[:MAX_ROSTER]]
+    if len(account.operators) > MAX_ROSTER:
+        lines.append(
+            f"- and {len(account.operators) - MAX_ROSTER} more at lower levels"
+        )
+    return "\n".join(lines)
 
 
 def describe(profile: Profile, now: float) -> str:
@@ -436,17 +802,5 @@ def describe(profile: Profile, now: float) -> str:
         f"{profile.operators_owned} operators and {profile.weapons_owned} weapons owned",
         f"operators in the public showcase ({len(profile.showcase)}; the others are not visible):",
     ]
-    for op in profile.showcase:
-        parts = [
-            f"{op.name} {op.rarity}★ {op.element} {op.profession} Lv{op.level} potential {op.potential}"
-        ]
-        if op.weapon:
-            parts.append(
-                f"{op.weapon.name} {op.weapon.rarity}★ Lv{op.weapon.level} weapon potential {op.weapon.potential}"
-            )
-        if op.sets:
-            parts.append(", ".join(f"{name} ×{count}" for name, count in op.sets))
-        if op.skills:
-            parts.append(" ".join(f"{kind} {level}" for kind, level in op.skills))
-        lines.append("- " + " · ".join(parts))
+    lines += [_operator_line(op) for op in profile.showcase]
     return "\n".join(lines)

@@ -12,6 +12,9 @@ CONTEXT_MENU_NAMES: dict[str, str] = {
 }
 
 TEXT: dict[str, str] = {
+    "Link your SKPORT account to see every operator you own": "連結 SKPORT 帳號，查看你擁有的全部幹員",
+    "How to get your SKPORT account token": "如何取得 SKPORT 帳號憑證",
+    "List every Endfield operator you own (needs /endfield link)": "列出你擁有的全部終末地幹員（需先 /endfield link）",
     "Arknights: Endfield profiles and operators": "明日方舟：終末地的名片與幹員",
     "Link your Arknights: Endfield UID": "綁定你的明日方舟：終末地 UID",
     "The UID in the game's profile menu": "遊戲個人名片上的 UID",
