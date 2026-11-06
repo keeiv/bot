@@ -5,6 +5,7 @@ import io
 import logging
 from pathlib import Path
 import re
+import time
 from typing import Any, Awaitable, Callable, Optional, Union
 
 import aiohttp
@@ -26,8 +27,11 @@ from src.services.ai_chat_service import Reply
 from src.services.ai_cli import AiCliError
 from src.services.ai_cli import CLAUDE
 from src.services.ai_cli import GPT
+from src.services.ai_game_profile import FETCH_SECONDS
 from src.services.ai_game_profile import GameProfiles
 from src.services.ai_game_profile import REFRESH_MINUTES
+from src.services.endfield_service import describe as describe_endfield
+from src.services.endfield_service import EndfieldError
 from src.utils.i18n import text as tx
 from src.utils.lang_context import localized
 from src.utils.storage_worker import run_blocking
@@ -392,12 +396,43 @@ class AiChat(commands.Cog):
             return tx("ai_chat.maintenance")
 
     async def game_profile(self, user_id: int) -> Optional[str]:
-        """The member's linked games for the prompt; None (and a log line) on any failure."""
-        try:
-            return await self.profiles.snapshot(user_id)
-        except Exception:
-            logger.exception("Could not read the HoYoLAB profile for the AI")
+        """The member's linked games for the prompt: HoYoLAB and Endfield, read together.
+
+        A part that cannot be read is left out (with a log line); None when neither can.
+        """
+        hoyolab, endfield = await asyncio.gather(
+            self.profiles.snapshot(user_id),
+            self.endfield_profile(user_id),
+            return_exceptions=True,
+        )
+        parts = []
+        for name, part in (("HoYoLAB", hoyolab), ("Endfield", endfield)):
+            if isinstance(part, BaseException):
+                logger.error(
+                    "Could not read the %s profile for the AI",
+                    name,
+                    exc_info=(type(part), part, part.__traceback__),
+                )
+            elif part:
+                parts.append(part)
+        return "\n\n".join(parts) or None
+
+    async def endfield_profile(self, user_id: int) -> Optional[str]:
+        """The member's own linked Endfield showcase; None when unlinked or unreadable."""
+        service = getattr(self.bot.get_cog("EndfieldCog"), "service", None)
+        if service is None:
             return None
+        uid = await run_storage(service.bound_uid, user_id)
+        if uid is None:
+            return None
+        try:
+            profile = await asyncio.wait_for(service.profile(uid, "zh"), FETCH_SECONDS)
+        except (EndfieldError, asyncio.TimeoutError) as error:
+            logger.info("Endfield showcase unreadable for %s: %s", user_id, error)
+            return None
+        if await run_storage(service.bound_uid, user_id) != uid:
+            return None  # unlinked or linked anew while reading: this read is stale
+        return describe_endfield(profile, time.time())
 
     async def channel_context(self, message: discord.Message) -> Optional[str]:
         """The channel's latest messages before ``message``, oldest first; None if unreadable."""

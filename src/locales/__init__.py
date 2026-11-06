@@ -27,6 +27,7 @@ from src.locales import dashboard_service_messages
 from src.locales import deep_sea_oxygen_messages
 from src.locales import developer_messages
 from src.locales import domain
+from src.locales import endfield_messages
 from src.locales import error_handler_messages
 from src.locales import file_tools_messages
 from src.locales import genshin_cog_messages
@@ -75,6 +76,7 @@ _MODULES = [
     dashboard_service_messages,
     deep_sea_oxygen_messages,
     developer_messages,
+    endfield_messages,
     error_handler_messages,
     file_tools_messages,
     genshin_cog_messages,

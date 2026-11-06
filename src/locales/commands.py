@@ -12,6 +12,14 @@ CONTEXT_MENU_NAMES: dict[str, str] = {
 }
 
 TEXT: dict[str, str] = {
+    "Arknights: Endfield profiles and operators": "明日方舟：終末地的名片與幹員",
+    "Link your Arknights: Endfield UID": "綁定你的明日方舟：終末地 UID",
+    "The UID in the game's profile menu": "遊戲個人名片上的 UID",
+    "Remove your Arknights: Endfield link": "解除明日方舟：終末地綁定",
+    "Show an Arknights: Endfield business card and showcase": "查看終末地名片與展示中的幹員",
+    "Another UID (leave empty for your own)": "其他 UID（留空查自己的）",
+    "Show one operator from an Endfield showcase": "查看終末地展示中的一名幹員",
+    "The operator's name": "幹員名稱",
     "Lift the lockdown by itself after this many minutes (0 = by hand)": "封鎖幾分鐘後自動解除（0 = 只能手動）",
     "During a raid, accounts younger than this many days are removed (0 = everyone)": "突襲期間，帳號未滿幾天的加入者會被處置（0 = 全部）",
     "Set up detection of similar messages across channels and accounts": "設定跨頻道／多帳號相似內容偵測",

@@ -46,7 +46,7 @@
 | 迎接新成員 | 歡迎訊息範本、自動身分組、年齡守門 | `/welcome` `/auto_role` `/age_guard` |
 | 伺服器服務 | 工單、臨時語音、抽獎、身分組與表情符號、伺服器設定面板 | `>>>ticket` `/temp_voice` `/giveaway` `/role` `/emoji` `/settings` |
 | 遊戲與成就 | 兩款雙人小遊戲、18 個成就 | `/deep-sea-oxygen` `/russian-roulette` `/achievements` |
-| 帳號整合 | osu!、HoYoLAB／米游社、GitHub 倉庫通知 | `/osu` `/mhy` `/repo_watch` `/repo_track` |
+| 帳號整合 | osu!、HoYoLAB／米游社、明日方舟：終末地、GitHub 倉庫通知 | `/osu` `/mhy` `/endfield` `/repo_watch` `/repo_track` |
 | 工具 | 檔案轉換與壓縮（NovaGrid）、訊息翻譯、AI 聊天 | `/convert` `/compress` `/usage` `翻譯訊息` `/ai` |
 | 語言 | 英文與中文介面，伺服器與個人各自設定 | `/language` |
 
@@ -124,6 +124,7 @@
   - 帳號：`/mhy bind` 綁定（Cookie 加密保存）、`unbind`、`status`、`tutorial` 取得 Cookie 的教學。
   - 日常：`/mhy toggle_autosignin` 每日自動簽到、`checkin` 手動簽到、`notes` 查便箋、`redeem` 兌換禮包碼。
   - 紀錄：`/mhy stats` 遊戲統計、`/mhy abyss` 挑戰紀錄。
+- **明日方舟：終末地**：`/endfield bind` 綁定遊戲名片上的 UID（不需要密碼或憑證）、`unbind`；`/endfield profile` 查名片與展示中的幹員，`/endfield operator` 查單一幹員的武器、裝備套組與技能，兩者都可填別的 UID。資料來自 [Enka.Network](https://enka.network) 的公開展示，只看得到玩家在遊戲內選擇展示的幹員；`@BOT.` 的 AI 角色也會讀綁定者本人的展示，詳見 [AI 聊天](docs/ai-chat.md)。
 - **GitHub**：`/repo_watch set`／`status`／`disable` 監控任意倉庫的提交；`/repo_track add`／`remove`／`status` 追蹤 keeiv/bot 的新提交與新開的 PR（不追蹤 PR 合併）。使用 `GITHUB_TOKEN`、共用快取與 ETag，遇到限流會依重試時間暫停。
 
 ### 工具
