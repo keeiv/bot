@@ -182,7 +182,14 @@ class MessageLogService:
             cutoff = (
                 datetime.now(TZ_OFFSET) - timedelta(days=LOG_RETENTION_DAYS)
             ).isoformat()
-            to_remove = [k for k, v in logs.items() if v.get("created_at", "") < cutoff]
+            logging = {str(g) for g in self.load_log_channels()}
+            # Too old, or from a server that has no log channel (any more): gone.
+            to_remove = [
+                k
+                for k, v in logs.items()
+                if v.get("created_at", "") < cutoff
+                or str(v.get("guild_id")) not in logging
+            ]
             for key in to_remove:
                 del logs[key]
             if to_remove:

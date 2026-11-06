@@ -47,13 +47,20 @@ class BlacklistManager:
     """黑名單管理器 (本地 + CatHome API 雙軌)"""
 
     _LOCAL_CACHE_TTL: float = 30.0
+    # Every message is checked, so the API must never hold one up for long.
+    API_TIMEOUT = aiohttp.ClientTimeout(total=3)
+    API_CACHE_SECONDS = 10.0  # an answer (blocked or not) is reused this long
+    API_FAILURE_SECONDS = 30.0  # after a failure the API is left alone this long
+    API_CACHE_LIMIT = 5000  # users kept; older entries are dropped
 
     def __init__(self, api_key: str | None = None, api_base: str | None = None) -> None:
         self.api_key = api_key
         self.api_base = api_base
         self._api_cache: Dict[int, Optional[Dict[Any, Any]]] = {}
         self._api_cache_time: Dict[int, float] = {}
-        self._rate_limit_lock = asyncio.Lock()
+        # member -> the lookup in progress, so messages sent together share one
+        self._api_pending: Dict[int, asyncio.Future[Any]] = {}
+        self._api_down_until = 0.0
         self.session: aiohttp.ClientSession | None = None
         self._local_cache: dict[Any, Any] | None = None
         self._local_cache_time: float = 0.0
@@ -61,7 +68,7 @@ class BlacklistManager:
     async def setup(self) -> None:
         """初始化 HTTP session"""
         if not self.session:
-            self.session = aiohttp.ClientSession()
+            self.session = aiohttp.ClientSession(timeout=self.API_TIMEOUT)
 
     async def close(self) -> None:
         """關閉 HTTP session"""
@@ -172,30 +179,44 @@ class BlacklistManager:
         if self.session is None:
             return None
 
-        now = asyncio.get_event_loop().time()
-        if user_id in self._api_cache:
-            if now - self._api_cache_time.get(user_id, 0) < 10:
-                return self._api_cache[user_id]
+        now = asyncio.get_running_loop().time()
+        if (
+            user_id in self._api_cache
+            and now - self._api_cache_time.get(user_id, 0) < self.API_CACHE_SECONDS
+        ):
+            return self._api_cache[user_id]
+        if now < self._api_down_until:
+            return None  # failed a moment ago: do not wait on it for every message
+        pending = self._api_pending.get(user_id)
+        if pending is None:
+            pending = asyncio.ensure_future(self._api_lookup(user_id))
+            self._api_pending[user_id] = pending
+            pending.add_done_callback(lambda _: self._api_pending.pop(user_id, None))
+        return await asyncio.shield(pending)
 
+    async def _api_lookup(self, user_id: int) -> Optional[Dict[Any, Any]]:
+        if self.session is None:
+            return None
         url = f"{self.api_base}/{user_id}"
         headers = {
             "X-API-Key": self.api_key,
             "Content-Type": "application/json",
         }
-
-        data: dict[str, Any] = {}
-
-        async with self._rate_limit_lock:
-            try:
-                async with self.session.get(url, headers=headers) as resp:
-                    if resp.status == 404:
-                        data = {}
-                    elif resp.status != 200:
-                        return None
-                    else:
-                        data = await resp.json(content_type=None)
-            except Exception:
-                return None
+        loop = asyncio.get_running_loop()
+        data: Any = {}
+        try:
+            async with self.session.get(url, headers=headers) as resp:
+                if resp.status == 404:
+                    data = {}
+                elif resp.status != 200:
+                    self._api_down_until = loop.time() + self.API_FAILURE_SECONDS
+                    return None
+                else:
+                    data = await resp.json(content_type=None)
+        except Exception:
+            # Timeouts and network errors: back off instead of retrying per message.
+            self._api_down_until = loop.time() + self.API_FAILURE_SECONDS
+            return None
 
         result = None
         if isinstance(data, dict):
@@ -206,8 +227,13 @@ class BlacklistManager:
         if isinstance(result, dict):
             result.setdefault("user_id", str(user_id))
 
+        if len(self._api_cache) >= self.API_CACHE_LIMIT:
+            oldest = sorted(self._api_cache_time, key=self._api_cache_time.get)
+            for stale in oldest[: self.API_CACHE_LIMIT // 2]:
+                self._api_cache.pop(stale, None)
+                self._api_cache_time.pop(stale, None)
         self._api_cache[user_id] = result
-        self._api_cache_time[user_id] = now
+        self._api_cache_time[user_id] = loop.time()
         return result
 
     async def check(self, user_id: int) -> Optional[Dict[Any, Any]]:

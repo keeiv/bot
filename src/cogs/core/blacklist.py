@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime
+import re
 from typing import Any, TYPE_CHECKING
 
 import discord
@@ -18,6 +19,16 @@ from src.utils.storage_worker import run_storage
 from src.utils.time_utils import TZ_OFFSET
 
 _service = BlacklistService()
+# "name (123456789012345678)", the appellant field of a review message
+_APPELLANT_ID = re.compile(r"\((\d{15,21})\)\s*$")
+
+
+def appellant_id(message: discord.Message | None) -> int | None:
+    """The appellant's ID from a review message, for buttons that outlived a restart."""
+    if message is None or not message.embeds or not message.embeds[0].fields:
+        return None
+    match = _APPELLANT_ID.search(message.embeds[0].fields[0].value or "")
+    return int(match.group(1)) if match else None
 
 
 # ==================== 審核接受表單 ====================
@@ -101,10 +112,19 @@ class AppealReviewView(LocalizedView):
         "reject_button.label": "blacklist.reject",
     }
 
-    def __init__(self, user_id: int, cog: "Blacklist") -> None:
+    def __init__(self, user_id: int | None, cog: "Blacklist") -> None:
         super().__init__(timeout=None)
+        # None for the copy registered at start-up: the message then says who it is
         self.target_user_id = user_id
         self.cog = cog
+
+    async def target(self, interaction: discord.Interaction) -> int | None:
+        target = self.target_user_id or appellant_id(interaction.message)
+        if target is None:
+            await interaction.response.send_message(
+                tx("bot_appearance.failed_this_request_has_expired_or"), ephemeral=True
+            )
+        return target
 
     @ui.button(
         label="Accept", style=discord.ButtonStyle.success, custom_id="appeal_accept"
@@ -120,9 +140,10 @@ class AppealReviewView(LocalizedView):
                 ephemeral=True,
             )
             return
-        await interaction.response.send_modal(
-            AppealAcceptModal(self.target_user_id, self.cog)
-        )
+        target = await self.target(interaction)
+        if target is None:
+            return
+        await interaction.response.send_modal(AppealAcceptModal(target, self.cog))
 
     @ui.button(
         label="Reject", style=discord.ButtonStyle.danger, custom_id="appeal_reject"
@@ -132,18 +153,19 @@ class AppealReviewView(LocalizedView):
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
         """駁回申訴"""
-        await interaction.response.defer(thinking=True, ephemeral=True)
         if interaction.user.id not in DEVELOPER_IDS:
-            await interaction.followup.send(
+            await interaction.response.send_message(
                 tx("blacklist.denied_appeal_review_permission_is_required"),
                 ephemeral=True,
             )
             return
+        target = await self.target(interaction)
+        if target is None:
+            return
+        await interaction.response.defer(thinking=True, ephemeral=True)
 
         manager = self.cog.bot.blacklist_manager
-        await run_storage(
-            _service.reject_appeal, manager, self.target_user_id, interaction.user
-        )
+        await run_storage(_service.reject_appeal, manager, target, interaction.user)
 
         embed = interaction.message.embeds[0] if interaction.message.embeds else None
         if embed:
@@ -155,13 +177,13 @@ class AppealReviewView(LocalizedView):
         await interaction.followup.send(
             tx(
                 "blacklist.success_rejected_the_appeal_from_user",
-                v0=(self.target_user_id),
+                v0=(target),
             ),
             ephemeral=True,
         )
 
         try:
-            user = await self.cog.bot.fetch_user(self.target_user_id)
+            user = await self.cog.bot.fetch_user(target)
             await user.send(embed=_service.build_notify_embed(accepted=False))
         except (discord.Forbidden, discord.HTTPException):
             pass
@@ -237,8 +259,9 @@ class Blacklist(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:
-        """註冊持久化視圖"""
+        """註冊持久化視圖（申訴審核按鈕在重啟後也要能按）"""
         self.bot.add_view(BlockedNoticeView(self))
+        self.bot.add_view(AppealReviewView(None, self))
 
     # ========== 使用者指令 ==========
 

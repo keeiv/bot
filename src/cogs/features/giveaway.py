@@ -267,7 +267,8 @@ class Giveaway(commands.Cog):
     async def end_cmd(self, interaction: discord.Interaction, giveaway_id: str) -> None:
         """提前結束抽獎"""
         ga = await run_storage(self.service.get, giveaway_id)
-        if not ga:
+        # Only this server's giveaways: the ID is printed on every giveaway embed.
+        if not ga or ga.get("guild_id") != interaction.guild_id:
             await interaction.response.send_message(
                 tx("giveaway.failed_giveaway_not_found"), ephemeral=True
             )
@@ -298,7 +299,7 @@ class Giveaway(commands.Cog):
     ) -> None:
         """重新抽取得獎者"""
         ga = await run_storage(self.service.get, giveaway_id)
-        if not ga or not ga.get("ended"):
+        if not ga or not ga.get("ended") or ga.get("guild_id") != interaction.guild_id:
             await interaction.response.send_message(
                 tx("giveaway.failed_finished_giveaway_not_found"), ephemeral=True
             )

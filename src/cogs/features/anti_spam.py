@@ -1,3 +1,4 @@
+import asyncio
 from datetime import timedelta
 from typing import Any
 
@@ -29,8 +30,14 @@ class AntiSpam(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.manager = AntiSpamManager()
-        # guild_id -> {channel_id -> original send_messages (True/False/None)}
-        self._lockdown_states: dict[int, dict[int, bool | None]] = {}
+        # guild_id -> {channel_id -> original send_messages (True/False/None)};
+        # kept in storage too, so a lockdown can still be lifted after a restart
+        self._lockdown_states: dict[int, dict[int, bool | None]]
+        # lockdowns cut short (a restart or an error mid-way), finished on the next raid
+        self._unfinished: set[int]
+        self._lockdown_states, self._unfinished = self.manager.load_lockdowns()
+        # one lockdown change at a time per server (a raid keeps triggering it)
+        self._lockdown_locks: dict[int, asyncio.Lock] = {}
 
     # ───────────── 輔助方法 ─────────────
 
@@ -145,19 +152,51 @@ class AntiSpam(commands.Cog):
         except Exception as exc:
             return False, str(exc)[:120]
 
+    def _lockdown_lock(self, guild_id: int) -> asyncio.Lock:
+        return self._lockdown_locks.setdefault(guild_id, asyncio.Lock())
+
     async def _activate_lockdown(self, guild: discord.Guild) -> None:
         """啟用封鎖模式 — 鎖定所有文字頻道，并廮存原始權限"""
-        if self.manager.is_lockdown(guild.id):
-            return
-        self.manager.set_lockdown(guild.id, True)
+        async with self._lockdown_lock(guild.id):
+            await self._lock_channels(guild)
 
+    async def _lock_channels(self, guild: discord.Guild) -> None:
+        if self.manager.is_lockdown(guild.id) and guild.id not in self._unfinished:
+            return
         default_role = guild.default_role
-        channel_states: dict[int, bool | None] = {}
+        if guild.id in self._unfinished:
+            # Finish a lockdown cut short: its snapshot still has the originals;
+            # a channel made since gets its own before it is locked.
+            channel_states = self._lockdown_states[guild.id]
+            added = {
+                channel.id: channel.overwrites_for(default_role).send_messages
+                for channel in guild.text_channels
+                if channel.id not in channel_states
+            }
+            if added:
+                merged = {**channel_states, **added}
+                await run_storage(self.manager.save_lockdown, guild.id, merged)
+                channel_states = self._lockdown_states[guild.id] = merged  # saved
+        else:
+            self.manager.set_lockdown(guild.id, True)
+            # 先把原始 send_messages 狀態寫進儲存，再改權限：途中重啟也能精準回復
+            channel_states = {
+                channel.id: channel.overwrites_for(default_role).send_messages
+                for channel in guild.text_channels
+            }
+            self._lockdown_states[guild.id] = channel_states
+            try:
+                await run_storage(self.manager.save_lockdown, guild.id, channel_states)
+            except Exception:
+                # Never lock what could not be unlocked after a restart; the next
+                # raid tries again once storage works.
+                self._lockdown_states.pop(guild.id, None)
+                self.manager.set_lockdown(guild.id, False)
+                raise
+            self._unfinished.add(guild.id)
         for channel in guild.text_channels:
             try:
                 overwrite = channel.overwrites_for(default_role)
-                # 廮存原始 send_messages 狀態，以便解除時精準回復
-                channel_states[channel.id] = overwrite.send_messages
                 overwrite.update(send_messages=False)
                 await channel.set_permissions(
                     default_role,
@@ -166,12 +205,18 @@ class AntiSpam(commands.Cog):
                 )
             except discord.Forbidden:
                 continue
-        self._lockdown_states[guild.id] = channel_states
+        await run_storage(
+            self.manager.save_lockdown, guild.id, channel_states, complete=True
+        )
+        self._unfinished.discard(guild.id)
 
     async def _deactivate_lockdown(self, guild: discord.Guild) -> None:
         """解除封鎖模式，回復封鎖前原始權限"""
-        self.manager.set_lockdown(guild.id, False)
-        channel_states = self._lockdown_states.pop(guild.id, {})
+        async with self._lockdown_lock(guild.id):
+            await self._unlock_channels(guild)
+
+    async def _unlock_channels(self, guild: discord.Guild) -> None:
+        channel_states = self._lockdown_states.get(guild.id, {})
 
         default_role = guild.default_role
         for channel in guild.text_channels:
@@ -186,6 +231,17 @@ class AntiSpam(commands.Cog):
                 )
             except discord.Forbidden:
                 continue
+        # 全部回復後才刪除紀錄；中途失敗時下次解除仍有原始狀態可用
+        try:
+            await run_storage(self.manager.save_lockdown, guild.id, None)
+        except Exception:
+            # The channels are open again but the record stays: let the next raid
+            # lock them anew from it, and lifting can still be retried.
+            self._unfinished.add(guild.id)
+            raise
+        self._lockdown_states.pop(guild.id, None)
+        self._unfinished.discard(guild.id)
+        self.manager.set_lockdown(guild.id, False)
 
     # ───────────── 事件監聽 ─────────────
 
