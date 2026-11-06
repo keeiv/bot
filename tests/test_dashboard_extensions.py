@@ -233,3 +233,49 @@ async def test_endfield_unbind_tells_the_ai():
     await DashboardAccount(bot).update("7", {"game": "endfield", "action": "unbind"})
     service.unbind.assert_called_once_with("7")
     bot.dispatch.assert_called_once_with("endfield_unbound", 7)
+
+
+def endfield_card(lang):
+    return SimpleNamespace(
+        name="Nova",
+        region="亞洲" if lang == "zh" else "Asia",
+        adventure_level=60,
+        world_level=7,
+        operators_owned=26,
+        weapons_owned=57,
+        showcase=[
+            SimpleNamespace(name="萊萬汀" if lang == "zh" else "Laevatain", level=90)
+        ],
+    )
+
+
+async def test_the_account_centre_shows_the_player_s_public_card():
+    service = endfield_service("4225399080", True)
+    service.profile = AsyncMock(side_effect=lambda uid, lang: endfield_card(lang))
+    card = (await DashboardAccount(endfield_bot(service)).read_full("7"))["endfield"]
+    assert card["profile"] == {
+        "name": "Nova",
+        "region": {"zh": "亞洲", "en": "Asia"},
+        "level": 60,
+        "worldLevel": 7,
+        "operators": 26,
+        "weapons": 57,
+        "showcase": [{"zh": "萊萬汀", "en": "Laevatain", "level": 90}],
+    }
+    assert "token" not in str(card)
+
+
+async def test_the_page_still_loads_when_enka_does_not_answer():
+    from src.services.endfield_service import EndfieldError
+
+    service = endfield_service("4225399080")
+    service.profile = AsyncMock(side_effect=EndfieldError("unavailable"))
+    card = (await DashboardAccount(endfield_bot(service)).read_full("7"))["endfield"]
+    assert card["uid"] == "4225399080" and card["profile"] is None
+
+
+async def test_nothing_is_looked_up_without_a_link():
+    service = endfield_service()
+    card = (await DashboardAccount(endfield_bot(service)).read_full("7"))["endfield"]
+    assert card["profile"] is None
+    service.profile.assert_not_awaited()
