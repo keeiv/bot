@@ -3,12 +3,13 @@
 from datetime import datetime
 from datetime import timezone
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 import discord
 from discord import app_commands
 from discord.ext import commands
 
+from src.services.endfield_service import Account
 from src.services.endfield_service import EndfieldError
 from src.services.endfield_service import EndfieldService
 from src.services.endfield_service import Operator
@@ -17,12 +18,16 @@ from src.services.endfield_service import UID_RE
 from src.utils.i18n import current_lang
 from src.utils.i18n import text as tx
 from src.utils.lang_context import localized
+from src.utils.localized_ui import LocalizedModal
 from src.utils.storage_worker import run_storage
 
 logger = logging.getLogger(__name__)
 
 COLOR = discord.Color.from_rgb(255, 196, 0)  # Endfield's warning yellow
 ENKA_PAGE = "https://enka.network/ef/{uid}"
+TOKEN_PAGE = "https://web-api.skport.com/cookie_store/account_token"
+SKPORT_SITE = "https://www.skport.com"
+ROSTER_LINES = 25  # operators on one reply; the rest are counted
 
 
 def _stars(rarity: int) -> str:
@@ -80,7 +85,7 @@ def profile_embed(profile: Profile) -> discord.Embed:
     return embed
 
 
-def operator_embed(profile: Profile, op: Operator) -> discord.Embed:
+def operator_embed(name: str, uid: str, read_at: float, op: Operator) -> discord.Embed:
     embed = discord.Embed(
         title=f"{op.name} {_stars(op.rarity)}",
         description=tx(
@@ -90,7 +95,7 @@ def operator_embed(profile: Profile, op: Operator) -> discord.Embed:
             v2=(op.weapon_type),
         ),
         color=COLOR,
-        timestamp=datetime.fromtimestamp(profile.read_at, timezone.utc),
+        timestamp=datetime.fromtimestamp(read_at, timezone.utc),
     )
     embed.add_field(name=tx("endfield.level"), value=str(op.level), inline=True)
     embed.add_field(name=tx("endfield.potential"), value=str(op.potential), inline=True)
@@ -118,22 +123,73 @@ def operator_embed(profile: Profile, op: Operator) -> discord.Embed:
             value="\n".join(f"{kind} Lv{level}" for kind, level in op.skills),
             inline=False,
         )
+    embed.set_footer(text=tx("endfield.operator_footer", v0=(name), v1=(uid)))
+    return embed
+
+
+def find_operator(operators: list[Operator], name: str) -> Optional[Operator]:
+    wanted = name.strip().casefold()
+    for op in operators:
+        if op.name.casefold() == wanted:
+            return op
+    return next((op for op in operators if wanted in op.name.casefold()), None)
+
+
+def roster_embed(account: Account) -> discord.Embed:
+    embed = discord.Embed(
+        title=tx("endfield.roster_title", v0=(account.name or account.uid)),
+        description="\n".join(
+            operator_line(op) for op in account.operators[:ROSTER_LINES]
+        )
+        or tx("endfield.nobody"),
+        color=COLOR,
+        timestamp=datetime.fromtimestamp(account.read_at, timezone.utc),
+    )
+    embed.add_field(
+        name=tx("endfield.owned"),
+        value=tx("endfield.operators_owned", v0=(len(account.operators))),
+        inline=True,
+    )
+    if account.stamina is not None:
+        embed.add_field(
+            name=tx("endfield.stamina"),
+            value=f"{account.stamina}/{account.stamina_max}",
+            inline=True,
+        )
+    hidden = len(account.operators) - ROSTER_LINES
     embed.set_footer(
-        text=tx("endfield.operator_footer", v0=(profile.name), v1=(profile.uid))
+        text=(
+            tx("endfield.roster_more", v0=(hidden))
+            if hidden > 0
+            else tx("endfield.roster_footer")
+        )
     )
     return embed
 
 
-def find_operator(profile: Profile, name: str) -> Optional[Operator]:
-    wanted = name.strip().casefold()
-    for op in profile.showcase:
-        if op.name.casefold() == wanted:
-            return op
-    return next((op for op in profile.showcase if wanted in op.name.casefold()), None)
+class TokenModal(LocalizedModal):
+    """帳號憑證只從這個私密視窗輸入，不經過指令參數"""
+
+    def __init__(self, cog: "EndfieldCog") -> None:
+        super().__init__(title=tx("endfield.link_title"))
+        self.cog = cog
+        self.token = discord.ui.TextInput[Any](
+            label=tx("endfield.link_label"),
+            style=discord.TextStyle.paragraph,
+            placeholder=tx("endfield.link_placeholder"),
+            required=True,
+            max_length=4000,
+        )
+        self.add_item(self.token)
+
+    @localized("interaction")
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        await interaction.response.defer(ephemeral=True)
+        await self.cog.link_token(interaction, self.token.value)
 
 
 class EndfieldCog(commands.Cog):
-    """明日方舟：終末地：綁定 UID、查詢名片與展示中的幹員"""
+    """明日方舟：終末地：綁定 UID 或帳號，查詢名片與幹員"""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -214,6 +270,84 @@ class EndfieldCog(commands.Cog):
             ephemeral=True,
         )
 
+    async def link_token(self, interaction: discord.Interaction, pasted: str) -> None:
+        try:
+            account = await self.service.link_account(
+                interaction.user.id, pasted, current_lang()
+            )
+        except EndfieldError as error:
+            await interaction.followup.send(
+                tx(f"endfield.error_{error.code}"), ephemeral=True
+            )
+            return
+        except Exception:
+            logger.exception("Endfield account link failed for %s", interaction.user.id)
+            await interaction.followup.send(
+                tx("endfield.error_unavailable"), ephemeral=True
+            )
+            return
+        interaction.client.dispatch("endfield_bound", interaction.user.id)
+        await interaction.followup.send(
+            tx("endfield.linked", v0=(len(account.operators))),
+            embed=roster_embed(account),
+            ephemeral=True,
+        )
+
+    @endfield.command(
+        name="link",
+        description="Link your SKPORT account to see every operator you own",
+    )
+    @localized("interaction")
+    async def link(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_modal(TokenModal(self))
+
+    @endfield.command(
+        name="tutorial", description="How to get your SKPORT account token"
+    )
+    @localized("interaction")
+    async def tutorial(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_message(
+            embed=discord.Embed(
+                title=tx("endfield.tutorial_title"),
+                description=tx(
+                    "endfield.tutorial_body", v0=(SKPORT_SITE), v1=(TOKEN_PAGE)
+                ),
+                color=COLOR,
+            ),
+            ephemeral=True,
+        )
+
+    @endfield.command(
+        name="roster",
+        description="List every Endfield operator you own (needs /endfield link)",
+    )
+    @localized("interaction")
+    async def roster(self, interaction: discord.Interaction) -> None:
+        await interaction.response.defer(ephemeral=True)
+        account = await self._account(interaction)
+        if account is None:
+            if not await run_storage(self.service.has_account, interaction.user.id):
+                await interaction.followup.send(
+                    tx("endfield.not_linked"), ephemeral=True
+                )
+            return
+        await interaction.followup.send(embed=roster_embed(account), ephemeral=True)
+
+    async def _account(self, interaction: discord.Interaction) -> Optional[Account]:
+        """The member's own card; None after explaining a failure, or with no link."""
+        try:
+            return await self.service.account(interaction.user.id, current_lang())
+        except EndfieldError as error:
+            await interaction.followup.send(
+                tx(f"endfield.error_{error.code}"), ephemeral=True
+            )
+        except Exception:
+            logger.exception("Endfield account read failed")
+            await interaction.followup.send(
+                tx("endfield.error_unavailable"), ephemeral=True
+            )
+        return None
+
     @endfield.command(name="unbind", description="Remove your Arknights: Endfield link")
     @localized("interaction")
     async def unbind(self, interaction: discord.Interaction) -> None:
@@ -254,13 +388,29 @@ class EndfieldCog(commands.Cog):
         self, interaction: discord.Interaction, name: str, uid: Optional[str] = None
     ) -> None:
         await interaction.response.defer()
+        if not uid and await run_storage(self.service.has_account, interaction.user.id):
+            account = await self._account(interaction)
+            if account is None:
+                return
+            mine = find_operator(account.operators, name)
+            if mine is not None:
+                await interaction.followup.send(
+                    embed=operator_embed(
+                        account.name, account.uid, account.read_at, mine
+                    )
+                )
+            else:
+                await interaction.followup.send(
+                    tx("endfield.operator_not_owned", v0=(name[:40])), ephemeral=True
+                )
+            return
         target = await self._uid(interaction, uid)
         if target is None:
             return
         found = await self._profile(interaction, target)
         if found is None:
             return
-        op = find_operator(found, name)
+        op = find_operator(found.showcase, name)
         if op is None:
             shown = ", ".join(o.name for o in found.showcase) or tx("endfield.nobody")
             await interaction.followup.send(
@@ -268,7 +418,9 @@ class EndfieldCog(commands.Cog):
                 ephemeral=True,
             )
             return
-        await interaction.followup.send(embed=operator_embed(found, op))
+        await interaction.followup.send(
+            embed=operator_embed(found.name, found.uid, found.read_at, op)
+        )
 
 
 async def setup(bot: commands.Bot) -> None:

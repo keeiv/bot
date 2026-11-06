@@ -45,6 +45,46 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "[Info] {v0} is not in this showcase. Shown: {v1}",
         "zh": "[提示] 展示中沒有「{v0}」。目前展示：{v1}",
     },
+    "endfield.roster_title": {
+        "en": "[Endfield] {v0}'s operators",
+        "zh": "[終末地] {v0} 的幹員",
+    },
+    "endfield.operators_owned": {"en": "{v0} operators", "zh": "{v0} 名幹員"},
+    "endfield.stamina": {"en": "Stamina", "zh": "理智"},
+    "endfield.roster_more": {
+        "en": "{v0} more not shown · read from your SKPORT account",
+        "zh": "另有 {v0} 名未列出 · 資料來自你的 SKPORT 帳號",
+    },
+    "endfield.roster_footer": {
+        "en": "Read from your SKPORT account",
+        "zh": "資料來自你的 SKPORT 帳號",
+    },
+    "endfield.link_title": {"en": "Link a SKPORT account", "zh": "連結 SKPORT 帳號"},
+    "endfield.link_label": {"en": "Account token", "zh": "帳號憑證"},
+    "endfield.link_placeholder": {
+        "en": "Paste the whole page. See /endfield tutorial",
+        "zh": "貼上整個頁面內容，步驟見 /endfield tutorial",
+    },
+    "endfield.linked": {
+        "en": "[Success] Linked: {v0} operators found. Your token is stored encrypted; /endfield unbind removes it.",
+        "zh": "[成功] 已連結，找到 {v0} 名幹員。憑證已加密保存，用 /endfield unbind 可以刪除。",
+    },
+    "endfield.not_linked": {
+        "en": "[Info] No SKPORT account is linked. Use /endfield link; /endfield tutorial shows how.",
+        "zh": "[提示] 還沒有連結 SKPORT 帳號。請用 /endfield link，步驟見 /endfield tutorial。",
+    },
+    "endfield.operator_not_owned": {
+        "en": "[Info] You do not own an operator called {v0}.",
+        "zh": "[提示] 你沒有名為「{v0}」的幹員。",
+    },
+    "endfield.tutorial_title": {
+        "en": "[Endfield] Getting your SKPORT account token",
+        "zh": "[終末地] 取得 SKPORT 帳號憑證",
+    },
+    "endfield.tutorial_body": {
+        "en": "1. Sign in at {v0} with your game account, in a computer browser.\n2. In the same browser, open {v1}\n3. Copy everything on the page.\n4. Use /endfield link and paste it.\n\n**The token signs in to your SKPORT account, so treat it like a password.** Only paste it into /endfield link and never into a chat. It is stored encrypted and used only to read your own game card; /endfield unbind deletes it. Signing out of SKPORT may end it, and then you link again. SKPORT has no official API, so this could stop working. Servers in mainland China are not supported.",
+        "zh": "1. 用電腦瀏覽器到 {v0} 登入遊戲帳號。\n2. 在同一個瀏覽器開啟 {v1}\n3. 複製頁面上的全部內容。\n4. 使用 /endfield link 貼上。\n\n**憑證可以登入你的 SKPORT 帳號，請當成密碼看待。** 只貼在 /endfield link，不要貼到任何聊天裡。它會加密保存，只用來讀取你自己的遊戲資料；/endfield unbind 可以刪除。登出 SKPORT 後憑證可能失效，屆時重新連結即可。SKPORT 沒有官方 API，這項功能之後可能失效。不支援中國大陸伺服器。",
+    },
     "endfield.not_bound": {
         "en": "[Info] No Endfield UID is linked. Use /endfield bind with the UID from the game's profile menu.",
         "zh": "[提示] 還沒有綁定終末地 UID。請用 /endfield bind 填入遊戲個人名片上的 UID。",
@@ -60,6 +100,18 @@ MESSAGES: dict[str, dict[str, str]] = {
     "endfield.unbound": {
         "en": "[Success] Your Endfield link was removed.",
         "zh": "[成功] 已解除終末地綁定。",
+    },
+    "endfield.error_bad_token": {
+        "en": "[Failed] SKPORT did not accept this token, or it has expired. Get a new one with /endfield tutorial.",
+        "zh": "[失敗] SKPORT 不接受這個憑證，或憑證已過期。請依 /endfield tutorial 重新取得。",
+    },
+    "endfield.error_no_role": {
+        "en": "[Failed] This SKPORT account has no Endfield character.",
+        "zh": "[失敗] 這個 SKPORT 帳號沒有終末地角色。",
+    },
+    "endfield.error_no_key": {
+        "en": "[Failed] The encryption key is not set up, so the token was not saved. Please tell the bot's owner.",
+        "zh": "[失敗] 尚未設定加密金鑰，所以沒有保存憑證。請告知機器人擁有者。",
     },
     "endfield.error_bad_uid": {
         "en": "[Failed] That is not a UID. Copy the number from the game's profile menu.",

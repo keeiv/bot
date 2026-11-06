@@ -9,7 +9,7 @@
 | `STORAGE_ROOT` | 文件路徑的根目錄；未設定以程序工作目錄為準 |
 | `MYSQL_HOST`／`MYSQL_PORT` | 預設 `127.0.0.1`／`3307` |
 | `MYSQL_USER`／`MYSQL_PASSWORD`／`MYSQL_DATABASE` | MySQL 模式的專用帳號及資料庫 |
-| `GENSHIN_ENCRYPTION_KEY` | 帳號 Cookie 的原加密金鑰；已有密文時不可替換 |
+| `GENSHIN_ENCRYPTION_KEY` | 帳號 Cookie 與 SKPORT 帳號憑證的加密金鑰；已有密文時不可替換 |
 | `OSU_CLIENT_ID`／`OSU_CLIENT_SECRET` | 啟用 osu! API；綁定資料與 API 是否可用是不同狀態 |
 | `GITHUB_TOKEN` | 選用；GitHub 認證查詢 |
 | `BLACKLIST_API_KEY` | 外部黑名單查詢 |
@@ -30,7 +30,7 @@ Bot 的一般文字指令前綴由 `src/bot.py` 設為 `!`，部分功能另有�
 | --- | --- |
 | `data/storage/management.json` | 倉庫追蹤、歡迎訊息、自動角色 |
 | `data/storage/github_watch.json` | 通用 GitHub 監控與進度 |
-| `data/storage/endfield_bindings.json` | 成員綁定的終末地 UID（不含密碼或憑證） |
+| `data/storage/endfield_bindings.json` | 成員綁定的終末地 UID，以及加密後的 SKPORT 帳號憑證 |
 | `data/cache/endfield_store/` | Enka.Network 的終末地名稱資料表快取（每天更新） |
 | `data/storage/anti_spam_settings.json` | 防刷屏、白名單、信任與封鎖網域、防破壞信任名單 |
 | `data/storage/anti_spam_lockdowns.json` | 封鎖中的伺服器、各頻道原本的發言權限與自動解除時間 |
