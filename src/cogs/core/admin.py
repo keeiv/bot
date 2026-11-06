@@ -192,7 +192,8 @@ class Admin(commands.Cog):
 
         await ctx.defer()
         deleted = await ctx.channel.purge(limit=amount)
-        await ctx.followup.send(
+        # ctx.send answers the slash command after defer(), and replies to !clear too.
+        await ctx.send(
             tx("admin.success_deleted_messages", v0=(len(deleted))), ephemeral=True
         )
 

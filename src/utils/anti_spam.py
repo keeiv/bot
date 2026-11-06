@@ -13,6 +13,7 @@ import discord
 
 from src.utils.document_store import open_document
 from src.utils.document_store import read_document
+from src.utils.document_store import write_document
 from src.utils.i18n import text as tx
 
 # UTC+8 時區
@@ -116,6 +117,10 @@ class AntiSpamManager:
     """頂級防炸群管理器 — 多層偵測 + 自動升級"""
 
     SETTINGS_FILE = "data/storage/anti_spam_settings.json"
+    # Lockdowns in force, with each channel's send_messages before it, so a
+    # restart can still lift them, and whether every channel was locked yet:
+    # {guild_id: {"channels": {channel_id: True | False | None}, "complete": bool}}
+    LOCKDOWN_FILE = "data/storage/anti_spam_lockdowns.json"
 
     def __init__(self) -> None:
         # {guild_id: settings}
@@ -320,6 +325,50 @@ class AntiSpamManager:
     def set_lockdown(self, guild_id: int, active: bool) -> None:
         """設定封鎖模式"""
         self.lockdown_active[guild_id] = active
+
+    def load_lockdowns(
+        self,
+    ) -> Tuple[Dict[int, Dict[int, Optional[bool]]], set[int]]:
+        """讀回重啟前的封鎖：各頻道原本的發言權限，以及還沒鎖完的伺服器"""
+        try:
+            raw = read_document(self.LOCKDOWN_FILE)
+        except FileNotFoundError:
+            return {}, set()
+        if not isinstance(raw, dict):
+            raise TypeError("Lockdown records must be an object")
+        states: Dict[int, Dict[int, Optional[bool]]] = {}
+        unfinished: set[int] = set()
+        for guild, record in raw.items():
+            states[int(guild)] = {
+                int(channel): value for channel, value in record["channels"].items()
+            }
+            if not record.get("complete"):
+                unfinished.add(int(guild))
+            self.lockdown_active[int(guild)] = True
+        return states, unfinished
+
+    def save_lockdown(
+        self,
+        guild_id: int,
+        channels: Dict[int, Optional[bool]] | None,
+        complete: bool = False,
+    ) -> None:
+        """記下（channels 為 None 時移除）一個伺服器的封鎖紀錄"""
+        with self._settings_lock:
+            try:
+                raw = read_document(self.LOCKDOWN_FILE)
+            except FileNotFoundError:
+                raw = {}
+            if not isinstance(raw, dict):
+                raise TypeError("Lockdown records must be an object")
+            if channels is None:
+                raw.pop(str(guild_id), None)
+            else:
+                raw[str(guild_id)] = {
+                    "channels": {str(k): v for k, v in channels.items()},
+                    "complete": complete,
+                }
+            write_document(self.LOCKDOWN_FILE, raw)
 
     def reset_user(self, guild_id: int, user_id: int) -> None:
         """重設用戶所有紀錄"""

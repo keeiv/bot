@@ -26,6 +26,10 @@ class MessageLogger(commands.Cog):
         ensure_data_dir()
         self._cleanup_task.start()
 
+    async def logging(self, guild_id: int) -> bool:
+        """Whether this server set a log channel; others' messages are never kept."""
+        return bool(await run_storage(self.service.get_log_channel_id, guild_id))
+
     async def cog_unload(self) -> None:
         self._cleanup_task.cancel()
 
@@ -45,8 +49,10 @@ class MessageLogger(commands.Cog):
     @commands.Cog.listener()
     @localized("message")
     async def on_message(self, message: discord.Message) -> None:
-        """監聽所有訊息，記錄內容以備後用"""
+        """記錄訊息內容以備編輯／刪除日誌使用（只限設定了日誌頻道的伺服器）"""
         if message.author.bot or message.guild is None:
+            return
+        if not await self.logging(message.guild.id):
             return
         if not (
             await run_storage(self.service.get_record, message.guild.id, message.id)
@@ -68,6 +74,8 @@ class MessageLogger(commands.Cog):
     ) -> None:
         """監聽訊息編輯"""
         if before.guild is None or before.author.bot:
+            return
+        if not await self.logging(before.guild.id):
             return
         before_attachment_urls = [a.url for a in before.attachments]
         after_attachment_urls = [a.url for a in after.attachments]
@@ -146,6 +154,8 @@ class MessageLogger(commands.Cog):
     async def on_message_delete(self, message: discord.Message) -> None:
         """監聽訊息刪除"""
         if message.guild is None or message.author.bot:
+            return
+        if not await self.logging(message.guild.id):
             return
         try:
             guild_id = message.guild.id

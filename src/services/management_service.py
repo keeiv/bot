@@ -5,6 +5,7 @@ import copy
 from datetime import datetime
 import logging
 import os
+import re
 import shutil
 import threading
 import time
@@ -22,6 +23,30 @@ from src.utils.time_utils import format_datetime as _format_time
 log = logging.getLogger(__name__)
 
 _DATA_FILE = "data/storage/management.json"
+
+# The welcome message's placeholders, and {{ }} for literal braces as before;
+# nothing else in braces is touched.
+_PLACEHOLDER = re.compile(r"\{\{|\}\}|\{(user|username|server|count|created_at)\}")
+MAX_WELCOME = 2000  # a message or a DM
+MAX_WELCOME_EMBED = 4096  # an embed's description
+
+
+def render_welcome(template: str, limit: int = MAX_WELCOME, **values: Any) -> str:
+    """Fill ``{user}``, ``{username}``, ``{server}``, ``{count}`` and ``{created_at}``.
+
+    Not ``str.format``: a server's manager types the template, and a format spec
+    such as ``{count:>2000000000}`` would make the bot build a string of gigabytes,
+    while a mistyped ``{nope}`` would raise on every member who joins. ``{{`` and
+    ``}}`` still stand for literal braces, as they did. Cut to ``limit``.
+    """
+
+    def fill(match: re.Match[str]) -> str:
+        token = match.group(0)
+        if token in ("{{", "}}"):
+            return token[0]
+        return str(values.get(match.group(1), token))
+
+    return _PLACEHOLDER.sub(fill, template)[:limit]
 
 
 class ManagementService:

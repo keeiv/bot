@@ -6,6 +6,9 @@ from discord.ext import commands
 from discord.ext import tasks
 
 from src.services.management_service import ManagementService
+from src.services.management_service import MAX_WELCOME
+from src.services.management_service import MAX_WELCOME_EMBED
+from src.services.management_service import render_welcome
 from src.utils.i18n import text as tx
 from src.utils.lang_context import localized
 from src.utils.storage_worker import run_storage
@@ -597,7 +600,9 @@ class Management(commands.Cog):
         user_mention = test_user or interaction.user.mention
         server_name = test_server or interaction.guild.name
 
-        message = welcome_config["message"].format(
+        message = render_welcome(
+            welcome_config["message"],
+            MAX_WELCOME_EMBED,
             user=user_mention,
             username=interaction.user.display_name,
             server=server_name,
@@ -622,7 +627,8 @@ class Management(commands.Cog):
             await interaction.response.send_message(embed=embed, ephemeral=True)
         else:
             await interaction.response.send_message(
-                tx("management.preview", v0=(message)), ephemeral=True
+                tx("management.preview", v0=(message[: MAX_WELCOME - 10])),
+                ephemeral=True,
             )
 
     @welcome.command(name="disable", description="Turn off welcome messages")
@@ -870,7 +876,9 @@ class Management(commands.Cog):
                     discord.StageChannel,
                 ),
             ):
-                message = welcome_config["message"].format(
+                message = render_welcome(
+                    welcome_config["message"],
+                    MAX_WELCOME_EMBED,
                     user=member.mention,
                     username=member.display_name,
                     server=member.guild.name,
@@ -899,12 +907,13 @@ class Management(commands.Cog):
                     )
                     await channel.send(embed=embed)
                 else:
-                    await channel.send(message)
+                    await channel.send(message[:MAX_WELCOME])
 
                 # Send DM if enabled
                 if welcome_config.get("send_dm", False):
                     try:
-                        dm_message = welcome_config["message"].format(
+                        dm_message = render_welcome(
+                            welcome_config["message"],
                             user=member.mention,
                             username=member.display_name,
                             server=member.guild.name,
