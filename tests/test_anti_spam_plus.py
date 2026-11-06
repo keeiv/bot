@@ -899,5 +899,5 @@ def test_the_first_message_of_a_wave_of_links_does_not_stay_up():
         assert post(m, user, 10 + user, text, user) == []
     evidence = Evidence()
     assert spam.DETECT_COORDINATED in post(m, 3, 13, text, 3, evidence)
-    assert evidence.users == {1, 2}
+    assert evidence.users == {2}  # copied or not, the first poster is not punished
     assert (11, 1) in evidence.messages

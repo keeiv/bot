@@ -1210,12 +1210,15 @@ class AntiSpamManager:
         users = {m[1] for m in alike}
         if len(users) < s["similar_users"]:
             return None
-        # Whoever said it first may be the one being copied: alts repeating someone's
-        # words must not get that person punished, or their message removed. Not for
-        # a link, though: that is what a wave spreads, so it does not stay up.
-        first = None if URL_RE.search(signature) else min(alike, key=lambda m: m[0])[1]
+        # Whoever said it first may be the one being copied, so alts repeating someone
+        # cannot get that person punished. Their words stay up too, but a link goes:
+        # that is what a wave spreads, and losing one message is all a set-up can cost.
+        first = min(alike, key=lambda m: m[0])[1]
+        keep_first = not URL_RE.search(signature)
         evidence.users.update(users - {user_id, first})
-        evidence.messages.update((m[2], m[3]) for m in alike if m[3] and m[1] != first)
+        evidence.messages.update(
+            (m[2], m[3]) for m in alike if m[3] and not (keep_first and m[1] == first)
+        )
         self.hot_signatures[guild_id].append((now + window, signature))
         self.guild_messages[guild_id] = [m for m in log if m not in alike]
         return (
