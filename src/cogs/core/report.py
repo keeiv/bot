@@ -169,6 +169,11 @@ class BanModal(LocalizedModal, title="Ban member"):
         if not success:
             await interaction.followup.send(error_msg, ephemeral=True)
             return
+        anti_spam = interaction.client.get_cog("AntiSpam")
+        if anti_spam is not None:
+            await anti_spam.count_moderation(
+                interaction.guild, interaction.user.id, "ban", self.target.id
+            )
 
         try:
             temp_seconds = int(self.temp_duration.value or "0") if is_temp else 0

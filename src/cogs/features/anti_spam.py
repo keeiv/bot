@@ -601,10 +601,13 @@ class AntiSpam(commands.Cog):
                 v0=(detection_name(wave[0], wave[0])),
                 v1=(wave[2]),
             )
+            # At most a timeout for those not caught in the act: it undoes itself
+            # if someone did set them up.
+            action = wave[1] if wave[1] in (ACTION_WARN, ACTION_MUTE) else ACTION_MUTE
             for user_id in evidence.users:
                 other = message.guild.get_member(user_id)
                 if other is not None and await self._punish_member(
-                    other, wave[1], reason
+                    other, action, reason
                 ):
                     others += 1
                     self.manager.reset_user(message.guild.id, user_id)
@@ -756,6 +759,22 @@ class AntiSpam(commands.Cog):
         if action == ACTION_LOCKDOWN:
             await self._activate_lockdown(guild)
 
+    async def count_moderation(
+        self, guild: discord.Guild, actor_id: int, kind: str, target_id: int
+    ) -> None:
+        """Count a kick or ban a moderator made through BOT.
+
+        The audit log names BOT., so it is counted here for the person who asked.
+        """
+        if actor_id == guild.owner_id:
+            return
+        try:
+            result = self.manager.check_nuke(guild.id, actor_id, kind, target_id)
+            if result:
+                await self._stop_nuker(guild, actor_id, result)
+        except Exception:
+            log.exception("Could not count a moderation action in %s", guild.id)
+
     @commands.Cog.listener()
     async def on_audit_log_entry_create(self, entry: discord.AuditLogEntry) -> None:
         """防破壞：同一人短時間內大量刪頻道/身分組、封禁、踢人、建 webhook"""
@@ -765,7 +784,7 @@ class AntiSpam(commands.Cog):
         if kind is None or actor_id is None or actor_id == guild.owner_id:
             return
         if self.bot.user is not None and actor_id == self.bot.user.id:
-            return  # BOT.'s own kicks and bans
+            return  # BOT.'s own; moderators' commands arrive through count_moderation
         target = getattr(entry, "target", None)
         result = self.manager.check_nuke(
             guild.id, actor_id, kind, getattr(target, "id", None)

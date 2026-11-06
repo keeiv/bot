@@ -18,7 +18,9 @@ def interaction():
         guild=None,
         guild_id=None,
         locale=discord.Locale.taiwan_chinese,
-        client=SimpleNamespace(get_guild=lambda guild_id: object()),
+        client=SimpleNamespace(
+            get_guild=lambda guild_id: object(), get_cog=lambda name: None
+        ),
         response=SimpleNamespace(defer=AsyncMock(), send_message=AsyncMock()),
         followup=SimpleNamespace(send=AsyncMock()),
     )

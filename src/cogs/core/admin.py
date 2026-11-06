@@ -232,6 +232,11 @@ class Admin(commands.Cog):
 
         try:
             await user.kick(reason=reason)
+            anti_spam = ctx.bot.get_cog("AntiSpam")
+            if anti_spam is not None:
+                await anti_spam.count_moderation(
+                    ctx.guild, ctx.author.id, "kick", user.id
+                )
             embed = discord.Embed(
                 title=tx("admin.success_member_kicked"),
                 description=tx("admin.member_reason", v0=(user.mention), v1=(reason)),
@@ -276,6 +281,11 @@ class Admin(commands.Cog):
 
         try:
             await user.ban(reason=reason)
+            anti_spam = ctx.bot.get_cog("AntiSpam")
+            if anti_spam is not None:
+                await anti_spam.count_moderation(
+                    ctx.guild, ctx.author.id, "ban", user.id
+                )
             embed = discord.Embed(
                 title=tx("admin.success_member_banned"),
                 description=tx("admin.member_reason", v0=(user.mention), v1=(reason)),

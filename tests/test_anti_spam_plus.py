@@ -96,8 +96,9 @@ def test_four_accounts_posting_the_same_text_are_caught_together():
         assert post(m, user, 10 + user, text, user) == []
     evidence = Evidence()
     assert spam.DETECT_COORDINATED in post(m, 4, 14, text, 4, evidence)
-    assert evidence.users == {1, 2, 3}
-    assert evidence.messages >= {(11, 1), (12, 2), (13, 3), (14, 4)}
+    assert evidence.users == {2, 3}  # the first may be the one being copied
+    assert evidence.messages >= {(12, 2), (13, 3), (14, 4)}
+    assert (11, 1) not in evidence.messages
     # whoever joins the wave afterwards is caught at once, alone
     later = Evidence()
     assert spam.DETECT_COORDINATED in post(m, 5, 15, text + "!", 5, later)
@@ -144,6 +145,7 @@ def test_one_file_posted_in_three_channels_is_cross_channel_spam():
         "free nitro for everyone https://bit.ly/3abc",
         "免費領取 Nitro https://bit.ly/3abc",
         "free nitro https://nitro-drop.example/x",
+        "https://disc0rd.example\\@discord.com/gift",  # a browser opens disc0rd.example
     ],
 )
 def test_malicious_links_are_caught(content):
@@ -388,12 +390,14 @@ async def test_every_account_of_a_wave_is_muted():
     c.manager.update_settings(GUILD, {"similar_users": 3, "flood_messages": 100})
     guild = make_guild()
     channel = make_channel(guild, 10)
-    spammers = [make_member(guild, user) for user in (5, 6, 7)]
+    author, *spammers = [make_member(guild, user) for user in (5, 6, 7, 8)]
     text = "check my profile for a free giveaway right now"
-    for n, member in enumerate(spammers):
+    for n, member in enumerate([author, *spammers]):
         await c.on_message(make_message(member, channel, text, n + 1))
-    for member in spammers:
-        member.timeout.assert_awaited_once()
+    # three alike messages trip it, so the fourth is the one caught at once
+    assert spammers[1].timeout.await_count == 1
+    assert spammers[0].timeout.await_count == 1
+    author.timeout.assert_not_awaited()
     channel.delete_messages.assert_awaited()
 
 
@@ -806,8 +810,8 @@ async def test_a_heavier_rule_on_one_account_does_not_spare_the_rest_of_the_wave
     await c.on_message(make_message(third, channel, "hello there", 3))
     await c.on_message(make_message(third, channel, text, 4))
     guild.ban.assert_awaited_once()
-    first.timeout.assert_awaited_once()
     second.timeout.assert_awaited_once()
+    first.timeout.assert_not_awaited()  # said it first
 
 
 async def test_lockdown_off_ends_a_raid_that_locked_nothing():
@@ -826,3 +830,63 @@ async def test_lockdown_off_ends_a_raid_that_locked_nothing():
     assert not c.manager.raid_active(GUILD)
     assert GUILD not in c.manager.raiders
     assert guild.text_channels[0].send_messages is False
+
+
+# ── security review ───────────────────────────────────────────────
+def test_a_backslash_cannot_hide_the_real_host():
+    assert spam.link_host("https://evil.example\\@discord.com/") == "evil.example"
+    m = manager(flood_messages=100)
+    m.update_list(GUILD, "blocked_domains", "add", "evil.example")
+    content = "https://evil.example\\@discord.com/x"
+    assert spam.DETECT_PHISHING in post(m, 1, 10, content, 1)
+
+
+async def test_copying_someone_s_post_does_not_get_them_punished():
+    c = cog()
+    c.manager.update_settings(GUILD, {"similar_users": 3, "flood_messages": 100})
+    guild = make_guild()
+    channel = make_channel(guild, 10)
+    author, alt_one, alt_two = [make_member(guild, user) for user in (5, 6, 7)]
+    text = "our server event starts on saturday at eight, everyone is welcome"
+    original = make_message(author, channel, text, 1)
+    await c.on_message(original)
+    await c.on_message(make_message(alt_one, channel, text, 2))
+    await c.on_message(make_message(alt_two, channel, text, 3))
+    author.timeout.assert_not_awaited()
+    original.delete.assert_not_awaited()
+    assert all(
+        1 not in [o.id for o in call.args[0]]
+        for call in channel.delete_messages.await_args_list
+    )
+
+
+async def test_the_rest_of_a_wave_is_at_most_timed_out():
+    c = cog()
+    c.manager.update_settings(
+        GUILD, {"similar_users": 3, "similar_action": "ban", "flood_messages": 100}
+    )
+    guild = make_guild()
+    channel = make_channel(guild, 10)
+    members = [make_member(guild, user) for user in (5, 6, 7)]
+    text = "check my profile for a free giveaway right now"
+    for n, member in enumerate(members):
+        await c.on_message(make_message(member, channel, text, n + 1))
+    assert [call.args[0].id for call in guild.ban.await_args_list] == [
+        7
+    ]  # caught in the act
+    members[1].timeout.assert_awaited_once()
+
+
+async def test_bans_through_bot_s_commands_count_for_the_moderator():
+    c = cog()
+    c.manager.update_settings(GUILD, {"nuke_limit": 3})
+    c._stop_nuker = AsyncMock()
+    guild = make_guild(owner_id=1)
+    for target in (10, 11):
+        await c.count_moderation(guild, 5, "ban", target)
+    c._stop_nuker.assert_not_awaited()
+    await c.count_moderation(guild, 5, "ban", 12)
+    c._stop_nuker.assert_awaited_once()
+    for target in (20, 21, 22):
+        await c.count_moderation(guild, 1, "ban", target)  # the owner
+    c._stop_nuker.assert_awaited_once()
