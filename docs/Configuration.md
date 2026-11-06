@@ -30,7 +30,10 @@ Bot 的一般文字指令前綴由 `src/bot.py` 設為 `!`，部分功能另有�
 | --- | --- |
 | `data/storage/management.json` | 倉庫追蹤、歡迎訊息、自動角色 |
 | `data/storage/github_watch.json` | 通用 GitHub 監控與進度 |
-| `data/storage/anti_spam_settings.json` | 防刷屏與白名單 |
+| `data/storage/anti_spam_settings.json` | 防刷屏、白名單、信任與封鎖網域、防破壞信任名單 |
+| `data/storage/anti_spam_lockdowns.json` | 封鎖中的伺服器、各頻道原本的發言權限與自動解除時間 |
+| `data/storage/anti_nuke_strips.json` | 防破壞拔除的身分組（供 `nuke_restore` 還原） |
+| `data/storage/global_bans.json` | `global_ban` 在各伺服器由 BOT. 做的封禁與來源清單 |
 | `data/storage/age_guard.json` | 年齡守門員 |
 | `data/storage/tickets.json` | 工單設定、計數器與記錄 |
 | `data/storage/temp_voice.json` | 暫時語音設定與頻道記錄 |

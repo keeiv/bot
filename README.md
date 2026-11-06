@@ -42,7 +42,7 @@
 
 | 範圍 | 做什麼 | 主要指令 |
 | --- | --- | --- |
-| 防護與管理 | 七種洗版偵測、自動加重處分、黑名單與申訴、舉報、訊息與審計日誌 | `/anti_spam` `/blacklist` `/appeal` `/clear` `/kick` `/ban` `/mute` `/warn` |
+| 防護與管理 | 13 種偵測（含跨頻道洗版、惡意連結、突襲、防破壞）、自動加重處分、黑名單與申訴、舉報、訊息與審計日誌 | `/anti_spam` `/blacklist` `/appeal` `/clear` `/kick` `/ban` `/mute` `/warn` |
 | 迎接新成員 | 歡迎訊息範本、自動身分組、年齡守門 | `/welcome` `/auto_role` `/age_guard` |
 | 伺服器服務 | 工單、臨時語音、抽獎、身分組與表情符號、伺服器設定面板 | `>>>ticket` `/temp_voice` `/giveaway` `/role` `/emoji` `/settings` |
 | 遊戲與成就 | 兩款雙人小遊戲、18 個成就 | `/deep-sea-oxygen` `/russian-roulette` `/achievements` |
@@ -57,21 +57,30 @@
 
 ### 防護與管理
 
-**防洗版**：`/anti_spam` 群組有 11 個子指令（`setup`、`flood`、`duplicate`、`mention`、`link`、`raid`、`escalation`、`whitelist`、`lockdown_off`、`status`、`mute_duration`）。
+**防洗版**：`/anti_spam` 群組有 19 個子指令（`setup`、`flood`、`duplicate`、`mention`、`link`、`raid`、`escalation`、`whitelist`、`lockdown_off`、`status`、`mute_duration`、`similar`、`attachment`、`phishing`、`domain`、`new_account`、`nuke`、`nuke_trust`、`nuke_restore`）。
 
 | 偵測 | 預設門檻 | 預設處理 |
 | --- | --- | --- |
 | 洪水 | 10 秒內超過 10 則訊息 | 禁言 |
-| 重複內容 | 30 秒內同樣內容 4 次 | 刪除訊息 |
+| 重複內容 | 30 秒內同樣或幾乎一樣的內容 4 次 | 刪除訊息 |
 | 大量提及 | 單則訊息 8 次提及 | 禁言 |
 | 連結 | 15 秒內 5 個連結（Discord 邀請連結直接刪除） | 刪除訊息 |
 | 表情 | 單則訊息 20 個表情 | 刪除訊息 |
 | 換行 | 單則訊息 30 個換行 | 刪除訊息 |
-| 突襲 | 30 秒內 10 人加入 | 封鎖頻道 |
+| 突襲 | 30 秒內 10 人加入 | 封鎖頻道，30 分鐘後自動解除；這一波裡帳號未滿 7 天的踢出 |
+| 跨頻道洗版 | 同一人 30 秒內在 3 個頻道發相似內容（含同一個檔案） | 禁言 |
+| 多帳號洗版 | 30 秒內 4 個帳號發相似的長訊息、連結或檔案 | 每個帳號都禁言 |
+| 附件轟炸 | 15 秒內 8 個附件或貼圖 | 刪除訊息 |
+| 惡意連結 | 仿冒 Discord／Steam 的網域、顯示 Discord／Steam 網址卻連到別處的連結、免費 Nitro 誘餌配短網址或誘餌網域 | 一律刪除，再禁言 |
+| 新帳號 | 預設關閉；可設帳號未滿幾小時就處置 | 私訊原因後踢出 |
+| 防破壞 | 同一人 30 秒內 5 次刪頻道、刪身分組、封禁、踢人、清除成員或建立 Webhook | 拔除身分組並通知擁有者 |
 
-處理方式共六種：警告、刪除訊息、禁言、踢出、封禁、封鎖頻道。10 分鐘內累計 3 次違規（預設值，可用 `escalation` 調整），會比這次最重的處分再升一級（最高到封鎖頻道）。洪水、重複、提及、連結與突襲的門檻可調整，也能設定白名單身分組與頻道；表情與換行目前使用預設門檻。
+處理方式共六種：警告、刪除訊息、禁言、踢出、封禁、封鎖頻道。10 分鐘內累計 3 次違規（預設值，可用 `escalation` 調整），會比這次最重的處分再升一級（最高到封鎖頻道）。刪除以上的處分會連同這個人最近一分鐘在各頻道的訊息一起清掉。洪水、重複、提及、連結、突襲、相似內容、附件、惡意連結與新帳號的門檻可調整，也能設定白名單身分組與頻道，`domain` 可加入信任或封鎖的網域；表情與換行目前使用預設門檻。
 
-**黑名單與申訴**：`/blacklist add`／`remove`／`list`／`info` 管理本地黑名單並查詢 Mori.black 共享黑名單與 CatHome API（開發者限定）。被擋下的使用者可用 `/appeal` 提交、`/appeal_status` 查詢，由開發者審核；提交時沿用原本的封鎖原因，沒有另外填寫的表單。接受申訴會移除本地黑名單或撤銷 Mori.black 的紀錄，CatHome API 的封鎖仍須由對方解除。詳見 [黑名單指南](BLACKLIST_GUIDE.md)。
+> [!IMPORTANT]
+> 防破壞只有伺服器擁有者能設定（`nuke`、`nuke_trust`、`nuke_restore`），不受 `setup` 總開關影響；擁有者與 BOT. 自己的操作不計，突襲期間封禁或踢出這波突襲帳號也不計。拔除的身分組會先記錄，誤判時用 `nuke_restore` 還原。BOT. 只能處理身分組低於自己的成員，請把 BOT. 的身分組放在管理身分組之上，並給它「查看審核日誌」權限。
+
+**黑名單與申訴**：`/blacklist add`／`remove`／`list`／`info` 管理本地黑名單並查詢 Mori.black 共享黑名單與 CatHome API（開發者限定）。被擋下的使用者可用 `/appeal` 提交、`/appeal_status` 查詢，由開發者審核；提交時沿用原本的封鎖原因，沒有另外填寫的表單。`global_ban` 會在 BOT. 所在的每個伺服器預先封禁（每 5 分鐘對齊一次，加入新伺服器時立即執行）；紀錄移除後，只解除 BOT. 自己做的封禁。接受申訴會移除本地黑名單或撤銷該次申訴所針對的 Mori.black 紀錄，CatHome API 的封鎖仍須由對方解除。詳見 [黑名單指南](BLACKLIST_GUIDE.md)。
 
 **舉報**：右鍵訊息 → 應用程式 → `舉報訊息`（英文介面為 `Report message`），送到 `/report_channel set` 設定的頻道；管理員可直接按按鈕禁言、封禁或警告，每個動作都附表單。`/report_channel status` 查看目前設定。
 

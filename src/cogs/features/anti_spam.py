@@ -1,10 +1,14 @@
 import asyncio
+from collections import defaultdict
+from datetime import datetime
 from datetime import timedelta
-from typing import Any
+import logging
+from typing import Any, Iterable
 
 import discord
 from discord import app_commands
 from discord.ext import commands
+from discord.ext import tasks
 
 from src.utils.anti_spam import ACTION_BAN
 from src.utils.anti_spam import ACTION_DELETE
@@ -12,16 +16,53 @@ from src.utils.anti_spam import ACTION_KICK
 from src.utils.anti_spam import ACTION_LOCKDOWN
 from src.utils.anti_spam import ACTION_MUTE
 from src.utils.anti_spam import action_name
+from src.utils.anti_spam import ACTION_SEVERITY
 from src.utils.anti_spam import ACTION_WARN
 from src.utils.anti_spam import AntiSpamManager
 from src.utils.anti_spam import create_anti_spam_log_embed
+from src.utils.anti_spam import create_nuke_alert_embed
 from src.utils.anti_spam import create_raid_alert_embed
+from src.utils.anti_spam import DETECT_COORDINATED
+from src.utils.anti_spam import DETECT_PHISHING
 from src.utils.anti_spam import detection_name
+from src.utils.anti_spam import Evidence
+from src.utils.anti_spam import link_host
+from src.utils.anti_spam import NUKE_ACTIONS
+from src.utils.anti_spam import NUKE_STRIP
+from src.utils.anti_spam import raid_member_action
+from src.utils.anti_spam import TZ_OFFSET
 from src.utils.anti_spam import VALID_ACTIONS
 from src.utils.config_manager import get_guild_log_channel
 from src.utils.i18n import text as tx
 from src.utils.lang_context import localized
 from src.utils.storage_worker import run_storage
+
+log = logging.getLogger(__name__)
+
+# 稽核日誌裡計入防破壞的操作
+AUDIT_KINDS = {
+    discord.AuditLogAction.channel_delete: "channel_delete",
+    discord.AuditLogAction.channel_create: "channel_create",
+    discord.AuditLogAction.role_delete: "role_delete",
+    discord.AuditLogAction.ban: "ban",
+    discord.AuditLogAction.kick: "kick",
+    discord.AuditLogAction.member_prune: "prune",
+    discord.AuditLogAction.webhook_create: "webhook_create",
+}
+# 拔完身分組後還留著這些權限（例如機器人自己的整合身分組）就踢出
+DANGEROUS_PERMISSIONS = (
+    "administrator",
+    "manage_guild",
+    "manage_channels",
+    "manage_roles",
+    "manage_webhooks",
+    "ban_members",
+    "kick_members",
+)
+# 加入時的處置集中幾秒後一次回報，突襲時不洗日誌頻道
+JOIN_REPORT_DELAY = 5.0
+JOIN_REPORT_LINES = 20
+GREEN = discord.Color.from_rgb(46, 204, 113)
 
 
 class AntiSpam(commands.Cog):
@@ -38,6 +79,47 @@ class AntiSpam(commands.Cog):
         self._lockdown_states, self._unfinished = self.manager.load_lockdowns()
         # one lockdown change at a time per server (a raid keeps triggering it)
         self._lockdown_locks: dict[int, asyncio.Lock] = {}
+        # guild_id -> lines waiting to be reported together
+        self._join_reports: dict[int, list[str]] = {}
+        self._report_tasks: set[asyncio.Task[None]] = set()
+
+    async def cog_load(self) -> None:
+        self._lift_loop.start()
+
+    async def cog_unload(self) -> None:
+        self._lift_loop.cancel()
+
+    @tasks.loop(seconds=60)
+    async def _lift_loop(self) -> None:
+        """到時間的封鎖自動解除，並清掉過期的偵測紀錄"""
+        self.manager.prune()
+        for guild_id in self.manager.due_lockdowns():
+            guild = self.bot.get_guild(guild_id)
+            if guild is None:
+                continue
+            try:
+                await self._auto_lift(guild)
+            except Exception:
+                log.exception("Could not lift the lockdown of guild %s", guild_id)
+
+    @_lift_loop.before_loop
+    async def _before_lift_loop(self) -> None:
+        await self.bot.wait_until_ready()
+
+    @localized("guild")
+    async def _auto_lift(self, guild: discord.Guild) -> None:
+        if not await self._deactivate_lockdown(guild, only_if_due=True):
+            return
+        await self._send_log(
+            guild.id,
+            discord.Embed(
+                title=tx("anti_spam.lockdown_auto_lifted"),
+                description=tx(
+                    "anti_spam.channel_sending_permissions_have_been_restored"
+                ),
+                color=GREEN,
+            ),
+        )
 
     # ───────────── 輔助方法 ─────────────
 
@@ -156,8 +238,24 @@ class AntiSpam(commands.Cog):
         return self._lockdown_locks.setdefault(guild_id, asyncio.Lock())
 
     async def _activate_lockdown(self, guild: discord.Guild) -> None:
-        """啟用封鎖模式 — 鎖定所有文字頻道，并廮存原始權限"""
+        """啟用封鎖模式 — 鎖定所有文字頻道，并廮存原始權限
+
+        raid_lift_minutes 大於 0 時，封鎖在那之後自動解除；封鎖中再被觸發會延後。
+        """
         async with self._lockdown_lock(guild.id):
+            minutes = self.manager.get_settings(guild.id)["raid_lift_minutes"]
+            until = (
+                datetime.now(TZ_OFFSET).timestamp() + minutes * 60
+                if minutes > 0
+                else None
+            )
+            if self.manager.is_lockdown(guild.id) and guild.id not in self._unfinished:
+                await run_storage(self.manager.save_lockdown_until, guild.id, until)
+                return
+            if until is None:
+                self.manager.lockdown_until.pop(guild.id, None)
+            else:
+                self.manager.lockdown_until[guild.id] = until
             await self._lock_channels(guild)
 
     async def _lock_channels(self, guild: discord.Guild) -> None:
@@ -210,10 +308,15 @@ class AntiSpam(commands.Cog):
         )
         self._unfinished.discard(guild.id)
 
-    async def _deactivate_lockdown(self, guild: discord.Guild) -> None:
-        """解除封鎖模式，回復封鎖前原始權限"""
+    async def _deactivate_lockdown(
+        self, guild: discord.Guild, only_if_due: bool = False
+    ) -> bool:
+        """解除封鎖模式，回復封鎖前原始權限；only_if_due 時只在到期後解除"""
         async with self._lockdown_lock(guild.id):
+            if only_if_due and guild.id not in self.manager.due_lockdowns():
+                return False  # a raid in the meantime put it off
             await self._unlock_channels(guild)
+            return True
 
     async def _unlock_channels(self, guild: discord.Guild) -> None:
         channel_states = self._lockdown_states.get(guild.id, {})
@@ -242,6 +345,185 @@ class AntiSpam(commands.Cog):
         self._lockdown_states.pop(guild.id, None)
         self._unfinished.discard(guild.id)
         self.manager.set_lockdown(guild.id, False)
+        self.manager.lockdown_until.pop(guild.id, None)
+        self.manager.end_raid(guild.id)
+
+    async def _punish_member(
+        self, member: discord.Member, action: str, reason: str
+    ) -> bool:
+        """對不是透過訊息抓到的成員（加入者、一起洗版的帳號）執行處置"""
+        guild = member.guild
+        if (
+            member.bot
+            or member.id == guild.owner_id
+            or member.guild_permissions.administrator
+            or guild.me.top_role <= member.top_role
+            or self.manager.is_whitelisted(guild.id, member, 0)
+        ):
+            return False
+        s = self.manager.get_settings(guild.id)
+        try:
+            if action == ACTION_WARN:
+                await member.send(
+                    embed=discord.Embed(
+                        title=tx("anti_spam.warning_spam_protection"),
+                        description=reason,
+                        color=discord.Color.from_rgb(255, 200, 0),
+                    )
+                )
+            elif action == ACTION_MUTE:
+                await member.timeout(
+                    timedelta(seconds=s.get("mute_duration", 3600)), reason=reason
+                )
+            elif action == ACTION_KICK:
+                await guild.kick(member, reason=reason)
+            elif action == ACTION_BAN:
+                await guild.ban(
+                    member,
+                    reason=reason,
+                    delete_message_days=s.get("ban_delete_days", 1),
+                )
+            else:
+                return False
+            return True
+        except discord.HTTPException:
+            return False
+
+    async def _delete_messages(
+        self, guild: discord.Guild, messages: Iterable[tuple[int, int]]
+    ) -> None:
+        """刪掉各頻道裡的這些訊息（找不到的略過）"""
+        by_channel: dict[int, list[int]] = defaultdict(list)
+        for channel_id, message_id in messages:
+            by_channel[channel_id].append(message_id)
+        for channel_id, ids in by_channel.items():
+            channel = guild.get_channel_or_thread(channel_id)
+            if channel is None or not hasattr(channel, "delete_messages"):
+                continue
+            if len(ids) > 1:
+                try:
+                    for start in range(0, len(ids), 100):
+                        await channel.delete_messages(
+                            [discord.Object(i) for i in ids[start : start + 100]]
+                        )
+                    continue
+                except discord.HTTPException:
+                    pass  # some were gone already: one by one below
+            for message_id in ids:
+                try:
+                    await channel.get_partial_message(message_id).delete()
+                except discord.HTTPException:
+                    continue
+
+    def _report_join(
+        self,
+        guild: discord.Guild,
+        member: discord.Member,
+        detection: str,
+        action: str,
+        ok: bool,
+    ) -> None:
+        """記下一筆加入時的處置，幾秒後和同時段的其他筆一起送到日誌"""
+        pending = self._join_reports.setdefault(guild.id, [])
+        pending.append(
+            tx(
+                "anti_spam.join_report_line",
+                v0=(member.mention),
+                v1=(member.id),
+                v2=(detection_name(detection, detection)),
+                v3=(action_name(action, action)),
+                v4=(tx("anti_spam.done") if ok else tx("anti_spam.not_done")),
+            )
+        )
+        if len(pending) == 1:
+            task = asyncio.get_running_loop().create_task(
+                self._flush_join_reports(guild)
+            )
+            self._report_tasks.add(task)
+            task.add_done_callback(self._report_tasks.discard)
+
+    async def _flush_join_reports(self, guild: discord.Guild) -> None:
+        await asyncio.sleep(JOIN_REPORT_DELAY)
+        lines = self._join_reports.pop(guild.id, [])
+        if not lines:
+            return
+        shown = lines[:JOIN_REPORT_LINES]
+        if len(lines) > len(shown):
+            shown.append(tx("anti_spam.and_more", v0=(len(lines) - len(shown))))
+        await self._send_log(
+            guild.id,
+            discord.Embed(
+                title=tx("anti_spam.join_report_title", v0=(len(lines))),
+                description="\n".join(shown),
+                color=discord.Color.from_rgb(255, 120, 0),
+                timestamp=datetime.now(TZ_OFFSET),
+            ),
+        )
+
+    async def _disarm(
+        self, guild: discord.Guild, member: discord.Member | None, action: str
+    ) -> str:
+        """處置大量破壞的人，回傳做了什麼"""
+        if member is None:
+            return tx("anti_spam.nuke_member_gone")
+        me = guild.me
+        if member.top_role >= me.top_role:
+            return tx("anti_spam.nuke_role_too_high")
+        reason = tx("anti_spam.nuke_reason")
+        try:
+            if action == ACTION_BAN:
+                await guild.ban(member, reason=reason, delete_message_days=0)
+                return action_name(ACTION_BAN)
+            if action == ACTION_KICK:
+                await guild.kick(member, reason=reason)
+                return action_name(ACTION_KICK)
+            removable = [
+                r
+                for r in member.roles
+                if not r.is_default() and not r.managed and r < me.top_role
+            ]
+            if removable:
+                # saved before removing, so nuke_restore can always give them back
+                await run_storage(
+                    self.manager.save_strip,
+                    guild.id,
+                    member.id,
+                    [r.id for r in removable],
+                )
+                await member.remove_roles(*removable, reason=reason)
+            value = 0
+            for role in member.roles:
+                if role not in removable:
+                    value |= role.permissions.value
+            kept = discord.Permissions(value)
+            if any(getattr(kept, name) for name in DANGEROUS_PERMISSIONS):
+                await guild.kick(member, reason=reason)
+                return tx("anti_spam.nuke_stripped_and_kicked", v0=(len(removable)))
+            return tx("anti_spam.nuke_stripped", v0=(len(removable)))
+        except discord.Forbidden:
+            return tx("anti_spam.bot_lacks_permission")
+        except discord.HTTPException as exc:
+            return str(exc)[:120]
+
+    @localized("guild")
+    async def _stop_nuker(
+        self, guild: discord.Guild, actor_id: int, result: tuple[str, str, str]
+    ) -> None:
+        _, action, detail = result
+        member = guild.get_member(actor_id)
+        if member is None:
+            try:
+                member = await guild.fetch_member(actor_id)
+            except discord.HTTPException:
+                member = None
+        outcome = await self._disarm(guild, member, action)
+        embed = create_nuke_alert_embed(guild.name, guild.id, actor_id, detail, outcome)
+        await self._send_log(guild.id, embed)
+        try:
+            owner = guild.owner or await self.bot.fetch_user(guild.owner_id)
+            await owner.send(embed=embed)
+        except discord.HTTPException:
+            pass  # DMs closed: the log channel has it
 
     # ───────────── 事件監聽 ─────────────
 
@@ -267,30 +549,65 @@ class AntiSpam(commands.Cog):
             except discord.HTTPException:
                 pass
 
+        evidence = Evidence()
         triggers = self.manager.check_message(
             guild_id=message.guild.id,
             user_id=message.author.id,
             content=message.content or "",
             channel_id=message.channel.id,
             member=message.author,
+            message_id=message.id,
+            attachments=[f"{a.filename}:{a.size}" for a in message.attachments],
+            stickers=[str(sticker.id) for sticker in message.stickers],
+            evidence=evidence,
         )
 
         if not triggers:
             return
 
         # 取最嚴重的動作執行
-        from src.utils.anti_spam import ACTION_SEVERITY
-
         triggers.sort(key=lambda t: ACTION_SEVERITY.get(t[1], 0), reverse=True)
         worst_det, worst_action, worst_detail = triggers[0]
         strike_count = self.manager.get_user_strikes(
             message.guild.id, message.author.id
         )
 
+        # 惡意連結不論動作輕重都先刪掉，不讓其他人點到
+        if any(det == DETECT_PHISHING for det, _, _ in triggers):
+            try:
+                await message.delete()
+            except discord.HTTPException:
+                pass
+
         # 執行動作
         action_ok, fail_reason = await self._execute_action(
             worst_action, message, worst_detail, worst_det
         )
+
+        # 刪除以上的動作：這個人（多帳號洗版時是每個人）最近在各頻道的訊息一起清掉
+        severities = [ACTION_SEVERITY.get(action, 0) for _, action, _ in triggers]
+        if any(
+            ACTION_SEVERITY[ACTION_DELETE] <= severity <= ACTION_SEVERITY[ACTION_BAN]
+            for severity in severities
+        ):
+            await self._delete_messages(message.guild, evidence.messages)
+
+        # 多帳號洗版：其他參與的帳號依這條規則處置，就算這個人另外觸發了更重的規則
+        others = 0
+        wave = next((t for t in triggers if t[0] == DETECT_COORDINATED), None)
+        if wave and evidence.users:
+            reason = tx(
+                "anti_spam.spam_protection",
+                v0=(detection_name(wave[0], wave[0])),
+                v1=(wave[2]),
+            )
+            for user_id in evidence.users:
+                other = message.guild.get_member(user_id)
+                if other is not None and await self._punish_member(
+                    other, wave[1], reason
+                ):
+                    others += 1
+                    self.manager.reset_user(message.guild.id, user_id)
 
         # 發送日誌
         embed = create_anti_spam_log_embed(
@@ -304,6 +621,13 @@ class AntiSpam(commands.Cog):
             detail=worst_detail,
             strike_count=strike_count,
         )
+
+        if others:
+            embed.add_field(
+                name=tx("anti_spam.also_handled"),
+                value=tx("anti_spam.accounts", v0=(others)),
+                inline=True,
+            )
 
         # 如果有多個觸發，列出所有
         if len(triggers) > 1:
@@ -329,31 +653,125 @@ class AntiSpam(commands.Cog):
             self.manager.reset_user(message.guild.id, message.author.id)
 
     @commands.Cog.listener()
-    @localized("member")
     async def on_member_join(self, member: discord.Member) -> None:
-        """監聽成員加入 — 突襲偵測"""
+        """監聽成員加入 — 新帳號門檻與突襲偵測"""
         if member.bot:
             return
+        # Both checks before anything that waits, the language lookup included: a
+        # moderator banning this account meanwhile must already find it among the raid's.
+        gate = self.manager.check_new_account(member.guild.id, member.created_at)
+        evidence = Evidence()
+        result = self.manager.check_member_join(
+            member.guild.id, member.id, member.created_at, evidence
+        )
+        if gate or result:
+            await self._handle_join(member, gate, result, evidence)
 
-        result = self.manager.check_member_join(member.guild.id)
+    @localized("member")
+    async def _handle_join(
+        self,
+        member: discord.Member,
+        gate: Any,
+        result: Any,
+        evidence: Evidence,
+    ) -> None:
+        guild = member.guild
+        s = self.manager.get_settings(guild.id)
+
+        removed = False
+        if gate:
+            det, action, detail = gate
+            if action in (ACTION_KICK, ACTION_BAN):
+                try:
+                    await member.send(
+                        tx(
+                            "anti_spam.new_account_dm",
+                            v0=(guild.name),
+                            v1=(s["new_account_hours"]),
+                        )
+                    )
+                except discord.HTTPException:
+                    pass  # DMs closed
+            ok = await self._punish_member(
+                member,
+                action,
+                tx(
+                    "anti_spam.spam_protection",
+                    v0=(detection_name(det)),
+                    v1=(detail()),
+                ),
+            )
+            removed = ok and action in (ACTION_KICK, ACTION_BAN)
+            self._report_join(guild, member, det, action, ok)
+
         if not result:
             return
+        det, action, detail = result
+        reason = tx(
+            "anti_spam.spam_protection", v0=(detection_name(det)), v1=(detail())
+        )
 
-        det_type, action, detail = result
-        s = self.manager.get_settings(member.guild.id)
+        if not evidence.wave:
+            # 突襲模式中加入的新帳號
+            if not removed:
+                ok = await self._punish_member(member, action, reason)
+                self._report_join(guild, member, det, action, ok)
+            return
 
         embed = create_raid_alert_embed(
-            guild_name=member.guild.name,
-            guild_id=member.guild.id,
+            guild_name=guild.name,
+            guild_id=guild.id,
             join_count=s["raid_joins"],
             window=s["raid_window"],
             action=action,
         )
+        member_action = raid_member_action(s)
+        handled = 0
+        for user_id in evidence.users if member_action else ():
+            raider = guild.get_member(user_id)
+            if raider is not None and await self._punish_member(
+                raider, member_action, reason
+            ):
+                handled += 1
+        if evidence.users and member_action:
+            embed.add_field(
+                name=tx("anti_spam.raid_handled"),
+                value=tx(
+                    "anti_spam.raid_handled_value",
+                    v0=(handled),
+                    v1=(len(evidence.users)),
+                    v2=(action_name(member_action)),
+                ),
+                inline=False,
+            )
+        if s["raid_lift_minutes"] > 0 and action == ACTION_LOCKDOWN:
+            embed.add_field(
+                name=tx("anti_spam.auto_lift"),
+                value=tx("anti_spam.after_minutes", v0=(s["raid_lift_minutes"])),
+                inline=True,
+            )
 
-        await self._send_log(member.guild.id, embed)
+        await self._send_log(guild.id, embed)
 
         if action == ACTION_LOCKDOWN:
-            await self._activate_lockdown(member.guild)
+            await self._activate_lockdown(guild)
+
+    @commands.Cog.listener()
+    async def on_audit_log_entry_create(self, entry: discord.AuditLogEntry) -> None:
+        """防破壞：同一人短時間內大量刪頻道/身分組、封禁、踢人、建 webhook"""
+        kind = AUDIT_KINDS.get(entry.action)
+        guild = entry.guild
+        actor_id = entry.user_id
+        if kind is None or actor_id is None or actor_id == guild.owner_id:
+            return
+        if self.bot.user is not None and actor_id == self.bot.user.id:
+            return  # BOT.'s own kicks and bans
+        target = getattr(entry, "target", None)
+        result = self.manager.check_nuke(
+            guild.id, actor_id, kind, getattr(target, "id", None)
+        )
+        if result:
+            await self._stop_nuker(guild, actor_id, result)
 
     # ───────────── 指令群組 ─────────────
 
@@ -666,6 +1084,8 @@ class AntiSpam(commands.Cog):
         joins="How many joins trigger it",
         window="Time window in seconds",
         action="What to do (lockdown recommended)",
+        auto_lift_minutes="Lift the lockdown by itself after this many minutes (0 = by hand)",
+        young_days="During a raid, accounts younger than this many days are removed (0 = everyone)",
     )
     @localized("interaction")
     async def raid_cmd(
@@ -675,6 +1095,8 @@ class AntiSpam(commands.Cog):
         joins: int = 10,
         window: int = 30,
         action: str = "lockdown",
+        auto_lift_minutes: int = 30,
+        young_days: int = 7,
     ) -> None:
         """設定突襲偵測"""
         if (
@@ -704,6 +1126,8 @@ class AntiSpam(commands.Cog):
                 "raid_joins": max(3, joins),
                 "raid_window": max(10, window),
                 "raid_action": action,
+                "raid_lift_minutes": max(0, min(auto_lift_minutes, 1440)),
+                "raid_age_days": max(0, min(young_days, 365)),
             },
         )
         status = tx("anti_spam.enable") if enabled else tx("anti_spam.disable")
@@ -714,6 +1138,20 @@ class AntiSpam(commands.Cog):
         embed.add_field(
             name=tx("anti_spam.join_threshold"),
             value=tx("anti_spam.members", v0=(joins)),
+            inline=True,
+        )
+        embed.add_field(
+            name=tx("anti_spam.auto_lift"),
+            value=(
+                tx("anti_spam.after_minutes", v0=(auto_lift_minutes))
+                if auto_lift_minutes > 0
+                else tx("anti_spam.by_hand")
+            ),
+            inline=True,
+        )
+        embed.add_field(
+            name=tx("anti_spam.young_accounts"),
+            value=tx("anti_spam.younger_than_days", v0=(max(0, young_days))),
             inline=True,
         )
         embed.add_field(
@@ -783,6 +1221,414 @@ class AntiSpam(commands.Cog):
             inline=False,
         )
         await interaction.followup.send(embed=embed)
+
+    async def _outside_guild(self, interaction: discord.Interaction) -> bool:
+        """Answer and return True when the command was not used in a server."""
+        if (
+            interaction.guild is None
+            or interaction.guild_id is None
+            or not isinstance(interaction.user, discord.Member)
+        ):
+            await interaction.response.send_message(
+                tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
+            )
+            return True
+        return False
+
+    async def _not_owner(self, interaction: discord.Interaction) -> bool:
+        """Anti-nuke settings are the owner's: an admin could otherwise switch it off and nuke."""
+        if await self._outside_guild(interaction):
+            return True
+        if interaction.user.id != interaction.guild.owner_id:
+            await interaction.response.send_message(
+                tx("anti_spam.failed_owner_only"), ephemeral=True
+            )
+            return True
+        return False
+
+    async def _bad_action(
+        self, interaction: discord.Interaction, action: str, allowed: list[str]
+    ) -> bool:
+        if action in allowed:
+            return False
+        await interaction.response.send_message(
+            tx(
+                "anti_spam.failed_invalid_action_available_actions",
+                v0=(", ".join(allowed)),
+            ),
+            ephemeral=True,
+        )
+        return True
+
+    async def _saved(
+        self,
+        interaction: discord.Interaction,
+        title: str,
+        fields: list[tuple[str, str]],
+    ) -> None:
+        embed = discord.Embed(title=title, color=GREEN)
+        for name, value in fields:
+            embed.add_field(name=name, value=value, inline=True)
+        await interaction.followup.send(embed=embed)
+
+    @anti_spam_group.command(
+        name="similar",
+        description="Set up detection of similar messages across channels and accounts",
+    )
+    @app_commands.describe(
+        enabled="Whether it is on",
+        channels="Channels one member posts alike messages in before it triggers",
+        users="Accounts posting alike messages before it triggers",
+        window="Time window in seconds",
+        action="What to do",
+    )
+    @localized("interaction")
+    async def similar_cmd(
+        self,
+        interaction: discord.Interaction,
+        enabled: bool = True,
+        channels: int = 3,
+        users: int = 4,
+        window: int = 30,
+        action: str = "mute",
+    ) -> None:
+        """設定跨頻道／多帳號相似內容偵測"""
+        if await self._outside_guild(interaction) or await self._bad_action(
+            interaction, action, VALID_ACTIONS
+        ):
+            return
+        await interaction.response.defer()
+        channels, users, window = (
+            max(2, channels),
+            max(2, users),
+            max(5, min(window, 600)),
+        )
+        await run_storage(
+            self.manager.update_settings,
+            interaction.guild_id,
+            {
+                "similar_enabled": enabled,
+                "similar_channels": channels,
+                "similar_users": users,
+                "similar_window": window,
+                "similar_action": action,
+            },
+        )
+        status = tx("anti_spam.enable") if enabled else tx("anti_spam.disable")
+        await self._saved(
+            interaction,
+            tx("anti_spam.settings_similar_detection", v0=(status)),
+            [
+                (tx("anti_spam.channels_threshold"), str(channels)),
+                (tx("anti_spam.accounts_threshold"), str(users)),
+                (tx("anti_spam.time_window"), tx("audit_log.seconds", v0=(window))),
+                (tx("anti_spam.action"), action_name(action, action)),
+            ],
+        )
+
+    @anti_spam_group.command(
+        name="attachment", description="Set up attachment and sticker spam detection"
+    )
+    @app_commands.describe(
+        enabled="Whether it is on",
+        limit="Most attachments and stickers allowed in the time window",
+        window="Time window in seconds",
+        action="What to do",
+    )
+    @localized("interaction")
+    async def attachment_cmd(
+        self,
+        interaction: discord.Interaction,
+        enabled: bool = True,
+        limit: int = 8,
+        window: int = 15,
+        action: str = "delete",
+    ) -> None:
+        """設定附件／貼圖轟炸偵測"""
+        if await self._outside_guild(interaction) or await self._bad_action(
+            interaction, action, VALID_ACTIONS
+        ):
+            return
+        await interaction.response.defer()
+        limit, window = max(2, limit), max(5, min(window, 600))
+        await run_storage(
+            self.manager.update_settings,
+            interaction.guild_id,
+            {
+                "attachment_enabled": enabled,
+                "attachment_limit": limit,
+                "attachment_window": window,
+                "attachment_action": action,
+            },
+        )
+        status = tx("anti_spam.enable") if enabled else tx("anti_spam.disable")
+        await self._saved(
+            interaction,
+            tx("anti_spam.settings_attachment_detection", v0=(status)),
+            [
+                (tx("anti_spam.attachment_limit"), tx("anti_spam.items", v0=(limit))),
+                (tx("anti_spam.time_window"), tx("audit_log.seconds", v0=(window))),
+                (tx("anti_spam.action"), action_name(action, action)),
+            ],
+        )
+
+    @anti_spam_group.command(
+        name="phishing", description="Set up malicious link detection"
+    )
+    @app_commands.describe(
+        enabled="Whether it is on",
+        action="What to do besides deleting the message",
+    )
+    @localized("interaction")
+    async def phishing_cmd(
+        self,
+        interaction: discord.Interaction,
+        enabled: bool = True,
+        action: str = "mute",
+    ) -> None:
+        """設定惡意連結偵測"""
+        if await self._outside_guild(interaction) or await self._bad_action(
+            interaction, action, VALID_ACTIONS
+        ):
+            return
+        await interaction.response.defer()
+        await run_storage(
+            self.manager.update_settings,
+            interaction.guild_id,
+            {"phishing_enabled": enabled, "phishing_action": action},
+        )
+        status = tx("anti_spam.enable") if enabled else tx("anti_spam.disable")
+        await self._saved(
+            interaction,
+            tx("anti_spam.settings_phishing_detection", v0=(status)),
+            [(tx("anti_spam.action"), action_name(action, action))],
+        )
+
+    @anti_spam_group.command(
+        name="domain", description="Trust or block a link domain for this server"
+    )
+    @app_commands.describe(
+        kind="allow (never flagged) or block (always flagged)",
+        action="add or remove",
+        domain="The domain, like example.com",
+    )
+    @localized("interaction")
+    async def domain_cmd(
+        self,
+        interaction: discord.Interaction,
+        kind: str,
+        action: str,
+        domain: str,
+    ) -> None:
+        """管理本伺服器的網域允許／封鎖清單"""
+        if await self._outside_guild(interaction):
+            return
+        host = link_host(domain if "://" in domain else "https://" + domain.strip())
+        if kind not in ("allow", "block") or action not in ("add", "remove"):
+            await interaction.response.send_message(
+                tx("anti_spam.failed_domain_usage"), ephemeral=True
+            )
+            return
+        if "." not in host or len(host) > 253:
+            await interaction.response.send_message(
+                tx("anti_spam.failed_invalid_domain"), ephemeral=True
+            )
+            return
+        await interaction.response.defer()
+        key = "allowed_domains" if kind == "allow" else "blocked_domains"
+        changed = await run_storage(
+            self.manager.update_list, interaction.guild_id, key, action, host
+        )
+        if not changed:
+            await interaction.followup.send(
+                tx("anti_spam.info_no_changes"), ephemeral=True
+            )
+            return
+        verb = tx("anti_spam.added") if action == "add" else tx("anti_spam.removed")
+        listed = (
+            tx("anti_spam.allowed_domains")
+            if kind == "allow"
+            else tx("anti_spam.blocked_domains")
+        )
+        await self._saved(
+            interaction,
+            tx("anti_spam.settings_domain_list_updated"),
+            [(listed, f"{verb} `{host}`")],
+        )
+
+    @anti_spam_group.command(
+        name="new_account",
+        description="Set up what happens to very new accounts that join",
+    )
+    @app_commands.describe(
+        hours="Accounts younger than this many hours are caught (0 = off)",
+        action="What to do (kick recommended)",
+    )
+    @localized("interaction")
+    async def new_account_cmd(
+        self,
+        interaction: discord.Interaction,
+        hours: int = 0,
+        action: str = "kick",
+    ) -> None:
+        """設定新帳號門檻"""
+        allowed = [ACTION_WARN, ACTION_MUTE, ACTION_KICK, ACTION_BAN]
+        if await self._outside_guild(interaction) or await self._bad_action(
+            interaction, action, allowed
+        ):
+            return
+        await interaction.response.defer()
+        hours = max(0, min(hours, 24 * 90))
+        await run_storage(
+            self.manager.update_settings,
+            interaction.guild_id,
+            {"new_account_hours": hours, "new_account_action": action},
+        )
+        await self._saved(
+            interaction,
+            tx("anti_spam.settings_new_account_updated"),
+            [
+                (
+                    tx("anti_spam.young_accounts"),
+                    (
+                        tx("anti_spam.younger_than_hours", v0=(hours))
+                        if hours
+                        else tx("anti_spam.off")
+                    ),
+                ),
+                (tx("anti_spam.action"), action_name(action, action)),
+            ],
+        )
+
+    @anti_spam_group.command(
+        name="nuke", description="Set up anti-nuke (server owner only)"
+    )
+    @app_commands.describe(
+        enabled="Whether it is on",
+        limit="Dangerous actions by one member before it triggers",
+        window="Time window in seconds",
+        action="strip (take their roles), kick or ban",
+    )
+    @localized("interaction")
+    async def nuke_cmd(
+        self,
+        interaction: discord.Interaction,
+        enabled: bool = True,
+        limit: int = 5,
+        window: int = 30,
+        action: str = NUKE_STRIP,
+    ) -> None:
+        """設定防破壞（只有伺服器擁有者）"""
+        if await self._not_owner(interaction) or await self._bad_action(
+            interaction, action, NUKE_ACTIONS
+        ):
+            return
+        await interaction.response.defer()
+        limit, window = max(2, min(limit, 50)), max(5, min(window, 600))
+        await run_storage(
+            self.manager.update_settings,
+            interaction.guild_id,
+            {
+                "nuke_enabled": enabled,
+                "nuke_limit": limit,
+                "nuke_window": window,
+                "nuke_action": action,
+            },
+        )
+        status = tx("anti_spam.enable") if enabled else tx("anti_spam.disable")
+        await self._saved(
+            interaction,
+            tx("anti_spam.settings_nuke", v0=(status)),
+            [
+                (tx("anti_spam.nuke_threshold"), tx("anti_spam.times", v0=(limit))),
+                (tx("anti_spam.time_window"), tx("audit_log.seconds", v0=(window))),
+                (tx("anti_spam.action"), action_name(action, action)),
+            ],
+        )
+
+    @anti_spam_group.command(
+        name="nuke_trust",
+        description="Let a member or bot skip anti-nuke (server owner only)",
+    )
+    @app_commands.describe(action="add or remove", user="The member or bot")
+    @localized("interaction")
+    async def nuke_trust_cmd(
+        self, interaction: discord.Interaction, action: str, user: discord.User
+    ) -> None:
+        """管理防破壞信任名單（只有伺服器擁有者）"""
+        if await self._not_owner(interaction):
+            return
+        if action not in ("add", "remove"):
+            await interaction.response.send_message(
+                tx("anti_spam.failed_action_must_be_add_or"), ephemeral=True
+            )
+            return
+        await interaction.response.defer()
+        changed = await run_storage(
+            self.manager.update_list,
+            interaction.guild_id,
+            "nuke_trusted",
+            action,
+            user.id,
+        )
+        if not changed:
+            await interaction.followup.send(
+                tx("anti_spam.info_no_changes"), ephemeral=True
+            )
+            return
+        verb = tx("anti_spam.added") if action == "add" else tx("anti_spam.removed")
+        await self._saved(
+            interaction,
+            tx("anti_spam.settings_nuke_trust_updated"),
+            [(tx("anti_spam.nuke_trusted"), f"{verb} {user.mention}")],
+        )
+
+    @anti_spam_group.command(
+        name="nuke_restore",
+        description="Give back the roles anti-nuke took (server owner only)",
+    )
+    @app_commands.describe(member="The member whose roles were taken")
+    @localized("interaction")
+    async def nuke_restore_cmd(
+        self, interaction: discord.Interaction, member: discord.Member
+    ) -> None:
+        """還原防破壞拔掉的身分組（只有伺服器擁有者）"""
+        if await self._not_owner(interaction):
+            return
+        await interaction.response.defer(ephemeral=True)
+        guild = interaction.guild
+        role_ids = await run_storage(self.manager.get_strip, guild.id, member.id)
+        if not role_ids:
+            await interaction.followup.send(
+                tx("anti_spam.info_nothing_to_restore"), ephemeral=True
+            )
+            return
+        roles = [
+            role
+            for role_id in role_ids
+            if (role := guild.get_role(role_id)) is not None
+            and role < guild.me.top_role
+        ]
+        try:
+            if roles:
+                await member.add_roles(
+                    *roles, reason=tx("anti_spam.nuke_restore_reason")
+                )
+        except discord.HTTPException:
+            await interaction.followup.send(
+                tx("anti_spam.bot_lacks_permission"), ephemeral=True
+            )
+            return
+        await run_storage(self.manager.save_strip, guild.id, member.id, [])
+        await interaction.followup.send(
+            tx(
+                "anti_spam.success_roles_restored",
+                v0=(member.mention),
+                v1=(len(roles)),
+                v2=(len(role_ids) - len(roles)),
+            ),
+            ephemeral=True,
+        )
 
     @anti_spam_group.command(name="whitelist", description="Manage the allow list")
     @app_commands.describe(
@@ -862,13 +1708,33 @@ class AntiSpam(commands.Cog):
                 tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
             )
             return
-        if not self.manager.is_lockdown(interaction.guild_id):
+        locked = self.manager.is_lockdown(interaction.guild_id)
+        if not locked and not self.manager.raid_active(interaction.guild_id):
             await interaction.response.send_message(
                 tx("anti_spam.info_lockdown_is_not_active"), ephemeral=True
             )
             return
 
         await interaction.response.defer()
+        if not locked:
+            # A raid set to kick or ban locks nothing, yet it can run on with no end.
+            self.manager.end_raid(interaction.guild_id)
+            await interaction.followup.send(
+                embed=discord.Embed(
+                    title=tx("anti_spam.success_raid_mode_ended"), color=GREEN
+                )
+            )
+            await self._send_log(
+                interaction.guild_id,
+                discord.Embed(
+                    title=tx("anti_spam.success_raid_mode_ended"),
+                    description=tx(
+                        "anti_spam.lifted_by", v0=(interaction.user.mention)
+                    ),
+                    color=GREEN,
+                ),
+            )
+            return
         await self._deactivate_lockdown(interaction.guild)
 
         embed = discord.Embed(
@@ -1007,6 +1873,81 @@ class AntiSpam(commands.Cog):
                 v0=(s["raid_joins"]),
                 v1=(s["raid_window"]),
                 v2=(action_name(s["raid_action"])),
+            ),
+            inline=True,
+        )
+
+        # 跨頻道／多帳號
+        sim_st = tx("anti_spam.on") if s["similar_enabled"] else tx("anti_spam.off")
+        embed.add_field(
+            name=tx("anti_spam.similar_status", v0=(sim_st)),
+            value=tx(
+                "anti_spam.similar_status_value",
+                v0=(s["similar_channels"]),
+                v1=(s["similar_users"]),
+                v2=(s["similar_window"]),
+                v3=(action_name(s["similar_action"])),
+            ),
+            inline=True,
+        )
+
+        # 附件
+        att_st = tx("anti_spam.on") if s["attachment_enabled"] else tx("anti_spam.off")
+        embed.add_field(
+            name=tx("anti_spam.attachment_status", v0=(att_st)),
+            value=tx(
+                "anti_spam.times_s",
+                v0=(s["attachment_limit"]),
+                v1=(s["attachment_window"]),
+                v2=(action_name(s["attachment_action"])),
+            ),
+            inline=True,
+        )
+
+        # 惡意連結
+        ph_st = tx("anti_spam.on") if s["phishing_enabled"] else tx("anti_spam.off")
+        embed.add_field(
+            name=tx("anti_spam.phishing_status", v0=(ph_st)),
+            value=tx(
+                "anti_spam.phishing_status_value",
+                v0=(action_name(s["phishing_action"])),
+                v1=(len(s["allowed_domains"])),
+                v2=(len(s["blocked_domains"])),
+            ),
+            inline=True,
+        )
+
+        # 新帳號與突襲期間
+        embed.add_field(
+            name=tx("anti_spam.young_accounts"),
+            value=tx(
+                "anti_spam.young_status_value",
+                v0=(
+                    tx("anti_spam.younger_than_hours", v0=(s["new_account_hours"]))
+                    if s["new_account_hours"]
+                    else tx("anti_spam.off")
+                ),
+                v1=(action_name(s["new_account_action"])),
+                v2=(s["raid_age_days"]),
+                v3=(
+                    tx("anti_spam.after_minutes", v0=(s["raid_lift_minutes"]))
+                    if s["raid_lift_minutes"]
+                    else tx("anti_spam.by_hand")
+                ),
+            ),
+            inline=True,
+        )
+
+        # 防破壞
+        nuke_st = tx("anti_spam.on") if s["nuke_enabled"] else tx("anti_spam.off")
+        embed.add_field(
+            name=tx("anti_spam.nuke_status", v0=(nuke_st)),
+            value=tx(
+                "anti_spam.nuke_status_value",
+                v0=(s["nuke_limit"]),
+                v1=(s["nuke_window"]),
+                v2=(action_name(s["nuke_action"])),
+                v3=(len(s["nuke_trusted"])),
             ),
             inline=True,
         )

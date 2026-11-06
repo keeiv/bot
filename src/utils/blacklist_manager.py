@@ -205,6 +205,17 @@ class BlacklistManager:
         """檢查 Mori.black 共享黑名單 (查本機的整份副本，過期才重新同步)"""
         if not self._configured(MORI):
             return None
+        await self._mori_fresh()
+        entries = self._mori.get(str(user_id), [])
+        mode = (
+            "global_ban"
+            if any(e.get("mode") == "global_ban" for e in entries)
+            else ("block" if entries else None)
+        )
+        return self._parse(MORI, user_id, {"mode": mode, "entries": entries})
+
+    async def _mori_fresh(self) -> None:
+        """Sync the Mori.black copy when it is stale and the service is not backed off."""
         if not self.session:
             await self.setup()
         loop = asyncio.get_running_loop()
@@ -216,13 +227,35 @@ class BlacklistManager:
             if self._mori_sync is None or self._mori_sync.done():
                 self._mori_sync = asyncio.ensure_future(self._mori_refresh())
             await asyncio.shield(self._mori_sync)
-        entries = self._mori.get(str(user_id), [])
-        mode = (
-            "global_ban"
-            if any(e.get("mode") == "global_ban" for e in entries)
-            else ("block" if entries else None)
-        )
-        return self._parse(MORI, user_id, {"mode": mode, "entries": entries})
+
+    async def global_ban_targets(self) -> Optional[Dict[int, str]]:
+        """Everyone to ban in every server: {user_id: "local" | "mori" | "local,mori"}.
+
+        None while a configured Mori.black copy has never loaded, so a gap at
+        start-up is never read as "their entries are gone".
+        """
+        targets: Dict[int, str] = {}
+        if self._configured(MORI):
+            await self._mori_fresh()
+            if self._mori_synced_at is None:
+                return None
+            for user, entries in self._mori.items():
+                if user.isdigit() and any(
+                    e.get("mode") == "global_ban" for e in entries
+                ):
+                    targets[int(user)] = MORI
+        now = datetime.now(TZ_OFFSET)
+        for user, entry in self.local_list().items():
+            if not user.isdigit() or entry.get("mode") != "global_ban":
+                continue
+            expires_at = entry.get("expires_at")
+            try:
+                if expires_at and datetime.fromisoformat(expires_at) <= now:
+                    continue
+            except ValueError:
+                pass
+            targets[int(user)] = "local,mori" if int(user) in targets else "local"
+        return targets
 
     async def _mori_refresh(self) -> None:
         """Read the whole Mori.black list; on failure keep the last copy and back off."""
