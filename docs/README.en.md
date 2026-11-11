@@ -48,7 +48,7 @@ plus a web dashboard where you can set most of it up.
 | Protection & moderation | 13 detectors (including cross-channel spam, malicious links, raids and anti-nuke), automatic escalation, blacklist and appeals, reports, message and audit logs | `/anti_spam` `/blacklist` `/appeal` `/clear` `/kick` `/ban` `/mute` `/warn` |
 | Welcoming members | Welcome message templates, auto roles, age guard | `/welcome` `/auto_role` `/age_guard` |
 | Server services | Tickets, temporary voice, giveaways, roles and emojis, a server settings panel | `>>>ticket` `/temp_voice` `/giveaway` `/role` `/emoji` `/settings` |
-| Games & achievements | Two two-player mini-games, 18 achievements | `/deep-sea-oxygen` `/russian-roulette` `/achievements` |
+| Games & achievements | Companions, two two-player mini-games, 22 achievements | `/pet` `/deep-sea-oxygen` `/russian-roulette` `/achievements` |
 | Account integrations | osu!, HoYoLAB / Miyoushe, Arknights: Endfield, GitHub repository notifications | `/osu` `/mhy` `/endfield` `/repo_watch` `/repo_track` |
 | Tools | File conversion and compression (NovaGrid), message translation, AI chat | `/convert` `/compress` `/usage` `Translate message` `/ai` |
 | Language | English and Chinese interface, set per server and per user | `/language` |
@@ -118,7 +118,8 @@ Six actions are available: warn, delete message, mute, kick, ban and lock channe
 
 - `/deep-sea-oxygen`: a turn-based co-op game for two, with shared oxygen and items.
 - `/russian-roulette`: a two-player duel with chips and items.
-- 18 achievements (6 common, 7 uncommon, 5 rare) covering chat, games and social activity. `/achievements` shows your progress, `/achievement_codex` lists them all, and `/achievement_info` shows the details of one.
+- `/pet`: one pixel companion each (Fable, Ark or Nova), the same in every server. Care for it, send it on expeditions for materials, break through and evolve it, Lv 2 to 100. The rules are in [companions](pet.md) (Chinese).
+- 22 achievements (7 common, 7 uncommon, 6 rare, 1 epic, 1 legendary) covering chat, games, companions and social activity. `/achievements` shows your progress, `/achievement_codex` lists them all, and `/achievement_info` shows the details of one.
 
 ### Account integrations
 

@@ -65,6 +65,27 @@ ACHIEVEMENTS: dict[str, dict[Any, Any]] = {
         "description": "在俄羅斯輪盤中獲勝 5 次",
         "rarity": "rare",
     },
+    # 夥伴成就
+    "pet_adopt": {
+        "name": "初次相遇",
+        "description": "領養第一隻夥伴",
+        "rarity": "common",
+    },
+    "pet_final_form": {
+        "name": "最終型態",
+        "description": "夥伴進化到第三階段",
+        "rarity": "rare",
+    },
+    "pet_mutation": {
+        "name": "異變",
+        "description": "讓夥伴突變進化",
+        "rarity": "epic",
+    },
+    "pet_max_level": {
+        "name": "並肩到頂",
+        "description": "夥伴達到 Lv 100",
+        "rarity": "legendary",
+    },
     "kursk_sinking": {
         "name": "庫爾斯克號",
         "description": "首次在潛艇遊戲中失敗",

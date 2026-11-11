@@ -30,6 +30,7 @@ Bot 的一般文字指令前綴由 `src/bot.py` 設為 `!`，部分功能另有�
 | --- | --- |
 | `data/storage/management.json` | 倉庫追蹤、歡迎訊息、自動角色 |
 | `data/storage/github_watch.json` | 通用 GitHub 監控與進度 |
+| `data/storage/pets/` | 夥伴：每位成員一份文件，加上排行榜摘要 `_index.json` |
 | `data/storage/endfield_bindings.json` | 成員綁定的終末地 UID，以及加密後的 SKPORT 帳號憑證 |
 | `data/cache/endfield_store/` | Enka.Network 的終末地名稱資料表快取（每天更新） |
 | `data/storage/anti_spam_settings.json` | 防刷屏、白名單、信任與封鎖網域、防破壞信任名單 |

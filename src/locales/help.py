@@ -219,6 +219,10 @@ CATEGORIES: dict[str, tuple[HelpCategory, ...]] = {
                     lines=(
                         "`/deep-sea-oxygen` - 深海氧氣瓶遊戲",
                         "`/russian-roulette` - 俄羅斯輪盤",
+                        "`/pet adopt` - 領養夥伴（寓言、方舟、諾瓦）",
+                        "`/pet panel` - 查看並照顧夥伴",
+                        "`/pet expedition` - 派夥伴遠征",
+                        "`/pet guide` - 夥伴玩法說明",
                     ),
                 ),
                 HelpBlock(
@@ -462,6 +466,10 @@ CATEGORIES: dict[str, tuple[HelpCategory, ...]] = {
                     lines=(
                         "`/deep-sea-oxygen` - deep-sea oxygen game",
                         "`/russian-roulette` - Russian roulette",
+                        "`/pet adopt` - adopt a companion (Fable, Ark, Nova)",
+                        "`/pet panel` - see and care for your companion",
+                        "`/pet expedition` - send it on an expedition",
+                        "`/pet guide` - how companions work",
                     ),
                 ),
                 HelpBlock(
