@@ -21,7 +21,11 @@ class SystemMaintenance(commands.Cog):
         self.bot = bot
         self.start_time = time.time()
         self.memory_threshold = 80.0
+        # Share of the host's memory held by this process; only this is
+        # something the bot's own caches can do anything about.
+        self.process_memory_threshold = 25.0
         self.cpu_threshold = 80.0
+        self._memory_pressure = False
 
         self._maintenance_task.start()
         self._performance_task.start()
@@ -90,8 +94,21 @@ class SystemMaintenance(commands.Cog):
             memory_percent = psutil.virtual_memory().percent
             cpu_percent = await asyncio.to_thread(psutil.cpu_percent, 1)
 
-            if memory_percent > self.memory_threshold:
-                log.warning("[診斷] 記憶體使用率過高: %.1f%%", memory_percent)
+            process = psutil.Process()
+            own_percent = process.memory_percent()
+            pressure = memory_percent > self.memory_threshold
+            # Said when it starts, not on every round while it lasts.
+            if pressure and not self._memory_pressure:
+                log.warning(
+                    "[診斷] 記憶體使用率過高: %.1f%%（本程序 %.0f MB，%.1f%%）",
+                    memory_percent,
+                    process.memory_info().rss / 1048576,
+                    own_percent,
+                )
+            self._memory_pressure = pressure
+
+            if own_percent > self.process_memory_threshold:
+                log.warning("[診斷] 本程序記憶體使用過高: %.1f%%", own_percent)
                 await self.perform_emergency_cleanup()
 
             if cpu_percent > self.cpu_threshold:

@@ -2,6 +2,7 @@ import asyncio
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
+import logging
 from typing import Any
 
 import discord
@@ -16,6 +17,8 @@ from src.utils.lang_context import localized
 from src.utils.localized_ui import LocalizedModal
 from src.utils.localized_ui import LocalizedView
 from src.utils.storage_worker import run_storage
+
+log = logging.getLogger(__name__)
 
 TZ_OFFSET = timezone(timedelta(hours=8))
 
@@ -321,20 +324,39 @@ class GenshinCog(commands.Cog):
 
     @tasks.loop(minutes=30)
     async def _auto_signin_loop(self) -> None:
+        # A round that raises would stop the loop until the next restart.
+        try:
+            await self._auto_signin_round()
+        except Exception:
+            log.exception("Daily check-in round failed; trying again next round")
+
+    async def _auto_signin_round(self) -> None:
         now = datetime.now(TZ_OFFSET)
         # 設定在清晨 8:00 後自動進行簽到
         # 如果今日尚未執行，且目前時間已過 8:00 AM，則開始執行
-        if now.hour >= 8:
-            today_str = now.strftime("%Y-%m-%d")
-            last_run = await run_storage(self.service.get_last_signin_date)
-            if last_run != today_str:
-                await run_storage(self.service.save_last_signin_date, today_str)
-                print(f"[Genshin Cog] 啟動 {today_str} 自動每日簽到...")
-                results = await self.service.run_global_auto_sign_in()
+        if now.hour < 8:
+            return
+        today_str = now.strftime("%Y-%m-%d")
+        if getattr(self, "_signin_done_day", "") == today_str:
+            return
+        if await run_storage(self.service.get_last_signin_date) == today_str:
+            self._signin_done_day = today_str
+            return
+        print(f"[Genshin Cog] 啟動 {today_str} 自動每日簽到...")
+        results = await self.service.run_global_auto_sign_in()
+        # The day counts as done only once everyone was tried: a run cut short
+        # by a restart starts over (a repeated check-in answers "already done").
+        # Remembered here as well, so a date that cannot be stored does not
+        # send the reports again half an hour later.
+        self._signin_done_day = today_str
+        try:
+            await run_storage(self.service.save_last_signin_date, today_str)
+        except Exception:
+            log.exception("Could not store the check-in date")
 
-                # 私訊通知使用者
-                for user_id, user_results in results.items():
-                    await self._send_signin_report(user_id, user_results)
+        # 私訊通知使用者
+        for user_id, user_results in results.items():
+            await self._send_signin_report(user_id, user_results)
 
     @localized("user_id")
     async def _send_signin_report(self, user_id: int, user_results: list) -> None:

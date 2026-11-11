@@ -3,6 +3,7 @@
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
+import logging
 from typing import Any
 
 import discord
@@ -12,6 +13,7 @@ from discord.ext import commands
 from discord.ext import tasks
 
 from src.services.giveaway_service import GiveawayService
+from src.utils.document_store import StorageError
 from src.utils.i18n import language_scope
 from src.utils.i18n import t
 from src.utils.i18n import text as tx
@@ -19,6 +21,8 @@ from src.utils.lang_context import guild_language
 from src.utils.lang_context import localized
 from src.utils.localized_ui import LocalizedView
 from src.utils.storage_worker import run_storage
+
+log = logging.getLogger(__name__)
 
 TZ_OFFSET = timezone(timedelta(hours=8))
 GIVEAWAY_EMOJI = "\U0001f389"
@@ -132,9 +136,25 @@ class Giveaway(commands.Cog):
     async def check_giveaways(self) -> None:
         """檢查並結算到期的抽獎"""
         await self.bot.wait_until_ready()
-        expired = await run_storage(self.service.check_expired)
+        # A round that raises would stop the loop until the next restart.
+        try:
+            expired = await run_storage(self.service.check_expired)
+        except Exception:
+            log.exception("Could not read the giveaways due; trying again next round")
+            return
         for gid, ga in expired:
-            await self._end_giveaway(gid, ga)
+            try:
+                await self._end_giveaway(gid, ga)
+            except StorageError:
+                # check_expired already closed it; without this it would stay
+                # closed with no winners and no announcement.
+                log.exception("Giveaway %s could not be settled; reopening it", gid)
+                try:
+                    await run_storage(self.service.reopen, gid)
+                except Exception:
+                    log.exception("Giveaway %s could not be reopened", gid)
+            except Exception:
+                log.exception("Giveaway %s could not be settled", gid)
 
     # ───────────── 指令群組 ─────────────
 

@@ -88,6 +88,10 @@ class GiveawayService:
         ga = data.get(giveaway_id)
         if not ga or ga.get("ended"):
             return None, 0
+        # Past the deadline the list is frozen, even while a draw that could
+        # not be stored waits for its next try.
+        if datetime.now(TZ_OFFSET).timestamp() >= ga.get("end_time", float("inf")):
+            return None, 0
 
         participants: list[Any] = ga.setdefault("participants", [])
         if user_id in participants:
@@ -120,6 +124,20 @@ class GiveawayService:
         if ga:
             ga["ended"] = True
             ga["winner_ids"] = winner_ids
+            ga["settled"] = True
+            self._save(data)
+
+    def reopen(self, giveaway_id: str) -> None:
+        """把到期時已標記結束、但還沒抽出得獎者的抽獎放回等待結算"""
+        data = self._load()
+        ga = data.get(giveaway_id)
+        if (
+            ga
+            and ga.get("ended")
+            and not ga.get("settled")
+            and not ga.get("winner_ids")
+        ):
+            ga["ended"] = False
             self._save(data)
 
     def reroll(self, giveaway_id: str, num_winners: int) -> list[str]:
