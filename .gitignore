@@ -25,13 +25,6 @@ osu_api/.env.*
 
 
 
-memories/
-memory-tool/
-copilot-chat/
 
-# Local assistant settings and private character documents
-.claude/
-AGENTS.md
-CLAUDE.md
+# Local setup notes
 README_SETUP.md
-docs/CHARACTER_BIBLE.md
