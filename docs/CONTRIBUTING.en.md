@@ -20,6 +20,22 @@ Bug fixes, features, tests and documentation updates are all welcome. Most contr
 
 Small fixes and documentation updates can go straight to a PR. For new dependencies, changes to data formats or database tables, cross-module architecture changes, or changes to existing commands or permissions, open an issue first that explains the goal, compatibility impact and migration path, and only then start implementing.
 
+## Using AI tools
+
+This project has nothing against AI. A contribution written, refactored or checked with the help of AI tools is treated the same as one written by hand. It needs no label and is not turned down for it.
+
+There is one condition: **a pull request is merged only when it has no security problems.** Whoever wrote the code, and with whatever tool, a security problem found in review or by CI keeps it from passing until it is fixed. Before you send one, make sure that:
+
+- You have read and understood every line you send, and can explain in review why it is written that way. Do not send code you cannot follow.
+- No token, password or key is hard-coded, and no secret reaches a log, an error message or a reply.
+- User input never reaches a shell command, SQL, a file path or a URL unchecked.
+- No existing permission check, origin check or rate limit is loosened or bypassed.
+- Outside requests use HTTPS, keep certificate verification on, and have a timeout.
+- A new dependency is a real, maintained package with no known high-severity advisory. Tools sometimes suggest package names that do not exist; check before installing.
+- Changes that touch permissions, credentials, file uploads or outside connections come with tests, and pass the Bandit scan in CI.
+
+Comments are for whoever maintains the code next: say why the code does what it does, and leave out conversations with a tool or the history of how it was changed.
+
 ## Development environment
 
 The minimum is Python 3.11; production runs Python 3.13, and CI tests Python 3.11–3.13 on Linux. `pyproject.toml` is the source of truth for dependency and tool versions.
@@ -115,6 +131,8 @@ Commit messages and PR titles use Conventional Commits prefixes followed by a sh
 - `test:` tests
 
 A PR description should cover the problem, the new behavior and how you verified it. If it involves a data migration, also describe backups, compatibility and how to roll back, and link any related issue. The bot and the website live in separate repositories, so submit cross-project changes to each one separately.
+
+A PR with a security problem is not merged; see the checklist under [Using AI tools](#using-ai-tools). It applies to every contribution, not only those made with a tool.
 
 Only commit files related to your change. Never commit `.env`, tokens, passwords, encryption keys, cookies, user data, database files or local backups; documentation and examples should use empty or placeholder values only.
 

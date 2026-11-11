@@ -36,9 +36,10 @@ plus a web dashboard where you can set most of it up.
 - [Quick start](#quick-start)
 - [Terminal console (Windows)](#terminal-console-windows)
 - [Permissions](#permissions)
-- [Architecture](#architecture)
+- [How it works](#how-it-works)
 - [Data and storage](#data-and-storage)
 - [Project layout](#project-layout)
+- [Contributing](#contributing)
 - [License](#license)
 
 ## Features
@@ -298,31 +299,19 @@ Start, stop and restart the bot, check its status, database connection and logs,
 | `/blacklist`, developer commands | Developer only |
 | Everything else, such as games, achievements, osu!, HoYoLAB, translation, file tools, `/repo_watch status`, `/repo_track status`, `/welcome templates` / `preview` | None |
 
-## Architecture
+## How it works
 
-```mermaid
-flowchart TB
-    discord(["Discord"])
-    subgraph bot["Bot (discord.py)"]
-        cogs["Cogs<br/>command and event handling"]
-        services["Services<br/>business rules<br/>and data access"]
-    end
-    subgraph storage["Database, chosen by STORAGE_BACKEND"]
-        mysql[("MySQL 8.4<br/>mysql<br/>production")]
-        json[("JSON files + SQLite<br/>json<br/>compatibility mode")]
-    end
-    discord -->|"Gateway (WebSocket)<br/>message, member, voice<br/>and interaction events"| cogs
-    cogs -->|"HTTP API<br/>replies and moderation actions"| discord
-    cogs -->|"run_storage<br/>serialized on a worker thread"| services
-    services --> mysql
-    services -.-> json
-```
+From one Discord event to the bot's reply, there are four steps:
 
-- **Discord and the bot**: the bot receives events over the Gateway's WebSocket connection: messages, members joining, voice state, and interactions such as slash commands, buttons and forms. Reading message content and the member list are privileged intents (Message Content, Server Members) and must be enabled in the Discord Developer Portal first. Replies and actions such as timeouts, deleting messages and creating channels go out through Discord's HTTP API.
-- **Inside the bot**: cogs under `src/cogs` are loaded automatically at startup and handle commands and events; rules such as permission checks, thresholds and data formats live in `src/services`. Cogs hand reads and writes to `run_storage`, which runs them one at a time on a worker thread. It accepts at most 128 operations at once and reports an error if one cannot be accepted within 5 seconds, so storage never stalls the Discord heartbeat.
-- **Database**: `STORAGE_BACKEND` decides where data lives.
-  - `mysql` (production): settings and user data are stored as documents in the `documents` table, and every read verifies the SHA-256 checksum, refusing the data if it doesn't match. If a connection or write fails, the error is reported directly; the bot never falls back to the JSON files.
-  - `json` (compatibility mode, used for fresh installs): each piece of data is a JSON file under `data/`, written to a temporary file and then swapped in whole, so an interrupted write never leaves a partial file. Caches, metrics and audit records go to the SQLite file `data/storage/bot_database.db`.
+1. **Receive**: the bot gets events over the Gateway's WebSocket connection: messages, members joining, voice state, and interactions such as slash commands, buttons and forms. Reading message content and the member list are privileged intents (Message Content, Server Members) and must be enabled in the Discord Developer Portal first.
+2. **Handle**: cogs under `src/cogs` are loaded automatically at startup and handle commands and events; rules such as permission checks, thresholds and data formats live in `src/services`.
+3. **Read and write**: cogs hand reads and writes to `run_storage`, which runs them one at a time on a worker thread. It accepts at most 128 operations at once and reports an error if one cannot be accepted within 5 seconds, so Discord's heartbeat is never held up.
+4. **Reply**: replies and actions such as timeouts, deleting messages and creating channels go out through Discord's HTTP API.
+
+`STORAGE_BACKEND` decides where data lives:
+
+- `mysql` (production): settings and user data are stored as documents in the `documents` table, and every read verifies the SHA-256 checksum, refusing the data if it doesn't match. If a connection or write fails, the error is reported directly; the bot never falls back to the JSON files.
+- `json` (compatibility mode, used for fresh installs): each piece of data is a JSON file under `data/`, written to a temporary file and then swapped in whole, so an interrupted write never leaves a partial file. Caches, metrics and audit records go to the SQLite file `data/storage/bot_database.db`.
 
 ## Data and storage
 
@@ -381,7 +370,12 @@ Versions are pinned in one place, `pyproject.toml`. `requirements.txt` installs 
 
 </details>
 
-Want to contribute? Start with the [contributing guide](CONTRIBUTING.en.md) and the [development guide](DEVELOPMENT.md) (Chinese). For installation, configuration, deployment and troubleshooting, see the [documentation index](Home.md).
+## Contributing
+
+Bug fixes, features, tests and documentation updates are welcome. Start with the [contributing guide](CONTRIBUTING.en.md) and the [development guide](DEVELOPMENT.md) (Chinese). For installation, configuration, deployment and troubleshooting, see the [documentation index](Home.md).
+
+> [!IMPORTANT]
+> This project has nothing against AI: a contribution made with AI tools is treated the same as one written by hand. But a pull request is merged only when it has no security problems. Whoever wrote the code, and with whatever tool, a security problem found in it keeps the PR from passing until it is fixed. The requirements are in the contributing guide, under [Using AI tools](CONTRIBUTING.en.md#using-ai-tools).
 
 ## License
 

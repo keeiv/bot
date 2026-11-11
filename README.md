@@ -33,9 +33,10 @@
 - [快速開始](#快速開始)
 - [終端機控制台（Windows）](#終端機控制台windows)
 - [權限](#權限)
-- [架構](#架構)
+- [運作方式](#運作方式)
 - [資料與儲存](#資料與儲存)
 - [專案結構](#專案結構)
+- [參與貢獻](#參與貢獻)
 - [授權](#授權)
 
 ## 功能一覽
@@ -295,31 +296,19 @@ python -X utf8 -m src.control_panel
 | `/blacklist`、開發者指令 | 開發者限定 |
 | 其他指令，例如遊戲、成就、osu!、HoYoLAB、翻譯、檔案工具、`/repo_watch status`、`/repo_track status`、`/welcome templates`／`preview` | 不需要特殊權限 |
 
-## 架構
+## 運作方式
 
-```mermaid
-flowchart TB
-    discord(["Discord"])
-    subgraph bot["機器人（discord.py）"]
-        cogs["Cog<br/>指令與事件處理"]
-        services["Service<br/>業務規則<br/>與資料存取"]
-    end
-    subgraph storage["資料庫：由 STORAGE_BACKEND 決定"]
-        mysql[("MySQL 8.4<br/>mysql<br/>正式環境")]
-        json[("JSON 檔＋SQLite<br/>json<br/>相容模式")]
-    end
-    discord -->|"Gateway（WebSocket）<br/>訊息、成員、語音<br/>與互動事件"| cogs
-    cogs -->|"HTTP API<br/>回覆與管理動作"| discord
-    cogs -->|"run_storage<br/>背景執行緒依序執行"| services
-    services --> mysql
-    services -.-> json
-```
+從 Discord 的一個事件到機器人回覆，依序經過四步：
 
-- **Discord 與機器人**：機器人透過 Gateway 的 WebSocket 連線接收事件，包括訊息、成員加入、語音狀態，以及斜線指令、按鈕、表單等互動。其中讀取訊息內容與成員清單屬於特權 intent（Message Content、Server Members），要先在 Discord Developer Portal 開啟。回覆訊息與禁言、刪除訊息、建立頻道等動作，則經由 Discord 的 HTTP API 送出。
-- **機器人內部**：`src/cogs` 底下的 Cog 在啟動時自動載入，負責解析指令與事件；權限判斷、門檻與資料格式等規則集中在 `src/services`。Cog 透過 `run_storage` 把讀寫交給背景執行緒依序執行，同時最多受理 128 件，5 秒內無法受理就回報錯誤，不會卡住 Discord 的心跳。
-- **資料庫**：存放位置由 `STORAGE_BACKEND` 決定。
-  - `mysql`（正式環境）：設定與使用者資料以文件形式存在 `documents` 資料表，每次讀取都核對 SHA-256，不一致就拒絕使用。連線或寫入失敗時直接回報錯誤，不會退回讀寫 JSON 檔。
-  - `json`（相容模式，全新安裝使用）：每份資料是 `data/` 底下的 JSON 檔，先寫入暫存檔再整檔取代，寫到一半中斷也不會留下殘缺的檔案。快取、指標與審計紀錄放在 SQLite 檔 `data/storage/bot_database.db`。
+1. **接收**：機器人透過 Gateway 的 WebSocket 連線收到事件，包括訊息、成員加入、語音狀態，以及斜線指令、按鈕、表單等互動。讀取訊息內容與成員清單屬於特權 intent（Message Content、Server Members），要先在 Discord Developer Portal 開啟。
+2. **處理**：`src/cogs` 底下的 Cog 在啟動時自動載入，負責解析指令與事件；權限判斷、門檻與資料格式等規則集中在 `src/services`。
+3. **讀寫資料**：Cog 透過 `run_storage` 把讀寫交給背景執行緒依序執行，同時最多受理 128 件，5 秒內無法受理就回報錯誤，不會卡住 Discord 的心跳。
+4. **回覆**：回覆訊息與禁言、刪除訊息、建立頻道等動作，經由 Discord 的 HTTP API 送出。
+
+資料放在哪裡由 `STORAGE_BACKEND` 決定：
+
+- `mysql`（正式環境）：設定與使用者資料以文件形式存在 `documents` 資料表，每次讀取都核對 SHA-256，不一致就拒絕使用。連線或寫入失敗時直接回報錯誤，不會退回讀寫 JSON 檔。
+- `json`（相容模式，全新安裝使用）：每份資料是 `data/` 底下的 JSON 檔，先寫入暫存檔再整檔取代，寫到一半中斷也不會留下殘缺的檔案。快取、指標與審計紀錄放在 SQLite 檔 `data/storage/bot_database.db`。
 
 ## 資料與儲存
 
@@ -378,7 +367,12 @@ docs/                   說明文件
 
 </details>
 
-想參與開發，先讀 [開發指南](docs/DEVELOPMENT.md) 與 [貢獻指南](CONTRIBUTING.md)；安裝、設定、部署與排查見 [文件導覽](docs/Home.md)。
+## 參與貢獻
+
+歡迎錯誤修復、功能、測試與文件更新。先讀 [開發指南](docs/DEVELOPMENT.md) 與 [貢獻指南](CONTRIBUTING.md)；安裝、設定、部署與排查見 [文件導覽](docs/Home.md)。
+
+> [!IMPORTANT]
+> 這個專案不排斥 AI：用 AI 工具協助完成的貢獻，和手寫的一視同仁。但 Pull Request 必須沒有安全隱患才會合併。不論程式出自誰、用什麼工具寫，只要發現安全問題，修好之前都不會通過。要求寫在貢獻指南的[使用 AI 工具](CONTRIBUTING.md#使用-ai-工具)。
 
 ## 授權
 
