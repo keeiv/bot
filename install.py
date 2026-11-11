@@ -37,7 +37,7 @@ REPO = "keeiv/bot"
 REPO_URL = "https://github.com/%s.git" % REPO
 ZIP_URL = "https://codeload.github.com/%s/zip/refs/heads/%%s" % REPO
 DEFAULT_DIR = "bot"
-MIN_PYTHON = (3, 10)
+MIN_PYTHON = (3, 11)
 TESTED_PYTHON = (3, 13)  # the newest version CI runs
 STEPS = (
     "檢查環境",

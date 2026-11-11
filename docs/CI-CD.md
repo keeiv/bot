@@ -4,7 +4,7 @@
 
 ## 一般測試與品質
 
-Ubuntu 上分別使用 Python 3.10、3.11、3.12、3.13，安裝執行與開發依賴，執行 pytest、覆蓋率、Flake8、Black、isort 與 Bandit。覆蓋率上傳設定見工作流程；不能把通過 CI 等同所有功能都已有測試。
+Ubuntu 上分別使用 Python 3.11、3.12、3.13，安裝執行與開發依賴，執行 pytest、覆蓋率、Flake8、Black、isort 與 Bandit。覆蓋率上傳設定見工作流程；不能把通過 CI 等同所有功能都已有測試。
 
 ## MySQL 整合
 

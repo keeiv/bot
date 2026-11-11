@@ -4,7 +4,7 @@
 
 | 項目 | 內容 |
 | --- | --- |
-| Python | 最低 3.10，目前部署使用 3.13；CI 在 Linux 測 3.10–3.13 |
+| Python | 最低 3.11，目前部署使用 3.13；CI 在 Linux 測 3.11–3.13 |
 | 依賴 | 以 `pyproject.toml` 為準；`requirements.txt`、`requirements-dev.txt` 只是安裝入口 |
 | 儲存 | 正式環境 Oracle MySQL 8.4，另有 JSON 相容模式 |
 | 安裝與啟動 | 一行指令的快速安裝：`python install.py`（見 [README](../README.md#快速開始)）；手動步驟見 [安裝指南](Installation.md) |
@@ -188,9 +188,9 @@ python -m isort --check-only src services tests
 python -m bandit -r src services -ll
 ```
 
-CI 在 Ubuntu 上用 Python 3.10–3.13 執行，另外啟動 MySQL 8.4 跑整合測試。本機是 Windows 時要特別留意兩件事：
+CI 在 Ubuntu 上用 Python 3.11–3.13 執行，另外啟動 MySQL 8.4 跑整合測試。本機是 Windows 時要特別留意兩件事：
 
-- 新語法不能超過 Python 3.10。
+- 新語法不能超過 Python 3.11。
 - Windows 專用的程式在 Linux 上也要能通過測試。
 
 MySQL 整合測試的本機設定見 [貢獻指南](../CONTRIBUTING.md#資料遷移與測試隔離)。

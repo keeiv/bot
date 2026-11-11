@@ -19,7 +19,7 @@
 
 ## 開發環境
 
-專案最低要求 Python 3.10，目前部署使用 Python 3.13；CI 在 Linux 測試 Python 3.10–3.13。依賴與工具版本以 `pyproject.toml` 為準。
+專案最低要求 Python 3.11，目前部署使用 Python 3.13；CI 在 Linux 測試 Python 3.11–3.13。依賴與工具版本以 `pyproject.toml` 為準。
 
 ```bash
 python -m venv .venv

@@ -15,7 +15,7 @@
 以及一個可以在網站上完成設定的儀表板。
 
 [![CI](https://github.com/keeiv/bot/actions/workflows/ci.yml/badge.svg)](https://github.com/keeiv/bot/actions/workflows/ci.yml)
-![Python](https://img.shields.io/badge/python-3.10%E2%80%933.13-3776AB)
+![Python](https://img.shields.io/badge/python-3.11%E2%80%933.13-3776AB)
 ![discord.py](https://img.shields.io/badge/discord.py-2.7-5865F2)
 ![License](https://img.shields.io/badge/license-AGPL--3.0--only-F99549)
 
@@ -175,7 +175,7 @@
 
 ## 快速開始
 
-需要 Python 3.10 以上（目前部署使用 3.13）。
+需要 Python 3.11 以上（目前部署使用 3.13）。
 
 > [!IMPORTANT]
 > **全新安裝請先使用 JSON 相容模式**（`STORAGE_BACKEND=json`）。MySQL 模式啟動前必須先完成資料搬移，而搬移工具只能從 `data/` 底下既有的 JSON／SQLite 資料搬移；目前還沒有直接建立空白 MySQL 資料庫的流程。正式環境使用 Oracle MySQL 8.4。
@@ -353,7 +353,7 @@ src/
   utils/                儲存、背景工作、翻譯與共用工具
   control_panel/        Windows 終端機控制台
 services/               獨立外部整合（GitHub 客戶端、osu! API）
-tests/                  自動化測試（CI：Python 3.10–3.13 與 MySQL 8.4）
+tests/                  自動化測試（CI：Python 3.11–3.13 與 MySQL 8.4）
 docs/                   說明文件
 ```
 

@@ -1,6 +1,6 @@
 # 故障排查
 
-先從專案根目錄確認 `python --version` 至少為 3.10，並使用同一個虛擬環境安裝 `requirements.txt`。啟動命令是 `python -m src.main`，不可直接執行 `src/main.py`。
+先從專案根目錄確認 `python --version` 至少為 3.11，並使用同一個虛擬環境安裝 `requirements.txt`。啟動命令是 `python -m src.main`，不可直接執行 `src/main.py`。
 
 ## 啟動失敗
 

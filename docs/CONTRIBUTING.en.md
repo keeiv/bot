@@ -22,7 +22,7 @@ Small fixes and documentation updates can go straight to a PR. For new dependenc
 
 ## Development environment
 
-The minimum is Python 3.10; production runs Python 3.13, and CI tests Python 3.10–3.13 on Linux. `pyproject.toml` is the source of truth for dependency and tool versions.
+The minimum is Python 3.11; production runs Python 3.13, and CI tests Python 3.11–3.13 on Linux. `pyproject.toml` is the source of truth for dependency and tool versions.
 
 ```bash
 python -m venv .venv

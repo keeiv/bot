@@ -1,6 +1,6 @@
 # 專案文件
 
-Discord 機器人的功能與技術棧見 [README](../README.md)。目前部署使用 Python 3.13、discord.py 與 Oracle MySQL 8.4；專案最低 Python 版本為 3.10。
+Discord 機器人的功能與技術棧見 [README](../README.md)。目前部署使用 Python 3.13、discord.py 與 Oracle MySQL 8.4；專案最低 Python 版本為 3.11。
 
 ## 接手順序
 

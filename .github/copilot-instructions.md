@@ -4,7 +4,7 @@
 
 Python Discord 機器人，提供訊息與審計日誌、伺服器管理、防刷屏、工單、暫時語音、遊戲、成就、osu!、HoYoLAB／米游社與 GitHub 監控。
 
-專案最低要求 Python 3.10，目前本機部署使用 Python 3.13；CI 測試 3.10–3.13。依賴以 `pyproject.toml` 為準，目前包含 `discord.py>=2.7.1,<3`、`python-dotenv>=1.2.3,<2`、aiohttp、PyMySQL、genshin、cryptography、ossapi、psutil 與 deep-translator。正式儲存使用 Oracle MySQL 8.4。
+專案最低要求 Python 3.11，目前本機部署使用 Python 3.13；CI 測試 3.11–3.13。依賴以 `pyproject.toml` 為準，目前包含 `discord.py>=2.7.1,<3`、`python-dotenv>=1.2.3,<2`、aiohttp、PyMySQL、genshin、cryptography、ossapi、psutil 與 deep-translator。正式儲存使用 Oracle MySQL 8.4。
 
 ## 目錄與載入
 

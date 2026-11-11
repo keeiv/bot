@@ -201,7 +201,7 @@ def test_a_missing_package_fails_the_check_and_names_it(tmp_path):
 def test_an_old_python_is_refused(tmp_path, monkeypatch):
     monkeypatch.setattr(install.sys, "version_info", (3, 9, 0, "final", 0))
     job, _ = make(tmp_path)
-    with pytest.raises(install.Failure, match="3.10"):
+    with pytest.raises(install.Failure, match="3.11"):
         job.check_machine()
 
 

@@ -15,7 +15,7 @@ Anti-spam and moderation, welcome messages and auto roles, temporary voice chann
 plus a web dashboard where you can set most of it up.
 
 [![CI](https://github.com/keeiv/bot/actions/workflows/ci.yml/badge.svg)](https://github.com/keeiv/bot/actions/workflows/ci.yml)
-![Python](https://img.shields.io/badge/python-3.10%E2%80%933.13-3776AB)
+![Python](https://img.shields.io/badge/python-3.11%E2%80%933.13-3776AB)
 ![discord.py](https://img.shields.io/badge/discord.py-2.7-5865F2)
 ![License](https://img.shields.io/badge/license-AGPL--3.0--only-F99549)
 
@@ -178,7 +178,7 @@ At [botweb.shizune.life](https://botweb.shizune.life), sign in with Discord and 
 
 ## Quick start
 
-Requires Python 3.10 or later (production runs 3.13).
+Requires Python 3.11 or later (production runs 3.13).
 
 > [!IMPORTANT]
 > **Use JSON compatibility mode (`STORAGE_BACKEND=json`) for a fresh install.** MySQL mode won't start until a data migration has been completed, and the migration tool only works from existing JSON / SQLite data under `data/`; there is no way yet to start from an empty MySQL database. Production uses Oracle MySQL 8.4.
@@ -356,7 +356,7 @@ src/
   utils/                Storage, background jobs, translation and shared helpers
   control_panel/        Windows terminal console
 services/               Standalone external integrations (GitHub client, osu! API)
-tests/                  Automated tests (CI: Python 3.10–3.13 and MySQL 8.4)
+tests/                  Automated tests (CI: Python 3.11–3.13 and MySQL 8.4)
 docs/                   Documentation
 ```
 

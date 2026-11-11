@@ -1,6 +1,6 @@
 # 部署指南
 
-目前部署是 Windows 本機機器人與 Oracle MySQL，加上 Vercel 網站與 Cloudflare Tunnel。專案要求 Python 3.10 以上，目前本機使用 Python 3.13。首次設定見 [Installation.md](Installation.md)。
+目前部署是 Windows 本機機器人與 Oracle MySQL，加上 Vercel 網站與 Cloudflare Tunnel。專案要求 Python 3.11 以上，目前本機使用 Python 3.13。首次設定見 [Installation.md](Installation.md)。
 
 ## 更新程序
 
