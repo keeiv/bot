@@ -1,4 +1,4 @@
-"""審計日誌業務邏輯服務"""
+"""Audit log business logic."""
 
 import copy
 import time
@@ -13,7 +13,7 @@ _CACHE_TTL = 60.0
 
 
 class AuditLogService:
-    """審計日誌頻道設定存取"""
+    """Access to the audit log channel setting."""
 
     def __init__(self) -> None:
         self._cache: dict[Any, Any] = {}
@@ -46,5 +46,5 @@ class AuditLogService:
         self._cache_time = time.monotonic()
 
     def get_channel_id(self, guild_id: int) -> Optional[int]:
-        """取得伺服器的審計日誌頻道 ID"""
+        """The ID of the server's audit log channel."""
         return self.load().get(str(guild_id))

@@ -146,13 +146,13 @@ class HelpLayoutView(LayoutView):
 
 
 class Admin(commands.Cog):
-    """管理員命令 Cog"""
+    """Moderator commands."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
     def is_blacklisted_check(self) -> Any:
-        """黑名單檢查裝飾器"""
+        """Decorator that checks the blacklist."""
 
         @localized("ctx")
         async def predicate(ctx: commands.Context[Any]) -> Any:
@@ -179,7 +179,7 @@ class Admin(commands.Cog):
     @commands.cooldown(1, 5, commands.BucketType.user)
     @localized("ctx")
     async def clear(self, ctx: commands.Context[Any], amount: int = 10) -> None:
-        """清除訊息"""
+        """Delete messages."""
         if not ctx.author.guild_permissions.manage_messages:
             await ctx.send(
                 tx("admin.failed_the_manage_messages_permission_is"), ephemeral=True
@@ -209,7 +209,7 @@ class Admin(commands.Cog):
         user: discord.Member,
         reason: Optional[str] = None,
     ) -> None:
-        """踢出成員"""
+        """Kick a member."""
         reason = reason or tx("admin.no_reason_given")
         if not ctx.author.guild_permissions.kick_members:
             await ctx.send(
@@ -258,7 +258,7 @@ class Admin(commands.Cog):
         user: discord.Member,
         reason: Optional[str] = None,
     ) -> None:
-        """封禁成員"""
+        """Ban a member."""
         reason = reason or tx("admin.no_reason_given")
         if not ctx.author.guild_permissions.ban_members:
             await ctx.send(
@@ -312,7 +312,7 @@ class Admin(commands.Cog):
         duration: int = 60,
         reason: Optional[str] = None,
     ) -> None:
-        """禁言成員"""
+        """Time a member out."""
         reason = reason or tx("admin.no_reason_given")
         if not ctx.author.guild_permissions.moderate_members:
             await ctx.send(
@@ -362,7 +362,7 @@ class Admin(commands.Cog):
         user: discord.Member,
         reason: Optional[str] = None,
     ) -> None:
-        """警告成員"""
+        """Warn a member."""
         reason = reason or tx("admin.no_reason_given")
         if not ctx.author.guild_permissions.moderate_members:
             await ctx.send(
@@ -396,7 +396,7 @@ class Admin(commands.Cog):
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     @localized("ctx")
     async def help_command(self, ctx: commands.Context[Any]) -> None:
-        """幫助指令"""
+        """The help command."""
         lang = await context_lang(ctx)
         view = HelpLayoutView(self.bot, ctx.author.id, "overview", lang)
         message = await ctx.send(view=view)
@@ -405,5 +405,5 @@ class Admin(commands.Cog):
 
 
 async def setup(bot: commands.Bot) -> None:
-    """載入 Cog"""
+    """Load the cog."""
     await bot.add_cog(Admin(bot))

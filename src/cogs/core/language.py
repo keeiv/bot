@@ -125,7 +125,7 @@ class Language(commands.Cog):
     async def cog_load(self) -> None:
         self.bot.add_view(GuideView(self))
 
-    # ── joining servers ───────────────────────────────────────────
+    # ── joining servers ───────────────────────────────────────────────
     @commands.Cog.listener()
     async def on_ready(self) -> None:
         async with self._reconcile_lock:
@@ -270,7 +270,7 @@ class Language(commands.Cog):
         except discord.HTTPException:
             pass
 
-    # ── /language ─────────────────────────────────────────────────
+    # ── /language ─────────────────────────────────────────────────────
     @app_commands.command(
         name="language", description="Change the language BOT. replies in"
     )

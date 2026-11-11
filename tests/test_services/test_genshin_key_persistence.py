@@ -1,4 +1,4 @@
-"""加密金鑰必須能跨程序重啟使用，且不可靜默替換舊金鑰。"""
+"""The encryption key must survive a process restart, and an old key must never be replaced silently."""
 
 import json
 import os

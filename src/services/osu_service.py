@@ -1,4 +1,4 @@
-"""osu! 業務邏輯服務"""
+"""osu! business logic."""
 
 import json
 import os
@@ -13,7 +13,7 @@ _DATA_FILE = "data/storage/osu_links.json"
 
 
 class OsuService:
-    """osu! 帳號綁定資料存取與 API 初始化"""
+    """osu! account link data access and API setup."""
 
     def __init__(self) -> None:
         self._links_lock = threading.RLock()
@@ -23,7 +23,7 @@ class OsuService:
         self._init_api()
 
     def _init_api(self) -> None:
-        """初始化 osu! API 客戶端"""
+        """Set up the osu! API client."""
         try:
             # ossapi has no typing metadata.
             from ossapi import Ossapi  # type: ignore[import-untyped]
@@ -39,7 +39,7 @@ class OsuService:
 
         self._api = Ossapi(int(client_id), client_secret)
 
-    # ─────────────── 資料存取 ───────────────
+    # ── Data access ───────────────────────────────────────────────────
 
     def _load_links(self) -> dict[Any, Any]:
         try:
@@ -56,10 +56,10 @@ class OsuService:
                 self._links if links is None else links, f, ensure_ascii=False, indent=2
             )
 
-    # ─────────────── 綁定 ───────────────
+    # ── Linking ───────────────────────────────────────────────────────
 
     def bind(self, user_id: int, username: str) -> None:
-        """綁定 Discord 用戶與 osu! 帳號"""
+        """Link a Discord user to an osu! account."""
         with self._links_lock:
             links = dict(self._links)
             links[str(user_id)] = username
@@ -67,7 +67,7 @@ class OsuService:
             self._links = links
 
     def unbind(self, user_id: int) -> bool:
-        """解除綁定，回傳是否有綁定存在"""
+        """Unlink; return whether a link existed."""
         with self._links_lock:
             links = dict(self._links)
             if str(user_id) not in links:
@@ -78,29 +78,29 @@ class OsuService:
             return True
 
     def get_bound_username(self, user_id: int) -> Optional[str]:
-        """取得綁定的 osu! 使用者名稱"""
+        """The linked osu! username."""
         return self._links.get(str(user_id))
 
-    # ─────────────── API ───────────────
+    # ── API ───────────────────────────────────────────────────────────
 
     @property
     def api(self) -> Any:
-        """osu! API 客戶端"""
+        """The osu! API client."""
         return self._api
 
     @property
     def api_error(self) -> Optional[str]:
-        """API 初始化錯誤訊息"""
+        """The API setup error message."""
         return self._api_error
 
     def ensure_api(self) -> None:
-        """確認 API 可用，否則拋出 RuntimeError"""
+        """Make sure the API is available; otherwise raise RuntimeError."""
         if self._api is None:
             raise RuntimeError(tx("osu_service.osu_is_unavailable_osu_client_id"))
 
     @staticmethod
     def format_playtime(seconds: Optional[int]) -> str:
-        """格式化遊戲時間"""
+        """Format play time."""
         if not seconds:
             return tx("osu_service.0_hours")
         hours = seconds // 3600

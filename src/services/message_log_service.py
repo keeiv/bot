@@ -1,4 +1,4 @@
-"""訊息日誌業務邏輯服務"""
+"""Message log business logic."""
 
 import copy
 from datetime import datetime
@@ -25,7 +25,7 @@ _MESSAGE_LOCK = threading.RLock()
 
 
 class MessageLogService:
-    """訊息日誌資料存取與業務邏輯"""
+    """Message log data access and business logic."""
 
     def __init__(self) -> None:
         self._msg_cache: Optional[dict[Any, Any]] = None
@@ -34,7 +34,7 @@ class MessageLogService:
         self._ch_cache_time: float = 0.0
         self.message_cache = get_message_cache()
 
-    # ─────────────── 頻道設定 ───────────────
+    # ── Channel setting ───────────────────────────────────────────────
 
     def load_log_channels(self, force=False) -> dict[Any, Any]:
         """Read a detached snapshot; failed reads do not clear valid cache."""
@@ -62,19 +62,19 @@ class MessageLogService:
         self._ch_cache_time = 0.0
 
     def get_log_channel_id(self, guild_id: int) -> Optional[int]:
-        """取得伺服器的日誌頻道 ID"""
+        """The ID of the server's log channel."""
         return self.load_log_channels().get(str(guild_id))
 
     def set_log_channel_id(self, guild_id: int, channel_id: int) -> None:
-        """設定伺服器的日誌頻道 ID"""
+        """Set the ID of the server's log channel."""
         channels = self.load_log_channels(force=True)
         channels[str(guild_id)] = channel_id
         self.save_log_channels(channels)
 
-    # ─────────────── 訊息日誌 ───────────────
+    # ── Message log ───────────────────────────────────────────────────
 
     def load_message_log(self, force: bool = False) -> dict[Any, Any]:
-        """載入獨立副本；讀取失敗不清空有效快取。"""
+        """Load an independent copy; a failed read does not empty a valid cache."""
         with _MESSAGE_LOCK:
             now = time.monotonic()
             if (
@@ -94,7 +94,7 @@ class MessageLogService:
             return copy.deepcopy(data)
 
     def save_message_log(self, data: dict[Any, Any]) -> None:
-        """保存成功後才發布快取；失敗由呼叫者處理。"""
+        """Publish to the cache only after saving succeeds; the caller handles a failure."""
         with _MESSAGE_LOCK:
             if not isinstance(data, dict):
                 raise TypeError("Message log must be an object")
@@ -113,7 +113,7 @@ class MessageLogService:
         channel_id: int,
         attachments: Optional[list[Any]] = None,
     ) -> None:
-        """新增訊息記錄"""
+        """Add a message record."""
         attachment_urls = [a.url for a in attachments] if attachments else []
         record = {
             "message_id": message_id,
@@ -137,7 +137,7 @@ class MessageLogService:
             self.message_cache.set(guild_id, message_id, record)
 
     def record_edit(self, guild_id: int, message_id: int, new_content: str) -> bool:
-        """記錄訊息編輯，回傳是否找到原始記錄"""
+        """Record a message edit; return whether the original record was found."""
         with _MESSAGE_LOCK:
             logs = self.load_message_log(force=True)
             key = f"{guild_id}_{message_id}"
@@ -150,7 +150,7 @@ class MessageLogService:
             return True
 
     def mark_deleted(self, guild_id: int, message_id: int) -> bool:
-        """標記訊息為已刪除，回傳是否找到原始記錄"""
+        """Mark a message deleted; return whether the original record was found."""
         with _MESSAGE_LOCK:
             logs = self.load_message_log(force=True)
             key = f"{guild_id}_{message_id}"
@@ -163,7 +163,7 @@ class MessageLogService:
             return True
 
     def get_record(self, guild_id: int, message_id: int) -> Optional[dict[Any, Any]]:
-        """取得訊息記錄 (優先快取)"""
+        """Get a message record (from the cache first)."""
         with _MESSAGE_LOCK:
             cached = self.message_cache.get(guild_id, message_id)
             if cached is not None:
@@ -174,7 +174,7 @@ class MessageLogService:
             return copy.deepcopy(record)
 
     def cleanup_old_logs(self) -> int:
-        """清理超過保留天數的舊記錄，回傳刪除筆數"""
+        """Remove records older than the retention period; return how many were removed."""
         with _MESSAGE_LOCK:
             logs = self.load_message_log(force=True)
             if not logs:
@@ -200,16 +200,16 @@ class MessageLogService:
                         self.message_cache.delete(int(guild_id), int(message_id))
             return len(to_remove)
 
-    # ─────────────── 工具 ───────────────
+    # ── Tools ─────────────────────────────────────────────────────────
 
     @staticmethod
     def get_current_time_str() -> str:
-        """取得格式化當前時間 (月/日 時:分)"""
+        """The current time, formatted (month/day hour:minute)."""
         return datetime.now(TZ_OFFSET).strftime("%m/%d %H:%M")
 
     @staticmethod
     def _get_first_image_url(urls: list[str]) -> Optional[str]:
-        """從附件 URL 列表中取得第一個圖片 URL"""
+        """The first image URL in a list of attachment URLs."""
         exts = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg")
         for url in urls:
             ul = url.lower()
@@ -219,7 +219,7 @@ class MessageLogService:
                 return url
         return None
 
-    # ─────────────── Embed 產生 ───────────────
+    # ── Embed building ────────────────────────────────────────────────
 
     def build_edit_embed(
         self,
@@ -235,7 +235,7 @@ class MessageLogService:
         before_attachments: Optional[list[str]] = None,
         after_attachments: Optional[list[str]] = None,
     ) -> discord.Embed:
-        """建立訊息編輯 Embed"""
+        """Build the embed for an edited message."""
         embed = discord.Embed(
             title=tx("message_log_service.edited_message_edited"),
             color=discord.Color.from_rgb(52, 152, 219),
@@ -319,7 +319,7 @@ class MessageLogService:
         content: str,
         attachments: Optional[list[str]] = None,
     ) -> discord.Embed:
-        """建立訊息刪除 Embed"""
+        """Build the embed for a deleted message."""
         embed = discord.Embed(
             title=tx("message_log_service.deleted_message_deleted"),
             color=discord.Color.from_rgb(231, 76, 60),

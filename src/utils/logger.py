@@ -9,7 +9,7 @@ from src.utils.time_utils import TZ_OFFSET
 
 
 def is_image_or_gif(url: str) -> bool:
-    """檢查連結是否為圖片或 GIF"""
+    """Check whether a link is an image or a GIF."""
     if not url:
         return False
     url_lower = url.lower()
@@ -20,7 +20,7 @@ def is_image_or_gif(url: str) -> bool:
 
 
 def get_first_image_url(attachment_urls: list[Any]) -> Optional[str]:
-    """從附件 URL 列表中取得第一個圖片或 GIF 的 URL"""
+    """The first image or GIF URL in a list of attachment URLs."""
     if not attachment_urls:
         return None
     for url in attachment_urls:
@@ -47,14 +47,14 @@ def create_edit_embed(
     before_attachments: list[Any] | None = None,
     after_attachments: list[Any] | None = None,
 ) -> discord.Embed:
-    """建立編輯訊息的 Embed"""
+    """Build the embed for an edited message."""
     embed = discord.Embed(
         title=tx("message_log_service.edited_message_edited"),
         color=discord.Color.from_rgb(52, 152, 219),
         timestamp=datetime.now(TZ_OFFSET),
     )
 
-    # 新增基本資訊
+    # Add the basic information
     embed.add_field(
         name=tx("audit_log.user"), value=f"<@{user_id}> ({user_id})", inline=False
     )
@@ -70,14 +70,14 @@ def create_edit_embed(
     )
     embed.add_field(name=tx("protection.28"), value=str(message_id), inline=False)
 
-    # 檢查編輯前的附件
+    # Check the attachments from before the edit
     before_image_url = (
         get_first_image_url(before_attachments) if before_attachments else None
     )
 
-    # 新增編輯前內容
+    # Add the content from before the edit
     if before_image_url:
-        # 如果有圖片，不用程式碼框
+        # With an image, no code block
         before_text = (
             before_content[:1024] if before_content else tx("message_log_service.empty")
         )
@@ -88,7 +88,7 @@ def create_edit_embed(
                 inline=False,
             )
     else:
-        # 如果沒有圖片，用程式碼框包裹文字
+        # With no image, wrap the text in a code block
         before_text = (
             before_content[:1024] if before_content else tx("message_log_service.empty")
         )
@@ -98,14 +98,14 @@ def create_edit_embed(
             inline=False,
         )
 
-    # 檢查編輯後的附件
+    # Check the attachments from after the edit
     after_image_url = (
         get_first_image_url(after_attachments) if after_attachments else None
     )
 
-    # 新增編輯後內容
+    # Add the content from after the edit
     if after_image_url:
-        # 如果有圖片，不用程式碼框
+        # With an image, no code block
         after_text = (
             after_content[:1024] if after_content else tx("message_log_service.empty")
         )
@@ -116,7 +116,7 @@ def create_edit_embed(
                 inline=False,
             )
     else:
-        # 如果沒有圖片，用程式碼框包裹文字
+        # With no image, wrap the text in a code block
         after_text = (
             after_content[:1024] if after_content else tx("message_log_service.empty")
         )
@@ -126,7 +126,7 @@ def create_edit_embed(
             inline=False,
         )
 
-    # 如果有編輯後的圖片，新增到 Embed
+    # If the edited message has an image, add it to the embed
     if after_image_url:
         embed.set_image(url=after_image_url)
 
@@ -152,14 +152,14 @@ def create_delete_embed(
     content: str,
     attachments: list[Any] | None = None,
 ) -> discord.Embed:
-    """建立刪除訊息的embed"""
+    """Build the embed for a deleted message."""
     embed = discord.Embed(
         title=tx("message_log_service.deleted_message_deleted"),
         color=discord.Color.from_rgb(231, 76, 60),
         timestamp=datetime.now(TZ_OFFSET),
     )
 
-    # 新增基本資訊
+    # Add the basic information
     embed.add_field(
         name=tx("audit_log.user"), value=f"<@{user_id}> ({user_id})", inline=False
     )
@@ -177,12 +177,12 @@ def create_delete_embed(
         name=tx("message_log_service.message_id"), value=str(message_id), inline=False
     )
 
-    # 檢查是否有圖片附件
+    # Check for an image attachment
     image_url = get_first_image_url(attachments) if attachments else None
 
-    # 新增刪除前的訊息內容
+    # Add the message content from before the deletion
     if image_url:
-        # 如果有圖片，不用代碼框
+        # With an image, no code block
         content_text = content[:1024] if content else tx("message_log_service.empty")
         if content_text and content_text != tx("message_log_service.empty"):
             embed.add_field(
@@ -191,7 +191,7 @@ def create_delete_embed(
                 inline=False,
             )
     else:
-        # 如果沒有圖片，用代碼框包裹文字
+        # With no image, wrap the text in a code block
         content_text = content[:1024] if content else tx("message_log_service.empty")
         embed.add_field(
             name=tx("message_log_service.message_before_deletion"),
@@ -199,7 +199,7 @@ def create_delete_embed(
             inline=False,
         )
 
-    # 如果有圖片，新增到embed
+    # If there is an image, add it to the embed
     if image_url:
         embed.set_image(url=image_url)
 

@@ -222,7 +222,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Spam protection: lockdown lifted",
         "zh": "防炸群: 封鎖模式解除",
     },
-    # --- 跨頻道、附件、惡意連結、新帳號、防破壞 ---
+    # ── Cross-channel, attachments, malicious links, new accounts, anti-nuke ───
     "anti_spam.detect_similar": {"en": "Cross-channel spam", "zh": "跨頻道洗版"},
     "anti_spam.detect_coordinated": {"en": "Multi-account spam", "zh": "多帳號洗版"},
     "anti_spam.detect_attachment": {"en": "Attachment spam", "zh": "附件轟炸"},

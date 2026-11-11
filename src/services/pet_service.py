@@ -64,7 +64,7 @@ class PetService:
         self.rng = rng or random.Random()
         self.root = root
 
-    # ── storage ───────────────────────────────────────────────────
+    # ── storage ───────────────────────────────────────────────────────
     def _path(self, name: str) -> str:
         return os.path.join(self.root, f"{name}.json")
 
@@ -101,7 +101,7 @@ class PetService:
             raise TypeError("Stored companion index must be an object")
         return data
 
-    # ── time ──────────────────────────────────────────────────────
+    # ── time ──────────────────────────────────────────────────────────
     def _today(self, now: float) -> str:
         return datetime.fromtimestamp(now, TZ).strftime("%Y-%m-%d")
 
@@ -140,7 +140,7 @@ class PetService:
                 data["pet"]["cared"] = now
         return data, now
 
-    # ── derived numbers ───────────────────────────────────────────
+    # ── derived numbers ───────────────────────────────────────────────
     @staticmethod
     def _stats(pet: dict[str, Any]) -> dict[str, int]:
         return rules.stats_of(
@@ -189,7 +189,7 @@ class PetService:
             "capped": capped,
         }
 
-    # ── reading ───────────────────────────────────────────────────
+    # ── reading ───────────────────────────────────────────────────────
     def has_pet(self, user_id: int) -> bool:
         return self._read(user_id) is not None
 
@@ -254,7 +254,7 @@ class PetService:
         rows.sort(key=lambda row: (-row["power"], -row["level"], row["user_id"]))
         return rows[:limit]
 
-    # ── beginning and coming home ─────────────────────────────────
+    # ── beginning and coming home ─────────────────────────────────────
     def adopt(self, user_id: int, species: str, name: str) -> dict[str, Any]:
         if species not in rules.SPECIES:
             raise PetError("bad_species")
@@ -317,7 +317,7 @@ class PetService:
         self._write(user_id, data)
         return self._snapshot(data, now)
 
-    # ── care ──────────────────────────────────────────────────────
+    # ── care ──────────────────────────────────────────────────────────
     def _busy(self, data: dict[str, Any], now: float) -> None:
         if data.get("trip"):
             raise PetError("on_trip", until=int(data["trip"]["ends"]))
@@ -392,7 +392,7 @@ class PetService:
             "view": self._snapshot(data, now),
         }
 
-    # ── expeditions ───────────────────────────────────────────────
+    # ── expeditions ───────────────────────────────────────────────────
     def _zone(self, data: dict[str, Any], zone_id: str) -> rules.Zone:
         zone = rules.ZONES.get(zone_id)
         if zone is None:
@@ -494,7 +494,7 @@ class PetService:
         result.update(zone=zone_id, view=self._snapshot(data, now))
         return result
 
-    # ── raising ───────────────────────────────────────────────────
+    # ── raising ───────────────────────────────────────────────────────
     def breakthrough(self, user_id: int) -> dict[str, Any]:
         data, now = self._open(user_id)
         pet = data["pet"]
@@ -587,7 +587,7 @@ class PetService:
         self._write(user_id, data)
         return {"price": price, "view": self._snapshot(data, now)}
 
-    # ── friendly duels ────────────────────────────────────────────
+    # ── friendly duels ────────────────────────────────────────────────
     def duel(self, user_id: int, other_id: int) -> dict[str, Any]:
         """Fight another member's companion. Theirs is only read, never changed."""
         if int(user_id) == int(other_id):

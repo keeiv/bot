@@ -7,7 +7,7 @@ from discord.ext import commands
 
 
 class RateLimitError(commands.CommandError):
-    """本地限流器拒絕發送；沒有對應的 HTTP 回應。"""
+    """The local rate limiter refused to send; there is no HTTP response for it."""
 
 
 class APIOptimizer:

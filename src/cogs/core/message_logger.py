@@ -1,4 +1,4 @@
-"""訊息編輯/刪除日誌 Cog"""
+"""Log of edited and deleted messages."""
 
 from datetime import timedelta
 from datetime import timezone
@@ -18,7 +18,7 @@ TZ_OFFSET = timezone(timedelta(hours=8))
 
 
 class MessageLogger(commands.Cog):
-    """訊息編輯和刪除日誌 Cog"""
+    """Log of edited and deleted messages."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -35,7 +35,7 @@ class MessageLogger(commands.Cog):
 
     @tasks.loop(hours=24)
     async def _cleanup_task(self) -> None:
-        """定期清理超過保留天數的舊訊息日誌"""
+        """Regularly remove message logs older than the retention period."""
         await self.bot.wait_until_ready()
         try:
             removed = await run_storage(self.service.cleanup_old_logs)
@@ -44,12 +44,12 @@ class MessageLogger(commands.Cog):
         except Exception as e:
             print(f"[清理] 日誌清理失敗: {e}")
 
-    # ─────────────── 事件監聽 ───────────────
+    # ── Listeners ─────────────────────────────────────────────────────
 
     @commands.Cog.listener()
     @localized("message")
     async def on_message(self, message: discord.Message) -> None:
-        """記錄訊息內容以備編輯／刪除日誌使用（只限設定了日誌頻道的伺服器）"""
+        """Keep a message's content for the edit and delete log (only in servers with a log channel)."""
         if message.author.bot or message.guild is None:
             return
         if not await self.logging(message.guild.id):
@@ -72,7 +72,7 @@ class MessageLogger(commands.Cog):
     async def on_message_edit(
         self, before: discord.Message, after: discord.Message
     ) -> None:
-        """監聽訊息編輯"""
+        """Listen for message edits."""
         if before.guild is None or before.author.bot:
             return
         if not await self.logging(before.guild.id):
@@ -152,7 +152,7 @@ class MessageLogger(commands.Cog):
     @commands.Cog.listener()
     @localized("message")
     async def on_message_delete(self, message: discord.Message) -> None:
-        """監聽訊息刪除"""
+        """Listen for message deletions."""
         if message.guild is None or message.author.bot:
             return
         if not await self.logging(message.guild.id):
@@ -216,7 +216,7 @@ class MessageLogger(commands.Cog):
         except Exception as e:
             print(f"[失敗] 刪除監聽出錯: {e}")
 
-    # ─────────────── 指令 ───────────────
+    # ── Commands ──────────────────────────────────────────────────────
 
     @discord.app_commands.command(
         name="message_log_settings",
@@ -228,7 +228,7 @@ class MessageLogger(commands.Cog):
     async def set_log_channel(
         self, interaction: discord.Interaction, channel: discord.TextChannel
     ) -> None:
-        """設置日誌頻道"""
+        """Set the log channel."""
         if (
             interaction.guild is None
             or interaction.guild_id is None
@@ -260,5 +260,5 @@ class MessageLogger(commands.Cog):
 
 
 async def setup(bot: commands.Bot) -> None:
-    """載入 Cog"""
+    """Load the cog."""
     await bot.add_cog(MessageLogger(bot))

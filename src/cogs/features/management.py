@@ -15,7 +15,7 @@ from src.utils.storage_worker import run_storage
 
 
 class Management(commands.Cog):
-    """伺服器管理指令，包含倉庫追蹤、身份組分配、表情符號管理和歡迎訊息"""
+    """Server management commands: repository tracking, role assignment, emoji management and welcome messages."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -156,7 +156,7 @@ class Management(commands.Cog):
 
     @tasks.loop(minutes=5)
     async def _repo_poll_task(self) -> None:
-        """每 5 分鐘檢查倉庫更新"""
+        """Check the repositories for updates every 5 minutes."""
         configs = self.service.get_all_configs()
         for guild_id, guild_config in configs.items():
             if "tracked_repos" not in guild_config or not guild_config["tracked_repos"]:
@@ -934,7 +934,7 @@ class Management(commands.Cog):
                                 role, reason=tx("management.automatic_welcome_role")
                             )
                 except (discord.Forbidden, discord.HTTPException):
-                    # 忽略權限或 API 錯誤，避免中斷歡迎流程
+                    # Ignore permission and API errors so the welcome is not interrupted
                     pass
 
         await self._apply_auto_roles(member)
@@ -944,7 +944,7 @@ class Management(commands.Cog):
     async def on_member_update(
         self, before: discord.Member, after: discord.Member
     ) -> None:
-        """成員完成 Discord 會員篩選後套用需要驗證的角色。"""
+        """Apply the roles that need verification once a member passes Discord's membership screening."""
         if before.pending and not after.pending:
             await self._apply_auto_roles(after, verified_only=True)
 

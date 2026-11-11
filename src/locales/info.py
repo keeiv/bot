@@ -6,7 +6,7 @@ The Chinese text is the original wording, unchanged.
 MESSAGES: dict[str, dict[str, str]] = {
     "info.none": {"en": "None", "zh": "無"},
     "info.unavailable": {"en": "Unavailable", "zh": "無法獲取"},
-    # ── /user_info ─────────────────────────────────────────────────
+    # ── /user_info ────────────────────────────────────────────────────
     "info.user.title": {"en": "User info", "zh": "用戶資訊"},
     "info.user.target": {"en": "Target: {mention}", "zh": "目標：{mention}"},
     "info.user.status_line": {"en": "Status: {status}", "zh": "狀態：{status}"},
@@ -51,7 +51,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "[Error] Couldn't get the user's info. Please try again later.",
         "zh": "[錯誤] 無法獲取用戶資訊，請稍後重試。",
     },
-    # ── /server_info ───────────────────────────────────────────────
+    # ── /server_info ──────────────────────────────────────────────────
     "info.server.title": {"en": "Server info", "zh": "伺服器資訊"},
     "info.server.name_line": {"en": "Server: **{name}**", "zh": "伺服器：**{name}**"},
     "info.server.member_total_line": {

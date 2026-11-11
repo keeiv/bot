@@ -50,7 +50,8 @@ For the `.env` settings needed to run the bot and for the MySQL migration, see t
 
 ## Code and data access
 
-- Use clear English names for functions, classes and variables. Comments, docstrings and user-facing text may be in Traditional Chinese.
+- Use clear English names for functions, classes and variables. Comments and docstrings are in English; the text members see lives in `src/locales`, in both English and Traditional Chinese.
+- Section banners have one form: `# ── Title ───`, padded with dashes to 68 characters. `tests/test_comment_style.py` checks both rules.
 - Log messages describe the event, state and cause; don't write them as instructions aimed at a particular operator.
 - Cogs handle Discord arguments, permissions, confirmations and presentation. Business changes go through public service methods; never modify a service's settings dict or private cache directly. Query results are independent copies. A failed save must raise, and in-memory state is only published after a successful save.
 - See the [development guide](DEVELOPMENT.md) (Chinese) for how new features are loaded and layered. `src/cogs` scans non-package modules automatically, so pure helpers belong in `src/utils` or `src/services`; there is no manual load list to maintain.

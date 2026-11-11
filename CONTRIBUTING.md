@@ -47,7 +47,8 @@ python -m pip install -r requirements.txt -r requirements-dev.txt
 
 ## 程式碼與資料存取
 
-- 函式、類別與變數使用清楚的英文命名；註解、文件字串與介面文字可使用繁體中文。
+- 函式、類別與變數使用清楚的英文命名。註解與文件字串一律用英文；成員看得到的介面文字放在 `src/locales`，中英文都要有。
+- 分段標記只用一種寫法：`# ── Title ───`，整行註釋補橫線到 68 個字元。`tests/test_comment_style.py` 會檢查這兩條。
 - 日誌描述事件、狀態與原因，避免針對特定操作人員撰寫提示。
 - Cog 負責 Discord 參數、權限、確認及呈現；業務修改透過公開 Service 方法執行，不可直接修改 Service 的設定字典或私有快取。查詢結果為獨立副本。保存失敗應拋出錯誤，成功後才發布記憶體狀態。
 - 新功能的載入與分層範例見 [開發指南](docs/DEVELOPMENT.md)。`src/cogs` 自動掃描非套件模組，純工具放入 `src/utils` 或 `src/services`，不維護手動載入清單。

@@ -199,7 +199,7 @@ class AiChatService:
         self._generation: dict[int, int] = {}
         self._busy: set[int] = set()
 
-    # ── stored choice and model overrides ─────────────────────────
+    # ── stored choice and model overrides ─────────────────────────────
     def _load(self) -> dict[str, Any]:
         with self._store:
             if self._data is None:
@@ -282,7 +282,7 @@ class AiChatService:
         self._history.pop(user_id, None)
         self._generation[user_id] = self._generation.get(user_id, 0) + 1
 
-    # ── talking and drawing ───────────────────────────────────────
+    # ── talking and drawing ───────────────────────────────────────────
     def _prompt(
         self,
         provider: str,

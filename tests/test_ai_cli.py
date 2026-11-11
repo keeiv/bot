@@ -401,7 +401,7 @@ async def test_the_command_reply_is_an_embed_with_the_model_line_and_no_quote(
     assert sent["files"][0].filename == "avatar.png"
 
 
-# ── @BOT. message: the character answers through its webhook ─────
+# ── @BOT. message: the character answers through its webhook ──────
 class FakeHook:
     def __init__(self, name, owner=1, fail=None):
         self.name, self.user, self.token = name, SimpleNamespace(id=owner), "t"
@@ -745,7 +745,7 @@ def test_unknown_variables_never_reach_a_model_process():
     assert env == {"Path": "C:/bin"}
 
 
-# ── 希雨's review: isolation, queue, cooldown and stale replies ─────
+# ── Xiyu's review: isolation, queue, cooldown and stale replies ───
 def test_both_tools_get_homes_of_their_own_not_the_owners(tmp_path):
     env = ai_cli.isolated_environment(
         {"CODEX_HOME": "C:/Users/owner/.codex", "Path": "C:/bin"}, home=tmp_path
@@ -819,7 +819,7 @@ async def test_choosing_answers_after_acknowledging_discord(tmp_path):
     assert service.choice(7) == "gpt"
 
 
-# ── 希雨's second round ─────────────────────────────────────────────
+# ── Xiyu's second round ───────────────────────────────────────────
 def test_a_nested_verdict_never_overrides_the_top_level_one():
     from src.services.moderation_cli import strict_verdict
 
@@ -854,7 +854,7 @@ def test_a_slow_save_never_blocks_another_members_forget(tmp_path, monkeypatch):
     saver.join()
 
 
-# ── exact model, web search, drawing, allowance, developer switch ─
+# ── exact model, web search, drawing, allowance, developer switch ───
 def test_model_ids_are_shown_by_their_names():
     from src.services.ai_chat_service import model_label
 
@@ -1032,7 +1032,7 @@ async def test_the_chosen_model_reaches_the_tool(tmp_path):
     assert args[args.index("-m") + 1] == "gpt-6-luna"
 
 
-# ── 希雨 on the allowance: delivery first, file jobs unaffected ────
+# ── Xiyu on the allowance: delivery first, file jobs unaffected ───
 async def test_a_reply_that_never_reaches_discord_costs_nothing(tmp_path):
     service, _ = chat(tmp_path, {ai_cli.CLAUDE: ["您好。"]})
     service.choose(7, ai_cli.CLAUDE)

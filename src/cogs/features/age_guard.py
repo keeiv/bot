@@ -1,4 +1,4 @@
-"""年齡守門員 Cog"""
+"""Age guard."""
 
 from datetime import datetime
 from datetime import timedelta
@@ -18,7 +18,7 @@ TZ_OFFSET = timezone(timedelta(hours=8))
 
 
 class AgeGuard(commands.Cog):
-    """年齡守門員 — 偵測成員公開宣告未成年，移除成人身份組並附加懲罰身份組"""
+    """Age guard: when a member states publicly that they are a minor, remove the adult role and add the penalty role."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -179,7 +179,7 @@ class AgeGuard(commands.Cog):
     @commands.Cog.listener()
     @localized("message")
     async def on_message(self, message: discord.Message) -> None:
-        """監聽訊息，偵測未成年年齡宣告"""
+        """Watch messages for a statement of being under age."""
         if message.author.bot or message.guild is None:
             return
         if not isinstance(message.author, discord.Member):

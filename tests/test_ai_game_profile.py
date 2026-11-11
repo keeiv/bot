@@ -489,7 +489,7 @@ async def test_a_read_of_an_old_link_never_replaces_the_new_one():
     assert (await profiles.snapshot(7)).split("\n")[1:] == new.split("\n")[1:]
 
 
-# ── a code genshin.py does not know yet skips that character only ──
+# ── a code genshin.py does not know yet skips that character only ───
 class Kind(enum.IntEnum):
     ATTACK = 1
     STUN = 2

@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 
 
 class SystemMaintenance(commands.Cog):
-    """系統背景維護 Cog"""
+    """Background system maintenance."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -84,7 +84,7 @@ class SystemMaintenance(commands.Cog):
             performance_monitor.end_timing(timing_id)
 
     async def cleanup_old_data(self) -> None:
-        """只清理已有 TTL 定義的快取，保留正式紀錄。"""
+        """Clear only caches that have a TTL; real records are kept."""
         manager = get_database_manager()
         if manager is not None:
             await manager.cleanup_expired_cache()

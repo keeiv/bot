@@ -72,7 +72,7 @@ class Dashboard:
         self.live = None
         self.plain = False  # no terminal: print one line per event instead
 
-    # ── state, written from anywhere ──────────────────────────────
+    # ── state, written from anywhere ──────────────────────────────────
     def step(self, label, state=RUNNING, detail="", fraction=None):
         """Create or update a start-up step by its label."""
         with self.lock:
@@ -130,7 +130,7 @@ class Dashboard:
                         flush=True,
                     )
 
-    # ── drawing ───────────────────────────────────────────────────
+    # ── drawing ───────────────────────────────────────────────────────
     def __rich__(self):
         with self.lock:
             busy = any(s is not None and s["result"] is None for s in self.slots)
@@ -332,7 +332,7 @@ class Dashboard:
         hours, rest = divmod(up, 3600)
         return f" 同時審核 {protocol.MAX_IMAGES} 張   Ctrl+C 結束   已執行 {hours}:{rest // 60:02d}:{rest % 60:02d}"
 
-    # ── running it ────────────────────────────────────────────────
+    # ── running it ────────────────────────────────────────────────────
     def __enter__(self):
         self.live = Live(
             self, screen=True, auto_refresh=True, refresh_per_second=8, transient=True

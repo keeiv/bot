@@ -1,4 +1,4 @@
-"""年齡守門員業務邏輯服務"""
+"""Age guard business logic."""
 
 import copy
 import json
@@ -13,19 +13,19 @@ from src.utils.document_store import read_document
 _DATA_FILE = "data/storage/age_guard.json"
 _CACHE_TTL = 60.0
 
-# 偵測模式：任意位置的完整數字 + 「歲」
-# (?<!\d) 負向回顧確保不截斷較長數字 (114514歲 不會被截為 14)
+# Pattern: a whole number anywhere, followed by the character for years of age
+# The (?<!\d) lookbehind keeps a longer number whole (114514 is not cut down to 14)
 _AGE_PATTERN = re.compile(r"(?<!\d)(\d+)\s*歲")
 
 
 class AgeGuardService:
-    """年齡守門員資料存取與偵測邏輯"""
+    """Age guard data access and detection."""
 
     def __init__(self) -> None:
         self._cache: dict[Any, Any] = {}
         self._cache_time: float = 0.0
 
-    # ─────────────── 資料存取 ───────────────
+    # ── Data access ───────────────────────────────────────────────────
 
     def _load(self) -> dict[Any, Any]:
         now = time.monotonic()
@@ -48,10 +48,10 @@ class AgeGuardService:
         self._cache = copy.deepcopy(data)
         self._cache_time = time.monotonic()
 
-    # ─────────────── 設定存取 ───────────────
+    # ── Settings access ───────────────────────────────────────────────
 
     def get_config(self, guild_id: int) -> dict[Any, Any]:
-        """取得伺服器設定，不存在則回傳空 dict"""
+        """The server's settings, or an empty dict if there are none."""
         result_value = self._load().get(str(guild_id), {})
         if not isinstance(result_value, dict):
             raise TypeError("Unexpected stored or API value: expected dict")
@@ -64,19 +64,19 @@ class AgeGuardService:
         self._save(data)
 
     def set_adult_role(self, guild_id: int, role_id: int) -> None:
-        """設定成人身份組"""
+        """Set the adult role."""
         data = self._load()
         data.setdefault(str(guild_id), {})["adult_role_id"] = role_id
         self._save(data)
 
     def set_punishment_role(self, guild_id: int, role_id: int) -> None:
-        """設定懲罰身份組"""
+        """Set the penalty role."""
         data = self._load()
         data.setdefault(str(guild_id), {})["punishment_role_id"] = role_id
         self._save(data)
 
     def toggle_enabled(self, guild_id: int) -> bool:
-        """切換啟用狀態，回傳新狀態"""
+        """Toggle whether it is enabled; return the new state."""
         data = self._load()
         cfg = data.setdefault(str(guild_id), {})
         new_state = not cfg.get("enabled", False)
@@ -84,10 +84,10 @@ class AgeGuardService:
         self._save(data)
         return new_state
 
-    # ─────────────── 偵測邏輯 ───────────────
+    # ── Detection ─────────────────────────────────────────────────────
 
     def detect_underage(self, content: str) -> Optional[int]:
-        """從訊息內容偵測未成年年齡宣告，回傳年齡或 None"""
+        """Find a statement of being under age in a message; return the age or None."""
         match = _AGE_PATTERN.search(content)
         if not match:
             return None

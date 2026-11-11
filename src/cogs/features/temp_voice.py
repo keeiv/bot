@@ -22,13 +22,13 @@ _service = TempVoiceService()
 
 
 class TempVoice(commands.Cog):
-    """暫時語音頻道系統"""
+    """Temporary voice channels."""
 
     def __init__(self, bot: "Bot") -> None:
         self.bot = bot
         self.service = _service
 
-    # ─────────────────── 管理員斜線指令 ───────────────────
+    # ── Administrator slash commands ──────────────────────────────────
 
     temp_voice = app_commands.Group(
         name="temp_voice",
@@ -51,7 +51,7 @@ class TempVoice(commands.Cog):
         category: Optional[discord.CategoryChannel] = None,
         name_template: Optional[str] = None,
     ) -> None:
-        """設定暫時語音頻道觸發房間"""
+        """Set the room that triggers a temporary voice channel."""
         await interaction.response.defer(thinking=True, ephemeral=False)
         if (
             interaction.guild is None
@@ -139,7 +139,7 @@ class TempVoice(commands.Cog):
     )
     @localized("interaction")
     async def status(self, interaction: discord.Interaction) -> None:
-        """顯示暫時語音頻道系統設定狀態"""
+        """Show the temporary voice channel settings."""
         await interaction.response.defer(thinking=True, ephemeral=True)
         if (
             interaction.guild is None
@@ -212,7 +212,7 @@ class TempVoice(commands.Cog):
     )
     @localized("interaction")
     async def disable(self, interaction: discord.Interaction) -> None:
-        """停用暫時語音頻道系統"""
+        """Turn temporary voice channels off."""
         await interaction.response.defer(thinking=True, ephemeral=False)
         if (
             interaction.guild is None
@@ -243,11 +243,11 @@ class TempVoice(commands.Cog):
             tx("temp_voice.success_temporary_voice_channels_disabled_in")
         )
 
-    # ─────────────────── 事件監聽 ───────────────────
+    # ── Listeners ─────────────────────────────────────────────────────
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:
-        """啟動時清理殘留的暫時頻道記錄"""
+        """Clear leftover temporary channel records at startup."""
         all_ids = await run_storage(self.service.get_all_channel_ids)
         if not all_ids:
             return
@@ -270,11 +270,11 @@ class TempVoice(commands.Cog):
         before: discord.VoiceState,
         after: discord.VoiceState,
     ) -> None:
-        """監聽語音狀態：觸發建立、偵測空頻道刪除"""
+        """Watch voice states: create on trigger, delete channels found empty."""
         guild = member.guild
         config = await run_storage(self.service.get_guild_config, guild.id)
 
-        # ── 使用者加入觸發頻道 → 建立暫時頻道 ──
+        # ── A member joined the trigger channel: create a temporary channel ───
         if (
             config
             and after.channel
@@ -282,7 +282,7 @@ class TempVoice(commands.Cog):
         ):
             await self._create_temp_channel(member, guild, config)
 
-        # ── 使用者離開頻道 → 若頻道為空則刪除 ──
+        # ── A member left a channel: delete it if it is empty ─────────────
         if before.channel and before.channel.id != (
             config["trigger_channel_id"] if config else None
         ):
@@ -304,7 +304,7 @@ class TempVoice(commands.Cog):
         guild: discord.Guild,
         config: dict[Any, Any],
     ) -> None:
-        """建立暫時語音頻道並將成員移入"""
+        """Create a temporary voice channel and move the member into it."""
         template = config.get("name_template", tx("temp_voice.s_room"))
         channel_name = template.replace("{username}", member.display_name)
 
@@ -323,7 +323,7 @@ class TempVoice(commands.Cog):
                     v1=(member.id),
                 ),
             )
-            # 給創立者頻道管理權限
+            # Give the creator permission to manage the channel
             await new_channel.set_permissions(
                 member,
                 manage_channels=True,
@@ -345,12 +345,12 @@ class TempVoice(commands.Cog):
         except discord.HTTPException:
             pass
 
-    # ─────────────────── envc* 前綴指令處理 ───────────────────
+    # ── Handling of the envc* prefix commands ─────────────────────────
 
     @commands.Cog.listener()
     @localized("message")
     async def on_message(self, message: discord.Message) -> None:
-        """處理 envc* 前綴指令"""
+        """Handle the envc* prefix commands."""
         if message.guild is None or not isinstance(message.author, discord.Member):
             return
         if message.author.bot:
@@ -401,12 +401,12 @@ class TempVoice(commands.Cog):
                 mention_author=False,
             )
 
-    # ─────────────── 輔助函式 ───────────────
+    # ── Helpers ───────────────────────────────────────────────────────
 
     def _get_user_owned_channel(
         self, member: discord.Member
     ) -> Optional[tuple[discord.VoiceChannel, dict[Any, Any]]]:
-        """取得使用者目前所在且擁有的暫時語音頻道"""
+        """The temporary voice channel the user is in and owns."""
         voice = member.voice
         if not voice or not voice.channel:
             return None
@@ -420,7 +420,7 @@ class TempVoice(commands.Cog):
     def _get_user_in_temp_channel(
         self, member: discord.Member
     ) -> Optional[tuple[discord.VoiceChannel, dict[Any, Any]]]:
-        """取得使用者目前所在的暫時語音頻道（不限擁有者）"""
+        """The temporary voice channel the user is in (whoever owns it)."""
         voice = member.voice
         if not voice or not voice.channel:
             return None
@@ -429,7 +429,7 @@ class TempVoice(commands.Cog):
             return None
         return voice.channel, ch_data  # type: ignore[return-value]
 
-    # ─────────────── 指令實作 ───────────────
+    # ── Command implementations ───────────────────────────────────────
 
     async def _cmd_help(self, message: discord.Message, args: str) -> None:
         if message.guild is None or not isinstance(message.author, discord.Member):
@@ -609,7 +609,7 @@ class TempVoice(commands.Cog):
             return
         bitrate = int(args)
 
-        # 依伺服器加成等級決定上限
+        # The limit depends on the server's boost level
         max_bitrate = message.guild.bitrate_limit // 1000
         if bitrate < 8 or bitrate > max_bitrate:
             await message.reply(
@@ -833,7 +833,7 @@ class TempVoice(commands.Cog):
         await run_storage(self.service.add_ban, channel.id, target.id)
         try:
             await channel.set_permissions(target, connect=False, view_channel=False)
-            # 若目標在頻道內，一併踢出
+            # If the target is in the channel, remove them as well
             if (
                 target.voice
                 and target.voice.channel
@@ -945,9 +945,9 @@ class TempVoice(commands.Cog):
 
         await run_storage(self.service.set_owner, channel.id, target.id)
         try:
-            # 移除舊擁有者的額外權限
+            # Remove the old owner's extra permissions
             await channel.set_permissions(message.author, overwrite=None)
-            # 給新擁有者管理員權限
+            # Give the new owner manager permissions
             await channel.set_permissions(
                 target,
                 manage_channels=True,
@@ -988,7 +988,7 @@ class TempVoice(commands.Cog):
             )
             return
 
-        # 確認原擁有者已不在頻道內
+        # Make sure the original owner is no longer in the channel
         owner_in_channel = any(m.id == current_owner_id for m in channel.members)
         if owner_in_channel:
             await message.reply(

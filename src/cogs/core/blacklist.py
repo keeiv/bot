@@ -32,11 +32,11 @@ def appellant_id(message: discord.Message | None) -> int | None:
     return int(match.group(1)) if match else None
 
 
-# ==================== 審核接受表單 ====================
+# ── Form for accepting an appeal ──────────────────────────────────
 
 
 class AppealAcceptModal(LocalizedModal, title="Accept appeal"):
-    """開發者接受申訴時填寫原因"""
+    """The reason a developer gives when accepting an appeal."""
 
     i18n = {
         "title": "blacklist.accept_appeal",
@@ -59,7 +59,7 @@ class AppealAcceptModal(LocalizedModal, title="Accept appeal"):
 
     @localized("interaction")
     async def on_submit(self, interaction: discord.Interaction) -> None:
-        """執行接受申訴"""
+        """Accept the appeal."""
         await interaction.response.defer(thinking=True, ephemeral=True)
         reason_text = self.reason.value.strip() if self.reason.value else ""
         manager = self.cog.bot.blacklist_manager
@@ -87,7 +87,7 @@ class AppealAcceptModal(LocalizedModal, title="Accept appeal"):
                     ephemeral=True,
                 )
 
-        # 更新原訊息外觀
+        # Update how the original message looks
         embed = interaction.message.embeds[0] if interaction.message.embeds else None
         if embed:
             embed.color = discord.Color.from_rgb(46, 204, 113)
@@ -105,7 +105,7 @@ class AppealAcceptModal(LocalizedModal, title="Accept appeal"):
             ephemeral=True,
         )
 
-        # 嘗試通知用戶
+        # Try to tell the user
         try:
             user = await self.cog.bot.fetch_user(self.target_user_id)
             await user.send(
@@ -117,11 +117,11 @@ class AppealAcceptModal(LocalizedModal, title="Accept appeal"):
             pass
 
 
-# ==================== 審核視圖 ====================
+# ── Review view ───────────────────────────────────────────────────
 
 
 class AppealReviewView(LocalizedView):
-    """開發者審核申訴的按鈕視圖"""
+    """Buttons a developer reviews an appeal with."""
 
     i18n = {
         "accept_button.label": "blacklist.accept",
@@ -149,7 +149,7 @@ class AppealReviewView(LocalizedView):
     async def accept_button(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
-        """接受申訴 - 開啟表單"""
+        """Accept the appeal: open the form."""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
                 tx("blacklist.denied_appeal_review_permission_is_required"),
@@ -168,7 +168,7 @@ class AppealReviewView(LocalizedView):
     async def reject_button(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
-        """駁回申訴"""
+        """Reject the appeal."""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
                 tx("blacklist.denied_appeal_review_permission_is_required"),
@@ -205,11 +205,11 @@ class AppealReviewView(LocalizedView):
             pass
 
 
-# ==================== 封鎖通知視圖 (含申訴按鈕) ====================
+# ── Blocked notice view (with the appeal button) ──────────────────
 
 
 class BlockedNoticeView(LocalizedView):
-    """被封鎖時顯示的申訴按鈕"""
+    """The appeal button shown to a blocked user."""
 
     i18n = {"appeal_button.label": "blacklist.submit_appeal"}
 
@@ -226,7 +226,7 @@ class BlockedNoticeView(LocalizedView):
     async def appeal_button(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
-        """點擊申訴按鈕"""
+        """The appeal button was pressed."""
         manager = self.cog.bot.blacklist_manager
         entry = await manager.check(interaction.user.id)
 
@@ -248,7 +248,7 @@ class BlockedNoticeView(LocalizedView):
             )
             return
 
-        # 通知開發者
+        # Tell the developers
         review_embed = _service.build_review_embed(interaction.user, entry)
         review_view = AppealReviewView(interaction.user.id, self.cog)
         for dev_id in DEVELOPER_IDS:
@@ -264,27 +264,27 @@ class BlockedNoticeView(LocalizedView):
         )
 
 
-# ==================== Cog 主體 ====================
+# ── The cog ───────────────────────────────────────────────────────
 
 
 class Blacklist(commands.Cog):
-    """黑名單管理 Cog"""
+    """Blacklist management."""
 
     def __init__(self, bot: "Bot") -> None:
         self.bot = bot
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:
-        """註冊持久化視圖（申訴審核按鈕在重啟後也要能按）"""
+        """Register the persistent views (the review buttons must work after a restart)."""
         self.bot.add_view(BlockedNoticeView(self))
         self.bot.add_view(AppealReviewView(None, self))
 
-    # ========== 使用者指令 ==========
+    # ── Member commands ───────────────────────────────────────────────
 
     @app_commands.command(name="appeal", description="Appeal a blacklist block")
     @localized("interaction")
     async def appeal(self, interaction: discord.Interaction) -> None:
-        """手動提交申訴"""
+        """Submit an appeal by hand."""
         manager = self.bot.blacklist_manager
         entry = await manager.check(interaction.user.id)
 
@@ -320,7 +320,7 @@ class Blacklist(commands.Cog):
     )
     @localized("interaction")
     async def appeal_status(self, interaction: discord.Interaction) -> None:
-        """查看自己的申訴狀態"""
+        """Show the status of your own appeal."""
         await interaction.response.defer(thinking=True, ephemeral=True)
         manager = self.bot.blacklist_manager
         appeal = await run_storage(manager.get_appeal, interaction.user.id)
@@ -371,7 +371,7 @@ class Blacklist(commands.Cog):
 
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    # ========== 開發者管理指令 ==========
+    # ── Developer commands ────────────────────────────────────────────
 
     blacklist_group = app_commands.Group(
         name="blacklist",
@@ -398,7 +398,7 @@ class Blacklist(commands.Cog):
         reason: str,
         mode: app_commands.Choice[str] | None = None,
     ) -> None:
-        """加入本地黑名單"""
+        """Add to the local blacklist."""
         await interaction.response.defer(thinking=True, ephemeral=True)
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.followup.send(
@@ -435,7 +435,7 @@ class Blacklist(commands.Cog):
     async def bl_remove(
         self, interaction: discord.Interaction, user: discord.User
     ) -> None:
-        """移除本地黑名單"""
+        """Remove from the local blacklist."""
         await interaction.response.defer(thinking=True, ephemeral=True)
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.followup.send(
@@ -462,7 +462,7 @@ class Blacklist(commands.Cog):
     @blacklist_group.command(name="list", description="Show the local blacklist")
     @localized("interaction")
     async def bl_list(self, interaction: discord.Interaction) -> None:
-        """列出所有本地黑名單"""
+        """List the whole local blacklist."""
         await interaction.response.defer(thinking=True, ephemeral=True)
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.followup.send(
@@ -504,7 +504,7 @@ class Blacklist(commands.Cog):
     async def bl_info(
         self, interaction: discord.Interaction, user: discord.User
     ) -> None:
-        """查詢特定用戶的封鎖狀態 (本地 + API)"""
+        """Look up one user's block status (local and API)."""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
                 tx("blacklist.denied_this_command_is_restricted_to"), ephemeral=True

@@ -26,7 +26,7 @@ from src.utils.storage_worker import run_storage
 
 log = logging.getLogger(__name__)
 
-# UTC+8 時區
+# The UTC+8 time zone
 TZ_OFFSET = timezone(timedelta(hours=8))
 
 
@@ -43,20 +43,20 @@ class OsuInfoCogProtocol(Protocol):
 
 
 class UserServerInfo(commands.Cog):
-    """用戶和伺服器資訊Cog"""
+    """User and server information."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
     def format_time(self, dt: datetime) -> str:
-        """格式化時間為 年/月/日 時:分:秒"""
+        """Format a time as year/month/day hour:minute:second."""
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         local_dt = dt.astimezone(TZ_OFFSET)
         return local_dt.strftime("%Y/%m/%d %H:%M:%S")
 
     def truncate_text(self, text: str, limit: int = 4000) -> str:
-        """限制文字長度"""
+        """Limit the length of text."""
         if len(text) <= limit:
             return text
         if limit <= 3:
@@ -66,7 +66,7 @@ class UserServerInfo(commands.Cog):
     async def get_member(
         self, guild: Optional[discord.Guild], user_id: int
     ) -> Optional[discord.Member]:
-        """快取"""
+        """Cache."""
         if guild is None:
             return None
 
@@ -82,7 +82,7 @@ class UserServerInfo(commands.Cog):
     def format_text_block(
         self, title: str, lines: Sequence[str], limit: int = 4000, *, lang: Lang
     ) -> str:
-        """將多行內容整理成TextDisplay可用的markdown區塊。"""
+        """Turn several lines into a markdown block a TextDisplay can show."""
         content_lines = [line for line in lines if line]
         body = "\n".join(content_lines) if content_lines else t(lang, "info.none")
         return self.truncate_text(f"### {title}\n{body}", limit)
@@ -109,7 +109,7 @@ class UserServerInfo(commands.Cog):
         container: Container,
         spacing: discord.SeparatorSpacing = discord.SeparatorSpacing.small,
     ) -> None:
-        """分隔線"""
+        """A divider."""
         container.add_item(Separator(visible=True, spacing=spacing))
 
     def build_user_info_view(
@@ -125,7 +125,7 @@ class UserServerInfo(commands.Cog):
         queried_at: str,
         lang: Lang,
     ) -> LayoutView:
-        """建立戶資訊畫面。"""
+        """Build the user information screen."""
         view = LayoutView(timeout=None)
         container = Container[Any](accent_color=discord.Color.from_rgb(52, 152, 219))
 
@@ -225,7 +225,7 @@ class UserServerInfo(commands.Cog):
         queried_at: str,
         lang: Lang,
     ) -> LayoutView:
-        """建立伺服器資訊畫面。"""
+        """Build the server information screen."""
         view = LayoutView(timeout=None)
         container = Container[Any](accent_color=discord.Color.from_rgb(46, 204, 113))
 
@@ -337,7 +337,7 @@ class UserServerInfo(commands.Cog):
     async def user_info(
         self, interaction: discord.Interaction, user: Optional[discord.User] = None
     ) -> None:
-        """顯示用戶資訊"""
+        """Show user information."""
         lang: Lang = from_locale(interaction.locale)  # until the lookup below
         try:
             await interaction.response.defer(thinking=True)
@@ -514,7 +514,7 @@ class UserServerInfo(commands.Cog):
 
     @app_commands.command(name="server_info", description="Look up this server")
     async def server_info(self, interaction: discord.Interaction) -> None:
-        """顯示伺服器資訊"""
+        """Show server information."""
         await interaction.response.defer(thinking=True, ephemeral=False)
         lang = await interaction_lang(interaction)
         try:
@@ -634,5 +634,5 @@ class UserServerInfo(commands.Cog):
 
 
 async def setup(bot: commands.Bot) -> None:
-    """載入 Cog"""
+    """Load the cog."""
     await bot.add_cog(UserServerInfo(bot))

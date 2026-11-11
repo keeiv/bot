@@ -16,31 +16,31 @@ CONFIG_FILE = "data/config/bot.json"
 MESSAGES_LOG_FILE = "data/logs/messages/訊息.json"
 DATA_DIR = "data"
 
-# UTC+8 時區
+# The UTC+8 time zone
 TZ_OFFSET = timezone(timedelta(hours=8))
 
-# ───────────── 記憶體快取層 ─────────────
+# ── In-memory cache layer ─────────────────────────────────────────
 _config_cache: Optional[dict[Any, Any]] = None
 _config_cache_time: float = 0
-_CONFIG_CACHE_TTL: float = 30.0  # 30 秒 TTL
+_CONFIG_CACHE_TTL: float = 30.0  # 30-second TTL
 _config_lock = asyncio.Lock()
 
 
 def _invalidate_config_cache() -> None:
-    """主動使快取失效"""
+    """Invalidate the cache on purpose."""
     global _config_cache, _config_cache_time
     _config_cache = None
     _config_cache_time = 0
 
 
 def ensure_data_dir() -> None:
-    """確保數據目錄存在"""
+    """Make sure the data directory exists."""
     for directory in ["data", "data/config", "data/storage", "data/logs/messages"]:
         os.makedirs(directory, exist_ok=True)
 
 
 def load_config() -> Any:
-    """載入配置檔案 (帶記憶體快取)"""
+    """Load a config file (with the in-memory cache)."""
     global _config_cache, _config_cache_time
 
     now = time.monotonic()
@@ -57,7 +57,7 @@ def load_config() -> Any:
 
 
 def save_config(config: Any) -> None:
-    """儲存配置檔案並更新快取 (原子寫入)"""
+    """Save a config file and update the cache (atomic write)."""
     global _config_cache, _config_cache_time
     write_document(CONFIG_FILE, config)
     _config_cache = copy.deepcopy(config)
@@ -65,7 +65,7 @@ def save_config(config: Any) -> None:
 
 
 def get_guild_log_channel(guild_id: int) -> Optional[int]:
-    """獲取伺服器的日誌頻道 ID"""
+    """The ID of the server's log channel."""
     config = load_config()
     guild_str = str(guild_id)
     result_value = config.get("guilds", {}).get(guild_str, {}).get("log_channel")
@@ -77,7 +77,7 @@ def get_guild_log_channel(guild_id: int) -> Optional[int]:
 
 
 def set_guild_log_channel(guild_id: int, channel_id: int) -> None:
-    """設置伺服器的日誌頻道 ID"""
+    """Set the ID of the server's log channel."""
     config = load_config()
     guild_str = str(guild_id)
 
@@ -91,7 +91,7 @@ def set_guild_log_channel(guild_id: int, channel_id: int) -> None:
 
 
 def get_guild_report_channel(guild_id: int) -> Optional[int]:
-    """獲取伺服器的舉報頻道 ID"""
+    """The ID of the server's report channel."""
     config = load_config()
     guild_str = str(guild_id)
     result_value = config.get("guilds", {}).get(guild_str, {}).get("report_channel")
@@ -103,7 +103,7 @@ def get_guild_report_channel(guild_id: int) -> Optional[int]:
 
 
 def set_guild_report_channel(guild_id: int, channel_id: int) -> None:
-    """設置伺服器的舉報頻道 ID"""
+    """Set the ID of the server's report channel."""
     config = load_config()
     guild_str = str(guild_id)
 
@@ -116,16 +116,16 @@ def set_guild_report_channel(guild_id: int, channel_id: int) -> None:
     save_config(config)
 
 
-#  統一訊息日誌 JSON (帶記憶體快取 + 批次寫入)
+# Unified message log JSON (in-memory cache and batched writes)
 
 _messages_cache: Optional[dict[Any, Any]] = None
 _messages_cache_time: float = 0
-_MESSAGES_CACHE_TTL: float = 60.0  # 60 秒 TTL
+_MESSAGES_CACHE_TTL: float = 60.0  # 60-second TTL
 _messages_dirty: bool = False
 
 
 def load_messages_log() -> dict[Any, Any]:
-    """載入統一的訊息紀錄日誌 (帶記憶體快取)"""
+    """Load the unified message log (with the in-memory cache)."""
     global _messages_cache, _messages_cache_time
 
     now = time.monotonic()
@@ -150,7 +150,7 @@ def load_messages_log() -> dict[Any, Any]:
 
 
 def save_messages_log(data: dict[Any, Any]) -> None:
-    """儲存統一的訊息紀錄日誌並更新快取"""
+    """Save the unified message log and update the cache."""
     global _messages_cache, _messages_cache_time
     try:
         with open_document(MESSAGES_LOG_FILE, "w", encoding="utf-8") as f:
@@ -168,9 +168,9 @@ def add_message_record(
     author_id: int | None,
     channel_id: int | None,
 ) -> Any:
-    """新增訊息記錄（統一 JSON）"""
+    """Add a message record (unified JSON)."""
     records = load_messages_log()
-    # 複合金鑰：guild_message
+    # Composite key: guild_message
     msg_key = f"{guild_id}_{message_id}"
 
     if msg_key not in records:
@@ -191,7 +191,7 @@ def add_message_record(
 
 
 def update_message_edit(guild_id: int, message_id: int, new_content: str) -> Any:
-    """更新訊息編輯歷史記錄（統一 JSON）"""
+    """Update a message's edit history (unified JSON)."""
     records = load_messages_log()
     msg_key = f"{guild_id}_{message_id}"
 
@@ -205,7 +205,7 @@ def update_message_edit(guild_id: int, message_id: int, new_content: str) -> Any
         return True
     else:
         print(f"[JSON] 未找到訊息記錄: {msg_key}，建立新紀錄...")
-        # 如果沒有記錄，先建立一個空的，然後新增編輯內容
+        # With no record yet, create an empty one first, then add the edit
         add_message_record(guild_id, message_id, new_content, None, None)
         records = load_messages_log()
         msg_key = f"{guild_id}_{message_id}"
@@ -216,7 +216,7 @@ def update_message_edit(guild_id: int, message_id: int, new_content: str) -> Any
 
 
 def mark_message_deleted(guild_id: int, message_id: int) -> Any:
-    """標記訊息為已刪除（統一 JSON）"""
+    """Mark a message deleted (unified JSON)."""
     records = load_messages_log()
     msg_key = f"{guild_id}_{message_id}"
 
@@ -232,7 +232,7 @@ def mark_message_deleted(guild_id: int, message_id: int) -> Any:
 
 
 def get_message_record(guild_id: int, message_id: int) -> Optional[dict[Any, Any]]:
-    """取得訊息記錄（統一 JSON）"""
+    """Get a message record (unified JSON)."""
     records = load_messages_log()
     msg_key = f"{guild_id}_{message_id}"
     return records.get(msg_key)

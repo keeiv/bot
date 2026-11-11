@@ -1,4 +1,4 @@
-"""伺服器管理業務邏輯服務 (倉庫追蹤 / 歡迎訊息 / GitHub 輪詢)"""
+"""Server management business logic (repository tracking, welcome messages, GitHub polling)."""
 
 import asyncio
 import copy
@@ -50,7 +50,7 @@ def render_welcome(template: str, limit: int = MAX_WELCOME, **values: Any) -> st
 
 
 class ManagementService:
-    """伺服器管理資料存取與 GitHub 輪詢邏輯"""
+    """Server management data access and GitHub polling."""
 
     def __init__(self) -> None:
         os.makedirs("data/storage", exist_ok=True)
@@ -63,7 +63,7 @@ class ManagementService:
         self._github_cache: dict[str, tuple[float, list[Any], str | None]] = {}
         self._github_failed_until: dict[str, float] = {}
 
-    # ─────────────── 資料存取 ───────────────
+    # ── Data access ───────────────────────────────────────────────────
 
     def _load(self) -> dict[Any, Any]:
         try:
@@ -208,10 +208,10 @@ class ManagementService:
 
         return self._mutate(update)
 
-    # ─────────────── HTTP Session ───────────────
+    # ── HTTP Session ──────────────────────────────────────────────────
 
     async def get_session(self) -> aiohttp.ClientSession:
-        """取得或建立 HTTP Session"""
+        """Get the HTTP session, creating it if needed."""
         if self._session is None or self._session.closed:
             timeout = aiohttp.ClientTimeout(total=30, connect=10)
             headers = {
@@ -226,11 +226,11 @@ class ManagementService:
         return self._session
 
     async def close_session(self) -> None:
-        """關閉 HTTP Session"""
+        """Close the HTTP session."""
         if self._session and not self._session.closed:
             await self._session.close()
 
-    # ─────────────── GitHub 輪詢 ───────────────
+    # ── GitHub polling ────────────────────────────────────────────────
 
     async def _fetch_github_list(self, url: str) -> list[Any]:
         """Share polling results across guilds and respect account-wide cooldowns."""
@@ -289,10 +289,9 @@ class ManagementService:
     async def check_repo_updates(
         self, guild_id: str, repo_key: str, repo_data: dict[Any, Any]
     ) -> list[dict[Any, Any]]:
-        """
-        檢查單一倉庫的 Commit/PR 更新。
+        """Check one repository for commit and pull request updates.
 
-        回傳事件列表，每筆含 type ('commit'|'pr')、embed_data、channel_id。
+        Returns a list of events, each with a type ('commit' or 'pr'), embed_data and channel_id.
         """
         owner = repo_data["owner"]
         repo = repo_data["repo"]
@@ -301,7 +300,7 @@ class ManagementService:
         expected = copy.deepcopy(repo_data)
 
         try:
-            # 檢查最新 Commit
+            # Check the latest commit
             commits_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
             commits = await self._fetch_github_list(commits_url)
             if commits and commits[0]["sha"] != repo_data.get("last_commit"):
@@ -333,7 +332,7 @@ class ManagementService:
                     }
                 )
 
-            # 檢查最新 PR
+            # Check the latest pull request
             prs_url = f"https://api.github.com/repos/{owner}/{repo}/pulls"
             prs = await self._fetch_github_list(prs_url)
             if prs and prs[0]["number"] != repo_data.get("last_pr"):

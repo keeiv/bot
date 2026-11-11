@@ -23,12 +23,12 @@ if TYPE_CHECKING:
 
 TZ_OFFSET = timezone(timedelta(hours=8))
 
-# 模組級單例，讓持久化 View 與 Cog 共享同一個 service 實例
+# Module-level singleton, so the persistent views and the cog share one service instance
 _service = TicketService()
 
 
 class CloseReasonModal(LocalizedModal, title="Close ticket"):
-    """關閉工單原因表單"""
+    """Form for the reason a ticket is closed."""
 
     i18n = {
         "title": "ticket.close_ticket",
@@ -46,7 +46,7 @@ class CloseReasonModal(LocalizedModal, title="Close ticket"):
 
     @localized("interaction")
     async def on_submit(self, interaction: discord.Interaction) -> None:
-        """提交關閉原因並鎖定討論串"""
+        """Submit the closing reason and lock the thread."""
         await interaction.response.defer(thinking=True)
         if not await TicketCloseView()._check_close_permission(interaction):
             return
@@ -88,7 +88,7 @@ class CloseReasonModal(LocalizedModal, title="Close ticket"):
 
 
 class TicketCloseView(LocalizedView):
-    """工單關閉按鈕視圖 (持久化)"""
+    """The close-ticket button view (persistent)."""
 
     i18n = {
         "close_button.label": "ticket.close_ticket",
@@ -108,7 +108,7 @@ class TicketCloseView(LocalizedView):
         await sender(*args, **kwargs)
 
     async def _check_close_permission(self, interaction: discord.Interaction) -> bool:
-        """檢查關閉工單權限 (管理員或工單建立者)"""
+        """Check who may close the ticket (an administrator or its creator)."""
         if (
             interaction.guild is None
             or interaction.guild_id is None
@@ -153,7 +153,7 @@ class TicketCloseView(LocalizedView):
     async def close_button(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
-        """直接關閉工單"""
+        """Close the ticket directly."""
         await interaction.response.defer(thinking=True)
         if not await self._check_close_permission(interaction):
             return
@@ -191,12 +191,12 @@ class TicketCloseView(LocalizedView):
     async def close_reason_button(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
-        """帶原因的關閉工單"""
+        """Close the ticket with a reason."""
         await interaction.response.send_modal(CloseReasonModal())
 
 
 class TicketOpenView(LocalizedView):
-    """開啟工單按鈕視圖 (持久化)"""
+    """The open-ticket button view (persistent)."""
 
     i18n = {"open_button.label": "ticket.open_ticket"}
 
@@ -212,7 +212,7 @@ class TicketOpenView(LocalizedView):
     async def open_button(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
-        """開啟新工單"""
+        """Open a new ticket."""
         await interaction.response.defer(ephemeral=True, thinking=True)
         guild = interaction.guild
         if not guild:
@@ -231,7 +231,7 @@ class TicketOpenView(LocalizedView):
 
         role_id = guild_config.get("role_id")
 
-        # 檢查是否已有開啟中的工單
+        # Check for a ticket that is already open
         existing_tid = await run_storage(
             _service.find_open_ticket, guild.id, interaction.user.id
         )
@@ -242,14 +242,14 @@ class TicketOpenView(LocalizedView):
             )
             return
 
-        # 遞增工單編號
+        # Increase the ticket number
         ticket_count = await run_storage(_service.increment_ticket_count, guild.id)
 
         thread_name = tx(
             "ticket.ticket", v0=(ticket_count), v1=(interaction.user.display_name)
         )
 
-        # 建立私人討論串
+        # Create the private thread
         channel = interaction.channel
         if not isinstance(channel, discord.TextChannel):
             await interaction.followup.send(
@@ -273,7 +273,7 @@ class TicketOpenView(LocalizedView):
             )
             return
 
-        # 儲存工單資料
+        # Save the ticket
         await run_storage(
             _service.create_ticket,
             guild_id=guild.id,
@@ -283,7 +283,7 @@ class TicketOpenView(LocalizedView):
             ticket_number=ticket_count,
         )
 
-        # 歡迎 Embed
+        # Welcome embed
         embed = discord.Embed(
             title=tx("ticket.ticket_new_ticket_created"),
             description=tx("ticket.describe_the_issue_in_detail_staff"),
@@ -317,7 +317,7 @@ class TicketOpenView(LocalizedView):
 
 
 class Ticket(commands.Cog):
-    """工單系統 Cog"""
+    """Tickets."""
 
     def __init__(self, bot: "Bot") -> None:
         self.bot = bot
@@ -325,14 +325,14 @@ class Ticket(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:
-        """重新載入持久化視圖"""
+        """Reload the persistent views."""
         self.bot.add_view(TicketOpenView())
         self.bot.add_view(TicketCloseView())
 
     @commands.Cog.listener()
     @localized("message")
     async def on_message(self, message: discord.Message) -> None:
-        """處理 >>> 前綴指令"""
+        """Handle the >>> prefix commands."""
         if (
             message.author.bot
             or not message.guild
@@ -362,7 +362,7 @@ class Ticket(commands.Cog):
             )
 
     async def _handle_setup(self, message: discord.Message) -> None:
-        """處理工單設定指令"""
+        """Handle the ticket settings command."""
         if message.guild is None:
             return
         if not message.channel_mentions or not message.role_mentions:
@@ -431,5 +431,5 @@ class Ticket(commands.Cog):
 
 
 async def setup(bot: commands.Bot) -> None:
-    """載入 Cog"""
+    """Load the cog."""
     await bot.add_cog(Ticket(bot))

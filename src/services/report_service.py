@@ -1,4 +1,4 @@
-"""舉報處理業務邏輯服務 (禁言 / 封禁 / 警告)"""
+"""Report handling business logic (timeout, ban, warning)."""
 
 import asyncio
 from datetime import datetime
@@ -11,7 +11,7 @@ from src.utils.time_utils import TZ_OFFSET
 
 
 class ReportService:
-    """舉報操作執行邏輯與 Embed 建立"""
+    """Carrying out report actions and building their embeds."""
 
     @staticmethod
     def permission_error(target, moderator, permission):
@@ -58,7 +58,7 @@ class ReportService:
             error = tx("report_service.failed_the_bot_lacks_the_required")
         return (None, error) if error else (current_target, "")
 
-    # ========== 禁言 ==========
+    # ── Timeout ───────────────────────────────────────────────────────
 
     async def execute_mute(
         self,
@@ -69,10 +69,10 @@ class ReportService:
         minutes: int,
         reason: str,
     ) -> tuple[bool, str]:
-        """執行禁言操作。
+        """Apply a timeout.
 
         Returns:
-            (success, error_message)  — 成功時 error_message 為空字串
+            (success, error_message): error_message is an empty string on success
         """
         target, error = await self.authorize(target, moderator, "moderate_members")
         if error:
@@ -101,7 +101,7 @@ class ReportService:
         minutes: int,
         reason: str,
     ) -> discord.Embed:
-        """建立禁言完成 Embed"""
+        """Build the embed for a completed timeout."""
         parts = []
         if days:
             parts.append(tx("audit_log.days", v0=(days)))
@@ -127,7 +127,7 @@ class ReportService:
             timestamp=datetime.now(TZ_OFFSET),
         )
 
-    # ========== 封禁 ==========
+    # ── Ban ───────────────────────────────────────────────────────────
 
     async def execute_ban(
         self,
@@ -136,7 +136,7 @@ class ReportService:
         reason: str,
         delete_days: int = 0,
     ) -> tuple[bool, str]:
-        """執行封禁操作。
+        """Apply a ban.
 
         Returns:
             (success, error_message)
@@ -164,7 +164,7 @@ class ReportService:
         delete_days: int,
         temp_seconds: int = 0,
     ) -> discord.Embed:
-        """建立封禁完成 Embed"""
+        """Build the embed for a completed ban."""
         embed = discord.Embed(
             title=tx("report_service.banned_report_action_completed"),
             description=(
@@ -200,7 +200,7 @@ class ReportService:
             )
         return embed
 
-    # ========== 警告 ==========
+    # ── Warning ───────────────────────────────────────────────────────
 
     async def execute_warn(
         self,
@@ -209,7 +209,7 @@ class ReportService:
         count: int,
         reason: str,
     ) -> bool:
-        """發送警告 DM，回傳是否成功送達"""
+        """Send the warning DM; return whether it was delivered."""
         warn_embed = discord.Embed(
             title=tx("report_service.warning_member_warning"),
             description=(
@@ -237,7 +237,7 @@ class ReportService:
         reason: str,
         dm_sent: bool,
     ) -> discord.Embed:
-        """建立警告完成 Embed"""
+        """Build the embed for a completed warning."""
         return discord.Embed(
             title=tx("report_service.warned_report_action_completed"),
             description=(

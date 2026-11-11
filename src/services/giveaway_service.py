@@ -1,4 +1,4 @@
-"""抽獎業務邏輯服務"""
+"""Giveaway business logic."""
 
 import asyncio
 import copy
@@ -19,13 +19,13 @@ _DATA_FILE = "data/storage/giveaways.json"
 
 
 class GiveawayService:
-    """抽獎資料存取與業務邏輯"""
+    """Giveaway data access and business logic."""
 
     def __init__(self) -> None:
         self._lock = asyncio.Lock()
         self._cache: Optional[dict[Any, Any]] = None
 
-    # ─────────────── 資料存取 ───────────────
+    # ── Data access ───────────────────────────────────────────────────
 
     def _load(self) -> dict[Any, Any]:
         if self._cache is not None:
@@ -45,14 +45,14 @@ class GiveawayService:
             json.dump(data, f, ensure_ascii=False, indent=2)
         self._cache = copy.deepcopy(data)
 
-    # ─────────────── 查詢 ───────────────
+    # ── Queries ───────────────────────────────────────────────────────
 
     def get(self, giveaway_id: str) -> Optional[dict[Any, Any]]:
-        """取得單筆抽獎資料"""
+        """One giveaway's data."""
         return self._load().get(giveaway_id)
 
     def list_active(self, guild_id: int) -> list[tuple[str, dict[Any, Any]]]:
-        """列出伺服器所有進行中的抽獎"""
+        """List every giveaway running in the server."""
         data = self._load()
         return [
             (gid, ga)
@@ -61,29 +61,29 @@ class GiveawayService:
         ]
 
     def list_all_active(self) -> list[tuple[str, dict[Any, Any]]]:
-        """列出所有進行中的抽獎 (跨伺服器，供定時檢查用)"""
+        """List every giveaway still running (across servers, for the scheduled check)."""
         data = self._load()
         return [(gid, ga) for gid, ga in data.items() if not ga.get("ended")]
 
-    # ─────────────── 建立 ───────────────
+    # ── Creating ──────────────────────────────────────────────────────
 
     def create(self, giveaway_id: str, giveaway_data: dict[Any, Any]) -> None:
-        """建立新抽獎記錄"""
+        """Create a giveaway record."""
         data = self._load()
         data[giveaway_id] = giveaway_data
         self._save(data)
 
-    # ─────────────── 參加 / 退出 ───────────────
+    # ── Joining and leaving ───────────────────────────────────────────
 
     @property
     def lock(self) -> asyncio.Lock:
-        """取得並發鎖 (供 View 使用)"""
+        """The lock that keeps entries from racing; the view uses it."""
         return self._lock
 
     def toggle_participant(
         self, giveaway_id: str, user_id: str
     ) -> tuple[Optional[str], int]:
-        """切換參與狀態，回傳 (action, count)，action 為 'joined'/'left'/None"""
+        """Toggle participation; return (action, count), where action is 'joined', 'left' or None."""
         data = self._load()
         ga = data.get(giveaway_id)
         if not ga or ga.get("ended"):
@@ -104,10 +104,10 @@ class GiveawayService:
         self._save(data)
         return action, len(participants)
 
-    # ─────────────── 結算 ───────────────
+    # ── Settling ──────────────────────────────────────────────────────
 
     def pick_winners(self, giveaway_id: str) -> list[str]:
-        """隨機選出得獎者 ID 列表，不修改狀態"""
+        """Pick the winners' IDs at random without changing any state."""
         ga = self.get(giveaway_id)
         if not ga:
             return []
@@ -118,7 +118,7 @@ class GiveawayService:
         return random.sample(participants, num_winners)
 
     def mark_ended(self, giveaway_id: str, winner_ids: list[str]) -> None:
-        """標記抽獎為已結束並記錄得獎者"""
+        """Mark the giveaway ended and record the winners."""
         data = self._load()
         ga = data.get(giveaway_id)
         if ga:
@@ -128,7 +128,7 @@ class GiveawayService:
             self._save(data)
 
     def reopen(self, giveaway_id: str) -> None:
-        """把到期時已標記結束、但還沒抽出得獎者的抽獎放回等待結算"""
+        """Put back a giveaway that was marked ended when it came due but has no winners drawn yet."""
         data = self._load()
         ga = data.get(giveaway_id)
         if (
@@ -141,7 +141,7 @@ class GiveawayService:
             self._save(data)
 
     def reroll(self, giveaway_id: str, num_winners: int) -> list[str]:
-        """重新抽獎，回傳新得獎者 ID 列表"""
+        """Draw again; return the new winners' IDs."""
         data = self._load()
         ga = data.get(giveaway_id)
         if not ga:
@@ -155,7 +155,7 @@ class GiveawayService:
         return winner_ids
 
     def check_expired(self) -> list[tuple[str, dict[Any, Any]]]:
-        """找出所有已到期但尚未結束的抽獎，並標記為結束 (不選得獎者)"""
+        """Find every giveaway that is due but not ended, and mark it ended (without choosing winners)."""
         now = datetime.now(TZ_OFFSET).timestamp()
         expired: list[tuple[str, dict[Any, Any]]] = []
         data = self._load()
@@ -173,11 +173,11 @@ class GiveawayService:
             self._save(data)
         return expired
 
-    # ─────────────── 工具 ───────────────
+    # ── Tools ─────────────────────────────────────────────────────────
 
     @staticmethod
     def parse_duration(duration: str) -> Optional[int]:
-        """解析時長字串 (如 1h, 30m, 1d, 2d6h)，回傳秒數"""
+        """Parse a duration string (such as 1h, 30m, 1d, 2d6h); return seconds."""
         pattern = re.compile(r"(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?", re.IGNORECASE)
         match = pattern.fullmatch(duration.strip())
         if not match:

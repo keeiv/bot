@@ -12,7 +12,7 @@ from src.utils.storage_worker import run_storage
 
 
 class OsuInfo(commands.Cog):
-    """OSU! 用戶資訊查詢"""
+    """osu! player lookup."""
 
     # Personal tool: also usable in DMs and servers without the bot.
     osu = app_commands.Group(
@@ -36,29 +36,29 @@ class OsuInfo(commands.Cog):
     async def user_info_osu(
         self, interaction: discord.Interaction, username: str
     ) -> None:
-        """查詢 osu! 用戶資訊"""
+        """Look up an osu! player."""
         try:
             await interaction.response.defer()
 
             self.service.ensure_api()
 
-            # 抓取玩家資料
+            # Fetch the player's data
             user = await asyncio.wait_for(
                 asyncio.to_thread(self.service.api.user, username), timeout=10
             )
 
-            # 創建嵌入消息
+            # Build the embed
             embed = discord.Embed(
                 title=tx("osu_info.osu_user_info", v0=(user.username)),
                 color=discord.Color.from_rgb(255, 105, 180),
                 url=f"https://osu.ppy.sh/users/{user.id}",
             )
 
-            # 設置頭像
+            # Set the avatar
             if user.avatar_url:
                 embed.set_thumbnail(url=user.avatar_url)
 
-            # 基本資訊欄位
+            # Basic information fields
             basic_info = tx("osu_info.username", v0=(user.username))
             basic_info += tx("osu_info.level", v0=(user.statistics.level.current))
             basic_info += (
@@ -86,7 +86,7 @@ class OsuInfo(commands.Cog):
                 name=tx("osu_info.basic_info"), value=basic_info, inline=False
             )
 
-            # 成績統計
+            # Score statistics
             counts = user.statistics.grade_counts
             grades_info = tx("osu_info.ss_gold", v0=(counts.ss))
             grades_info += tx("osu_info.ss_silver_platinum", v0=(counts.ssh))
@@ -98,7 +98,7 @@ class OsuInfo(commands.Cog):
                 name=tx("osu_info.rank_statistics"), value=grades_info, inline=True
             )
 
-            # 遊戲統計
+            # Play statistics
             stats = user.statistics
             play_count = self._get_first_attr(stats, "play_count", "playcount")
             total_score = self._get_first_attr(stats, "total_score")
@@ -122,7 +122,7 @@ class OsuInfo(commands.Cog):
                 name=tx("osu_info.play_statistics"), value=playcount_info, inline=True
             )
 
-            # 附加資訊
+            # Extra information
             if user.cover_url:
                 embed.set_image(url=user.cover_url)
 
@@ -301,7 +301,7 @@ class OsuInfo(commands.Cog):
             )
 
     def _get_first_attr(self, obj: Any, *names: Any) -> Any:
-        """按順序嘗試多個屬性名，取到第一個存在且不為 None 的值。"""
+        """Try several attribute names in order; return the first that exists and is not None."""
         for name in names:
             if hasattr(obj, name):
                 value = getattr(obj, name)
@@ -310,7 +310,7 @@ class OsuInfo(commands.Cog):
         return None
 
     def _fmt_int(self, value: Any) -> str:
-        """安全格式化整數（含千分位），空值顯示為未知。"""
+        """Format an integer safely (with thousands separators); an empty value shows as unknown."""
         if value is None:
             return tx("audit_log.unknown")
         try:
@@ -372,5 +372,5 @@ class OsuInfo(commands.Cog):
 
 
 async def setup(bot: commands.Bot) -> None:
-    """載入 Cog"""
+    """Load the cog."""
     await bot.add_cog(OsuInfo(bot))

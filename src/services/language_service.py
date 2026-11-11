@@ -42,7 +42,7 @@ class LanguageService:
         # back into the cache after a write. Re-entrant: writers call _load().
         self._lock = threading.RLock()
 
-    # ── storage ───────────────────────────────────────────────────
+    # ── storage ───────────────────────────────────────────────────────
     def _load(self) -> dict[str, Any]:
         with self._lock:
             return self._load_locked()
@@ -71,7 +71,7 @@ class LanguageService:
         self._cache = copy.deepcopy(data)
         self._cache_time = time.monotonic()
 
-    # ── reads ─────────────────────────────────────────────────────
+    # ── reads ─────────────────────────────────────────────────────────
     def cached_language(
         self, guild_id: Optional[int], user_id: int
     ) -> tuple[bool, Optional[Lang]]:
@@ -135,7 +135,7 @@ class LanguageService:
     def baseline_done(self) -> bool:
         return bool(self._load()["baseline_done"])
 
-    # ── writes ────────────────────────────────────────────────────
+    # ── writes ────────────────────────────────────────────────────────
     def set_guild_lang(self, guild_id: int, lang: Lang) -> None:
         if not is_lang(lang):
             raise ValueError(f"Unsupported language: {lang!r}")

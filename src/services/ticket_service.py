@@ -1,4 +1,4 @@
-"""工單業務邏輯服務"""
+"""Ticket business logic."""
 
 import asyncio
 import copy
@@ -18,13 +18,13 @@ _DATA_FILE = "data/storage/tickets.json"
 
 
 class TicketService:
-    """工單資料存取與業務邏輯"""
+    """Ticket data access and business logic."""
 
     def __init__(self) -> None:
         self._lock = asyncio.Lock()
         self._cache: Optional[dict[Any, Any]] = None
 
-    # ─────────────── 資料存取 ───────────────
+    # ── Data access ───────────────────────────────────────────────────
 
     def _load(self) -> dict[Any, Any]:
         if self._cache is not None:
@@ -44,10 +44,10 @@ class TicketService:
             json.dump(data, f, ensure_ascii=False, indent=2)
         self._cache = copy.deepcopy(data)
 
-    # ─────────────── 伺服器設定 ───────────────
+    # ── Server settings ───────────────────────────────────────────────
 
     def get_guild_config(self, guild_id: int) -> Optional[dict[Any, Any]]:
-        """取得伺服器工單系統設定"""
+        """The server's ticket system settings."""
         result_value = self._load().get("guilds", {}).get(str(guild_id))
         if result_value is None:
             return None
@@ -85,7 +85,7 @@ class TicketService:
         panel_message_id: int,
         ticket_count: int = 0,
     ) -> None:
-        """儲存伺服器工單系統設定"""
+        """Save the server's ticket system settings."""
         data = self._load()
         data.setdefault("guilds", {})[str(guild_id)] = {
             "channel_id": channel_id,
@@ -95,10 +95,10 @@ class TicketService:
         }
         self._save(data)
 
-    # ─────────────── 工單 CRUD ───────────────
+    # ── Ticket CRUD ───────────────────────────────────────────────────
 
     def get_ticket(self, thread_id: int) -> Optional[dict[Any, Any]]:
-        """取得工單資料"""
+        """One ticket's data."""
         result_value = self._load().get("tickets", {}).get(str(thread_id))
         if result_value is None:
             return None
@@ -107,7 +107,7 @@ class TicketService:
         return result_value
 
     def find_open_ticket(self, guild_id: int, user_id: int) -> Optional[int]:
-        """尋找用戶在指定伺服器是否已有開啟中工單，回傳 thread_id"""
+        """Find whether the user already has an open ticket in the server; return the thread_id."""
         data = self._load()
         for tid, tinfo in data.get("tickets", {}).items():
             if (
@@ -126,7 +126,7 @@ class TicketService:
         creator_id: int,
         ticket_number: int,
     ) -> None:
-        """建立工單記錄"""
+        """Create a ticket record."""
         data = self._load()
         data.setdefault("tickets", {})[str(thread_id)] = {
             "guild_id": guild_id,
@@ -147,7 +147,7 @@ class TicketService:
         closed_by_id: int,
         reason: Optional[str] = None,
     ) -> bool:
-        """關閉工單，回傳是否成功"""
+        """Close a ticket; return whether it succeeded."""
         data = self._load()
         ticket_id = str(thread_id)
         if ticket_id not in data.get("tickets", {}):
@@ -160,7 +160,7 @@ class TicketService:
         return True
 
     def increment_ticket_count(self, guild_id: int) -> int:
-        """遞增工單計數並回傳新值"""
+        """Increase the ticket counter and return the new value."""
         data = self._load()
         cfg = data.setdefault("guilds", {}).setdefault(str(guild_id), {})
         count = cfg.get("ticket_count", 0) + 1
@@ -172,7 +172,7 @@ class TicketService:
         return result_value
 
     def can_close(self, thread_id: int, user_id: int, is_staff: bool) -> bool:
-        """判斷用戶是否有權限關閉工單"""
+        """Whether the user may close the ticket."""
         ticket = self.get_ticket(thread_id)
         if not ticket:
             return False

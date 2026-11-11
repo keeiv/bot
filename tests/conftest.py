@@ -1,4 +1,4 @@
-"""所有測試使用臨時資料與金鑰，禁止連線到正式服務。"""
+"""Every test uses temporary data and keys; connecting to real services is forbidden."""
 
 import base64
 import os

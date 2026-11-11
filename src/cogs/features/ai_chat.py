@@ -40,7 +40,7 @@ from src.utils.storage_worker import run_storage
 
 logger = logging.getLogger(__name__)
 
-# 分身：名稱與頭像（頭像由專案擁有者自行繪製）
+# The stand-ins: names and avatars (the avatars were drawn by the project owner)
 ASSETS = Path(__file__).resolve().parents[3] / "assets" / "ai"
 NAMES = {CLAUDE: "Sonnet", GPT: "Dawn"}
 AVATARS = {CLAUDE: ASSETS / "sonnet.png", GPT: ASSETS / "dawn.png"}
@@ -65,7 +65,7 @@ Deliver = Callable[[Reply], Awaitable[None]]
 
 
 def context_line(message: discord.Message) -> Optional[str]:
-    """``[21:04] 名字 → 對象: 內容`` for one channel message; None for an empty one."""
+    """``[21:04] name → target: content`` for one channel message; None for an empty one."""
     lines = [
         line
         for line in message.clean_content.splitlines()
@@ -115,7 +115,7 @@ def fit_image(data: bytes, limit: int) -> tuple[bytes, str]:
 
 
 class AiChat(commands.Cog):
-    """AI 聊天：Sonnet (Claude) 或 Dawn (GPT)，每人選一位"""
+    """AI chat: Sonnet (Claude) or Dawn (GPT), one chosen by each member."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -133,10 +133,10 @@ class AiChat(commands.Cog):
     async def cog_unload(self) -> None:
         self.refresh_profiles.cancel()
 
-    # ── the members' /mhy links, kept fresh for @BOT. ─────────────
+    # ── the members' /mhy links, kept fresh for @BOT. ─────────────────
     @tasks.loop(minutes=REFRESH_MINUTES)
     async def refresh_profiles(self) -> None:
-        """背景定期重讀所有綁定的米哈遊帳號，HoYoLAB 一時讀不到時才有較新的資料可用"""
+        """Re-read every linked miHoYo account in the background, so newer data is at hand when HoYoLAB cannot be read for a moment."""
         await self.bot.wait_until_ready()
         try:
             await self.profiles.refresh_all()
@@ -145,7 +145,7 @@ class AiChat(commands.Cog):
 
     @commands.Cog.listener()
     async def on_mhy_bound(self, user_id: int) -> None:
-        """剛綁定或換綁的帳號立刻讀一次"""
+        """Read a newly linked or re-linked account at once."""
         try:
             await self.profiles.refresh(user_id)
         except Exception:
@@ -174,7 +174,7 @@ class AiChat(commands.Cog):
         interaction: discord.Interaction,
         character: app_commands.Choice[str],
     ) -> None:
-        """選擇回應自己的角色"""
+        """Choose the character that answers you."""
         provider = character.value
         await interaction.response.defer(ephemeral=True)
         try:
@@ -199,7 +199,7 @@ class AiChat(commands.Cog):
         interaction: discord.Interaction,
         message: app_commands.Range[str, 1, MAX_MESSAGE],
     ) -> None:
-        """和選擇的角色聊天（回覆包在 embed 裡）"""
+        """Chat with the chosen character (the reply is in an embed)."""
         await interaction.response.defer(thinking=True)
 
         async def deliver(reply: Reply) -> None:
@@ -217,7 +217,7 @@ class AiChat(commands.Cog):
         interaction: discord.Interaction,
         prompt: app_commands.Range[str, 1, MAX_MESSAGE],
     ) -> None:
-        """請 Dawn 畫圖（只有 GPT 能畫，與選擇的角色無關）"""
+        """Ask Dawn for a picture (only GPT can draw, whichever character is chosen)."""
         await interaction.response.defer(thinking=True)
 
         async def deliver(reply: Reply) -> None:
@@ -252,14 +252,14 @@ class AiChat(commands.Cog):
     )
     @localized("interaction")
     async def forget(self, interaction: discord.Interaction) -> None:
-        """清除對話記憶"""
+        """Clear the conversation memory."""
         self.service.forget(interaction.user.id)
         await interaction.response.send_message(tx("ai_chat.forgotten"), ephemeral=True)
 
-    # ── @BOT. message: the character answers in person ────────────
+    # ── @BOT. message: the character answers in person ────────────────
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
-        """有人 @BOT. 時，由他選擇的角色以分身（webhook）回覆；>>>claude／>>>codex 切換模型"""
+        """When someone mentions @BOT., their chosen character answers through a stand-in (webhook); >>>claude and >>>codex switch models."""
         me = self.bot.user
         if me is None or message.author.bot or message.webhook_id is not None:
             return
@@ -285,7 +285,7 @@ class AiChat(commands.Cog):
 
     @localized("message")
     async def answer_mention(self, message: discord.Message, text: str) -> None:
-        """回覆一則 @BOT. 訊息：純文字，不包 embed"""
+        """Answer one @BOT. message: plain text, no embed."""
 
         async def deliver(reply: Reply) -> None:
             content = f"{reply.text}\n{reply.signature}"
@@ -503,12 +503,12 @@ class AiChat(commands.Cog):
             logger.exception("AI drawing failed")
             return tx("ai_chat.maintenance")
 
-    # ── developers: >>>claude / >>>codex ──────────────────────────
+    # ── developers: >>>claude / >>>codex ──────────────────────────────
     @localized("message")
     async def switch_model(
         self, message: discord.Message, provider: str, argument: str
     ) -> None:
-        """>>>codex [編號] 1（只改自己）／2（改全部人）、>>>codex reset、>>>codex（清單）"""
+        """>>>codex [number] 1 (only yourself) or 2 (everyone), >>>codex reset, >>>codex (the list)."""
         if message.author.id not in DEVELOPER_IDS:
             await message.reply(
                 tx("developer.denied_this_command_is_restricted_to"), delete_after=5
@@ -635,5 +635,5 @@ class AiChat(commands.Cog):
 
 
 async def setup(bot: commands.Bot) -> None:
-    """載入 Cog"""
+    """Load the cog."""
     await bot.add_cog(AiChat(bot))

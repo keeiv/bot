@@ -1,4 +1,4 @@
-"""明日方舟：終末地 — 透過 Enka.Network 查詢公開的名片與展示幹員"""
+"""Arknights: Endfield: public business cards and showcased operators through Enka.Network."""
 
 from datetime import datetime
 from datetime import timezone
@@ -173,7 +173,7 @@ def roster_embed(account: Account) -> discord.Embed:
 
 
 class TokenModal(LocalizedModal):
-    """帳號憑證只從這個私密視窗輸入，不經過指令參數"""
+    """The account token is entered only in this private window, never as a command argument."""
 
     def __init__(self, cog: "EndfieldCog") -> None:
         super().__init__(title=tx("endfield.link_title"))
@@ -194,7 +194,7 @@ class TokenModal(LocalizedModal):
 
 
 class EndfieldCog(commands.Cog):
-    """明日方舟：終末地：綁定 UID 或帳號，查詢名片與幹員"""
+    """Arknights: Endfield: link a UID or an account, look up cards and operators."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot

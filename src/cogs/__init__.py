@@ -1,1 +1,1 @@
-# Cog 包初始化文件
+# Package of cogs

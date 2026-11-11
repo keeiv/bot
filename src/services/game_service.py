@@ -1,17 +1,15 @@
-"""遊戲狀態業務邏輯服務 (深海氧氣瓶 / 俄羅斯輪盤)"""
+"""Game state business logic (deep-sea oxygen and Russian roulette)."""
 
 import random
 from typing import Dict, List, Optional, Tuple
 
 import discord
 
-# ═══════════════════════════════════════════
-#  深海氧氣瓶
-# ═══════════════════════════════════════════
+# ── Deep-sea oxygen ───────────────────────────────────────────────
 
 
 class OxygenGame:
-    """深海氧氣瓶遊戲狀態"""
+    """The state of a deep-sea oxygen game."""
 
     def __init__(
         self,
@@ -25,26 +23,26 @@ class OxygenGame:
         self.round = 1
         self.max_rounds = 5
 
-        # 氧氣系統
+        # Oxygen
         self.total_oxygen = 10000
         self.round_oxygen_usage: Dict[int, int] = {}
         self.round_choices: Dict[int, int] = {}
 
-        # CT 獎勵
+        # CT rewards
         self.player1_coins = 0
         self.player2_coins = 0
 
-        # 道具
+        # Items
         self.player1_items: List[str] = ["側錄器", "漏氣針"]
         self.player2_items: List[str] = ["側錄器", "漏氣針"]
 
-        # 遊戲狀態
+        # Game state
         self.game_active = True
         self.eliminated_player: Optional[discord.Member] = None
         self.current_phase = "waiting"
 
     def calculate_coins(self, oxygen_amount: int) -> int:
-        """依吸氧量計算 CT 獎勵"""
+        """Work out the CT reward from the oxygen taken."""
         if oxygen_amount <= 500:
             return 2000
         if oxygen_amount <= 800:
@@ -58,23 +56,21 @@ class OxygenGame:
         return 0
 
     def get_last_round_oxygen(self, player: discord.Member) -> int:
-        """取得玩家上一輪吸氧量"""
+        """How much oxygen a player took last round."""
         if self.round <= 1:
             return 0
         return self.round_oxygen_usage.get(player.id, 0)
 
     def get_player_items(self, player: discord.Member) -> List[str]:
-        """取得玩家道具列表"""
+        """A player's items."""
         return self.player1_items if player == self.player1 else self.player2_items
 
 
-# ═══════════════════════════════════════════
-#  俄羅斯輪盤
-# ═══════════════════════════════════════════
+# ── Russian roulette ──────────────────────────────────────────────
 
 
 class RouletteGame:
-    """俄羅斯輪盤遊戲狀態"""
+    """The state of a Russian roulette game."""
 
     ITEM_DESCRIPTIONS: Dict[str, str] = {
         "透視眼鏡": "偷看彈巢中的下一發是否為子彈",
@@ -116,14 +112,14 @@ class RouletteGame:
 
     @staticmethod
     def _random_items() -> List[str]:
-        """產生隨機道具組"""
+        """Make a random set of items."""
         pool = ["透視眼鏡", "命運洗牌", "空包彈", "強制轉向", "加倍賭注"]
         return random.sample(pool, 3)
 
     def get_current_player_data(
         self,
     ) -> Tuple[discord.Member, int, List[str]]:
-        """取得當前玩家資料"""
+        """The current player's data."""
         if self.current_player == self.player1:
             return self.player1, self.player1_chips, self.player1_items
         return self.player2, self.player2_chips, self.player2_items
@@ -131,24 +127,24 @@ class RouletteGame:
     def get_opponent_data(
         self,
     ) -> Tuple[discord.Member, int, List[str]]:
-        """取得對手資料"""
+        """The opponent's data."""
         if self.current_player == self.player1:
             return self.player2, self.player2_chips, self.player2_items
         return self.player1, self.player1_chips, self.player1_items
 
     def switch_player(self) -> None:
-        """切換當前玩家"""
+        """Switch the current player."""
         self.current_player = (
             self.player2 if self.current_player == self.player1 else self.player1
         )
 
     def calculate_damage(self) -> int:
-        """計算本次傷害"""
+        """Work out the damage this time."""
         base = 2000 if self.empty_shots_this_round >= 3 else 1500
         return base * 2 if self.double_bet_active else base
 
     def next_round(self) -> None:
-        """進入下一回合"""
+        """Move to the next turn."""
         self.round += 1
         self.bullet_position = random.randint(1, 6)
         self.current_chamber = 1
@@ -158,5 +154,5 @@ class RouletteGame:
 
     @staticmethod
     def get_item_description(item: str) -> str:
-        """取得道具說明"""
+        """The description of an item."""
         return RouletteGame.ITEM_DESCRIPTIONS.get(item, "未知道具")

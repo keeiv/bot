@@ -1,4 +1,4 @@
-"""全域封禁：global_ban 名單上的人，在 BOT. 所在的每個伺服器預先封禁"""
+"""Global bans: whoever is on the global_ban list is banned ahead of time in every server BOT. is in."""
 
 import logging
 

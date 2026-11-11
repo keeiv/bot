@@ -143,7 +143,7 @@ async def test_targets_come_from_both_lists_without_expired_or_block_entries(
     assert await manager.global_ban_targets() == {5: "mori", 7: "local"}
 
 
-# ── review round: 希雨 ────────────────────────────────────────────
+# ── Review round: Xiyu ────────────────────────────────────────────
 async def test_a_ban_seen_on_mori_is_not_lifted_after_mori_is_switched_off():
     lists = Lists({5: "local"})
     enforcer = GlobalBanEnforcer(lists)

@@ -1,4 +1,4 @@
-"""成就系統 Cog"""
+"""Achievements."""
 
 from datetime import datetime
 from datetime import timedelta
@@ -18,17 +18,17 @@ TZ_OFFSET = timezone(timedelta(hours=8))
 
 
 class Achievements(commands.Cog):
-    """成就系統 Cog"""
+    """Achievements."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.service = AchievementService()
 
-    # ─────────────── 顯示工具 (UI 專屬) ───────────────
+    # ── Display helpers (UI only) ─────────────────────────────────────
 
     @staticmethod
     def get_rarity_emoji(rarity: str) -> str:
-        """取得稀有度標籤"""
+        """The label of a rarity."""
         return {
             "common": tx("achievements.common"),
             "uncommon": tx("achievements.uncommon"),
@@ -39,7 +39,7 @@ class Achievements(commands.Cog):
 
     @staticmethod
     def get_rarity_display(rarity: str) -> str:
-        """取得稀有度顯示名稱"""
+        """The display name of a rarity."""
         return {
             "common": tx("achievements.common_bd3455"),
             "uncommon": tx("achievements.uncommon_7fcf13"),
@@ -50,7 +50,7 @@ class Achievements(commands.Cog):
 
     @staticmethod
     def get_rarity_color(rarity: str) -> discord.Color:
-        """取得稀有度顏色"""
+        """The colour of a rarity."""
         return {
             "common": discord.Color.from_rgb(128, 128, 128),
             "uncommon": discord.Color.from_rgb(46, 204, 113),
@@ -59,7 +59,7 @@ class Achievements(commands.Cog):
             "legendary": discord.Color.from_rgb(241, 196, 15),
         }.get(rarity, discord.Color.from_rgb(128, 128, 128))
 
-    # ─────────────── 指令 ───────────────
+    # ── Commands ──────────────────────────────────────────────────────
 
     @app_commands.command(name="achievements", description="Show achievements")
     @app_commands.describe(user="The user to look up (defaults to you)")
@@ -69,7 +69,7 @@ class Achievements(commands.Cog):
         interaction: discord.Interaction,
         user: discord.User | discord.Member | None = None,
     ) -> None:
-        """查看成就"""
+        """Show achievements."""
         if (
             interaction.guild is None
             or interaction.guild_id is None
@@ -145,7 +145,7 @@ class Achievements(commands.Cog):
     )
     @localized("interaction")
     async def achievement_codex(self, interaction: discord.Interaction) -> None:
-        """查看所有可用成就的圖鑑"""
+        """Browse the codex of every achievement."""
         if (
             interaction.guild is None
             or interaction.guild_id is None
@@ -227,7 +227,7 @@ class Achievements(commands.Cog):
     async def achievement_info(
         self, interaction: discord.Interaction, achievement: str
     ) -> None:
-        """查看成就詳細資訊"""
+        """Show the details of one achievement."""
         achievement_id = None
         achievement_data = None
 
@@ -269,38 +269,38 @@ class Achievements(commands.Cog):
         )
         await interaction.response.send_message(embed=embed)
 
-    # ─────────────── 成就觸發 (供其他 Cog 呼叫) ───────────────
+    # ── Achievement triggers (called by other cogs) ───────────────────
 
     def trigger_edit_achievement(self, user_id: int, guild_id: int) -> None:
-        """觸發編輯成就"""
+        """Trigger the edit achievement."""
         self.service.unlock(user_id, guild_id, "first_edit")
 
     def trigger_delete_achievement(self, user_id: int, guild_id: int) -> None:
-        """觸發刪除成就"""
+        """Trigger the delete achievement."""
         self.service.unlock(user_id, guild_id, "first_delete")
 
     def trigger_interaction_achievement(self, user_id: int, guild_id: int) -> None:
-        """觸發互動成就"""
+        """Trigger the interaction achievement."""
         self.service.unlock(user_id, guild_id, "first_interaction")
 
     def trigger_game_loss(self, user_id: int, guild_id: int, game_type: str) -> None:
-        """觸發遊戲失敗成就"""
+        """Trigger a game-loss achievement."""
         if game_type == "russian_roulette":
             self.service.unlock(user_id, guild_id, "halo_broken")
         elif game_type == "submarine":
             self.service.unlock(user_id, guild_id, "kursk_sinking")
 
     def trigger_codex_achievement(self, user_id: int, guild_id: int) -> None:
-        """觸發圖鑑成就"""
+        """Trigger the codex achievement."""
         self.service.unlock(user_id, guild_id, "achievement_explorer")
 
     def unlock_achievement(
         self, user_id: int, guild_id: int, achievement_id: str
     ) -> bool:
-        """解鎖成就 (向後相容接口)"""
+        """Unlock an achievement (kept for backward compatibility)."""
         return self.service.unlock(user_id, guild_id, achievement_id)
 
 
 async def setup(bot: commands.Bot) -> None:
-    """載入 Cog"""
+    """Load the cog."""
     await bot.add_cog(Achievements(bot))

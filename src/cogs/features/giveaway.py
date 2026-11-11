@@ -1,4 +1,4 @@
-"""抽獎系統 Cog"""
+"""Giveaways."""
 
 from datetime import datetime
 from datetime import timedelta
@@ -27,12 +27,12 @@ log = logging.getLogger(__name__)
 TZ_OFFSET = timezone(timedelta(hours=8))
 GIVEAWAY_EMOJI = "\U0001f389"
 
-# 模組級別單例 - GiveawayView 與 Giveaway Cog 共用同一個鎖
+# Module-level singleton: GiveawayView and the Giveaway cog share one lock
 _service = GiveawayService()
 
 
 class GiveawayView(LocalizedView):
-    """抽獎按鈕視圖 (持久化)"""
+    """The giveaway button view (persistent)."""
 
     i18n = {"enter_button.label": "giveaway.enter_giveaway"}
 
@@ -50,7 +50,7 @@ class GiveawayView(LocalizedView):
     async def enter_button(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
-        """參加抽獎 (使用鎖防止競態條件)"""
+        """Enter the giveaway (a lock prevents a race)."""
         await interaction.response.defer(thinking=True, ephemeral=True)
         async with _service.lock:
             action, count = await run_storage(
@@ -87,7 +87,7 @@ class GiveawayView(LocalizedView):
 
     @staticmethod
     def _update_participant_count(embed: discord.Embed, count: int) -> discord.Embed:
-        """更新 Embed 上的參與人數"""
+        """Update the number of entrants on the embed."""
         new_embed = discord.Embed(
             title=embed.title,
             description=embed.description,
@@ -113,7 +113,7 @@ class GiveawayView(LocalizedView):
 
 
 class Giveaway(commands.Cog):
-    """抽獎系統 Cog"""
+    """Giveaways."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -125,16 +125,16 @@ class Giveaway(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:
-        """重新載入進行中抽獎的視圖"""
+        """Reload the views of giveaways still running."""
         active = await run_storage(self.service.list_all_active)
         for gid, ga in active:
             self.bot.add_view(GiveawayView(gid), message_id=ga["message_id"])
 
-    # ───────────── 定時檢查 ─────────────
+    # ── Scheduled check ───────────────────────────────────────────────
 
     @tasks.loop(seconds=30)
     async def check_giveaways(self) -> None:
-        """檢查並結算到期的抽獎"""
+        """Find the giveaways that are due and settle them."""
         await self.bot.wait_until_ready()
         # A round that raises would stop the loop until the next restart.
         try:
@@ -156,7 +156,7 @@ class Giveaway(commands.Cog):
             except Exception:
                 log.exception("Giveaway %s could not be settled", gid)
 
-    # ───────────── 指令群組 ─────────────
+    # ── Command group ─────────────────────────────────────────────────
 
     giveaway_group = app_commands.Group(
         name="giveaway",
@@ -182,7 +182,7 @@ class Giveaway(commands.Cog):
         channel: discord.TextChannel | None = None,
         description: str | None = None,
     ) -> None:
-        """建立新抽獎"""
+        """Create a giveaway."""
         if (
             interaction.guild is None
             or interaction.guild_id is None
@@ -285,7 +285,7 @@ class Giveaway(commands.Cog):
     @app_commands.describe(giveaway_id="Giveaway ID (shown in the embed footer)")
     @localized("interaction")
     async def end_cmd(self, interaction: discord.Interaction, giveaway_id: str) -> None:
-        """提前結束抽獎"""
+        """End a giveaway early."""
         ga = await run_storage(self.service.get, giveaway_id)
         # Only this server's giveaways: the ID is printed on every giveaway embed.
         if not ga or ga.get("guild_id") != interaction.guild_id:
@@ -317,7 +317,7 @@ class Giveaway(commands.Cog):
         giveaway_id: str,
         winners: int | None = None,
     ) -> None:
-        """重新抽取得獎者"""
+        """Draw the winners again."""
         ga = await run_storage(self.service.get, giveaway_id)
         if not ga or not ga.get("ended") or ga.get("guild_id") != interaction.guild_id:
             await interaction.response.send_message(
@@ -357,7 +357,7 @@ class Giveaway(commands.Cog):
     @giveaway_group.command(name="list", description="Show running giveaways")
     @localized("interaction")
     async def list_cmd(self, interaction: discord.Interaction) -> None:
-        """列出伺服器所有進行中的抽獎"""
+        """List every giveaway running in the server."""
         if (
             interaction.guild is None
             or interaction.guild_id is None
@@ -399,10 +399,10 @@ class Giveaway(commands.Cog):
 
         await interaction.followup.send(embed=embed)
 
-    # ───────────── 內部方法 ─────────────
+    # ── Internal methods ──────────────────────────────────────────────
 
     async def _end_giveaway(self, giveaway_id: str, ga: dict[Any, Any]) -> None:
-        """結算抽獎並發送結果"""
+        """Settle a giveaway and post the result."""
         lang = await guild_language(ga["guild_id"])
         with language_scope(lang):
             winner_ids = await run_storage(self.service.pick_winners, giveaway_id)
@@ -491,5 +491,5 @@ class Giveaway(commands.Cog):
 
 
 async def setup(bot: commands.Bot) -> None:
-    """載入 Cog"""
+    """Load the cog."""
     await bot.add_cog(Giveaway(bot))

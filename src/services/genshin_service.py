@@ -1,4 +1,4 @@
-"""米游社與 HoYoLAB 服務"""
+"""Miyoushe and HoYoLAB service."""
 
 import asyncio
 import copy
@@ -28,9 +28,9 @@ logger = logging.getLogger(__name__)
 _DATA_FILE = "data/storage/genshin_accounts.json"
 
 
-# 遊戲更新加入新代碼（新屬性、新特性）而 genshin.py 還不認得時，只略過那位角色，不讓整份清單讀不到。
+# When a game update adds codes (new attributes, new traits) that genshin.py does not know yet, skip only that character rather than losing the whole list.
 def _readable(model, data: dict, key: str, clear=()) -> dict:
-    """``data`` 去掉 ``key`` 清單中 ``model`` 讀不懂的項目；``clear`` 的清單在檢查時先清空"""
+    """``data`` without the entries of the ``key`` list that ``model`` cannot read; the lists in ``clear`` are emptied before the check."""
     base = {**data, **{name: [] for name in clear}}
     kept = []
     for item in data.get(key) or []:
@@ -44,7 +44,7 @@ def _readable(model, data: dict, key: str, clear=()) -> dict:
 
 
 def _each(model, items) -> list:
-    """逐筆讀取 ``items``，讀不懂的略過"""
+    """Read ``items`` one at a time, skipping any that cannot be read."""
     parsed = []
     for item in items:
         try:
@@ -58,7 +58,7 @@ _SIGNIN_LOG_FILE = "data/storage/genshin_signin_log.json"
 
 
 class GenshinService:
-    """米游社與 HoYoLAB 帳號管理、數據獲取與每日自動簽到服務"""
+    """Miyoushe and HoYoLAB account management, data fetching and automatic daily check-in."""
 
     def __init__(self) -> None:
         self._accounts_lock = threading.RLock()
@@ -67,7 +67,7 @@ class GenshinService:
         self._accounts: dict[Any, Any] = self._load_accounts()
 
     def _get_encryption_key(self) -> bytes:
-        """優先沿用既有金鑰；新金鑰必須成功保存才能啟用。"""
+        """Reuse an existing key first; a new key is used only once it has been saved."""
         env_path = os.path.abspath(
             os.path.join(os.path.dirname(__file__), "..", "..", ".env")
         )
@@ -75,7 +75,7 @@ class GenshinService:
         if key_str:
             return key_str.encode()
 
-        # 不依賴呼叫端是否先執行 load_dotenv，也不展開其他環境變數。
+        # Does not depend on the caller having run load_dotenv, and expands no other environment variables.
         try:
             with open(env_path, encoding="utf-8") as stream:
                 key_str = dotenv_values(stream=stream, interpolate=False).get(
@@ -85,10 +85,10 @@ class GenshinService:
             key_str = None
 
         if key_str:
-            # 驗證後才發布到程序環境，無效設定不能觸發自動換鑰。
+            # Publish to the process environment only after validating; an invalid setting must not trigger an automatic key change.
             Fernet(key_str.encode())
         else:
-            # 既有密文不能用新金鑰復原；讀不到資料也不能假定沒有帳號。
+            # Existing ciphertext cannot be recovered with a new key; failing to read the data does not mean there are no accounts.
             try:
                 with open_document(_DATA_FILE, encoding="utf-8") as stream:
                     accounts = json.load(stream)
@@ -109,7 +109,7 @@ class GenshinService:
         return key_str.encode()
 
     def _write_key_to_env(self, env_path: str, key_str: str) -> None:
-        """以暫存檔原子替換 .env；保存失敗時中止服務初始化。"""
+        """Replace .env atomically through a temporary file; stop the service from starting if saving fails."""
         try:
             saved, _, _ = set_key(
                 env_path, "GENSHIN_ENCRYPTION_KEY", key_str, encoding="utf-8"
@@ -179,15 +179,15 @@ class GenshinService:
         write_document(_SIGNIN_LOG_FILE, data)
 
     def encrypt_cookie(self, cookie: str) -> str:
-        """加密 Cookie"""
+        """Encrypt a cookie."""
         return self._fernet.encrypt(cookie.strip().encode()).decode()
 
     def decrypt_cookie(self, encrypted_cookie: str) -> str:
-        """解密 Cookie"""
+        """Decrypt a cookie."""
         return self._fernet.decrypt(encrypted_cookie.encode()).decode()
 
     def get_client(self, discord_user_id: int) -> genshin.Client:
-        """為指定 Discord 用戶初始化並獲取 genshin.Client"""
+        """Set up and return a genshin.Client for a Discord user."""
         user_data = self._accounts.get(str(discord_user_id))
         if not user_data:
             raise ValueError(
@@ -208,17 +208,17 @@ class GenshinService:
         return client
 
     def get_bound_user(self, discord_user_id: int) -> Optional[dict[Any, Any]]:
-        """獲取已綁定的使用者設定"""
+        """The settings of a linked user."""
         return copy.deepcopy(self._accounts.get(str(discord_user_id)))
 
     def get_all_bound_users(self) -> dict[Any, Any]:
-        """獲取所有已綁定的使用者"""
+        """Every linked user."""
         return copy.deepcopy(self._accounts)
 
     async def bind_account(
         self, discord_user_id: int, cookie: str, region_str: str
     ) -> list[dict[Any, Any]]:
-        """驗證並綁定 Cookie"""
+        """Validate a cookie and link it."""
         region = (
             genshin.Region.CHINESE if region_str == "cn" else genshin.Region.OVERSEAS
         )
@@ -229,7 +229,7 @@ class GenshinService:
         )
 
         try:
-            # 獲取綁定的遊戲帳號列表以驗證 Cookie
+            # Fetch the linked game accounts to validate the cookie
             accounts = await client.get_game_accounts()
         except genshin.errors.InvalidCookies:
             raise ValueError(tx("genshin_service.the_supplied_cookie_is_invalid_or"))
@@ -262,7 +262,7 @@ class GenshinService:
         return game_accounts
 
     def unbind_account(self, discord_user_id: int) -> bool:
-        """解除綁定帳號"""
+        """Unlink the account."""
 
         def update(accounts, key):
             if key not in accounts:
@@ -273,7 +273,7 @@ class GenshinService:
         return self._update_account(str(discord_user_id), update)
 
     def toggle_auto_sign_in(self, discord_user_id: int, enable: bool) -> bool:
-        """開啟或關閉每日自動簽到"""
+        """Turn automatic daily check-in on or off."""
 
         def update(accounts, key):
             if key not in accounts:
@@ -283,12 +283,12 @@ class GenshinService:
 
         return self._update_account(str(discord_user_id), update)
 
-    # ─────────────── 業務 API ───────────────
+    # ── Business API ──────────────────────────────────────────────────
 
     def _pick_uid(
         self, discord_user_id: int, game_str: str, uid: Optional[int] = None
     ) -> int:
-        """該成員自己綁定的 UID：未指定時取該遊戲的第一個，指定時必須是他綁定的"""
+        """A UID the member has linked themselves: the game's first when none is given; a given one must be theirs."""
         user_data = self._accounts.get(str(discord_user_id)) or {}
         uids = [
             int(acc["uid"])
@@ -306,10 +306,10 @@ class GenshinService:
     async def get_notes(
         self, discord_user_id: int, game_str: str, uid: Optional[int] = None
     ) -> dict[Any, Any]:
-        """獲取指定遊戲的實時便箋（uid：該成員綁定的其他伺服器帳號）"""
+        """The real-time notes of a game (uid: an account of the member's on another server)."""
         client = self.get_client(discord_user_id)
         uid = self._pick_uid(discord_user_id, game_str, uid)
-        # genshin.py 依這個 UID 挑帳號的伺服器（崩壞3 不從 UID 推算伺服器）
+        # genshin.py picks the account's server from this UID (Honkai Impact 3rd does not derive the server from the UID)
         client.uids[self._get_game_enum(game_str)] = uid
 
         if game_str == "genshin":
@@ -415,11 +415,11 @@ class GenshinService:
     async def redeem_code(
         self, discord_user_id: int, game_str: str, code: str
     ) -> list[dict[Any, Any]]:
-        """為使用者在此遊戲的所有繫結 UID 兌換禮包碼"""
+        """Redeem a gift code for every UID the user has linked in this game."""
         client = self.get_client(discord_user_id)
         user_data = self._accounts[str(discord_user_id)]
 
-        # 篩選對應遊戲的 UIDs
+        # Keep the UIDs of the matching game
         game_accs = [
             acc
             for acc in user_data.get("game_accounts", [])
@@ -492,11 +492,11 @@ class GenshinService:
     async def get_stats(
         self, discord_user_id: int, game_str: str, uid: Optional[int] = None
     ) -> dict[Any, Any]:
-        """獲取使用者的遊戲統計數據（uid：該成員綁定的其他伺服器帳號）"""
+        """The user's game statistics (uid: an account of the member's on another server)."""
         client = self.get_client(discord_user_id)
         user_data = self._accounts[str(discord_user_id)]
         uid = self._pick_uid(discord_user_id, game_str, uid)
-        # genshin.py 依這個 UID 挑帳號的伺服器（崩壞3 不從 UID 推算伺服器）
+        # genshin.py picks the account's server from this UID (Honkai Impact 3rd does not derive the server from the UID)
         client.uids[self._get_game_enum(game_str)] = uid
 
         if game_str == "genshin":
@@ -589,10 +589,10 @@ class GenshinService:
     async def get_roster(
         self, discord_user_id: int, game_str: str, uid: Optional[int] = None
     ) -> list[dict[str, Any]]:
-        """獲取擁有的角色與裝備（給 AI 推薦配隊用），等級高的在前"""
+        """The characters and gear owned (for the AI's team suggestions), highest level first."""
         client = self.get_client(discord_user_id)
         uid = self._pick_uid(discord_user_id, game_str, uid)
-        # genshin.py 依這個 UID 挑帳號的伺服器（崩壞3 不從 UID 推算伺服器）
+        # genshin.py picks the account's server from this UID (Honkai Impact 3rd does not derive the server from the UID)
         client.uids[self._get_game_enum(game_str)] = uid
 
         def sets(names) -> list[str]:
@@ -696,7 +696,7 @@ class GenshinService:
     async def get_abyss_stats(
         self, discord_user_id: int, game_str: str
     ) -> dict[Any, Any]:
-        """獲取深淵數據 (當前期數)"""
+        """Spiral Abyss data (the current cycle)."""
         client = self.get_client(discord_user_id)
         user_data = self._accounts[str(discord_user_id)]
 
@@ -886,7 +886,7 @@ class GenshinService:
     async def claim_daily_signin_for_user(
         self, discord_user_id: int
     ) -> list[dict[Any, Any]]:
-        """手動或定時為單個使用者擁有的所有遊戲帳號簽到"""
+        """Check in every game account one user owns, by hand or on schedule."""
         client = self.get_client(discord_user_id)
         user_data = self._accounts[str(discord_user_id)]
         results = []
@@ -940,7 +940,7 @@ class GenshinService:
         return results
 
     async def run_global_auto_sign_in(self) -> dict[int, list[dict[Any, Any]]]:
-        """定時背景任務：為所有啟用自動簽到的使用者執行簽到"""
+        """Scheduled background task: check in every user who has automatic check-in on."""
         results = {}
         for user_id, info in self._accounts.items():
             if not info.get("auto_sign_in", True):
@@ -964,10 +964,10 @@ class GenshinService:
                 }
             ]
 
-    # ─────────────── 輔助工具 ───────────────
+    # ── Helpers ───────────────────────────────────────────────────────
 
     def map_game_biz_to_str(self, game_biz: str) -> str:
-        """將 game_biz 對應到內部遊戲名稱"""
+        """Map a game_biz to the internal game name."""
         game_biz = game_biz.lower()
         if "hk4e" in game_biz:
             return "genshin"
@@ -982,7 +982,7 @@ class GenshinService:
         return "unknown"
 
     def _get_game_enum(self, game_str: str) -> genshin.types.Game:
-        """對應遊戲字串為 genshin.types.Game 枚舉"""
+        """Map a game string to the genshin.types.Game enum."""
         mapping = {
             "genshin": genshin.types.Game.GENSHIN,
             "starrail": genshin.types.Game.STARRAIL,
@@ -993,7 +993,7 @@ class GenshinService:
         return mapping.get(game_str, genshin.types.Game.GENSHIN)
 
     def _format_transformer_time(self, recovery_time: Any) -> str:
-        """格式化參量質變儀的時間"""
+        """Format the Parametric Transformer's time."""
         if not recovery_time:
             return tx("genshin_service.ready")
 
@@ -1025,7 +1025,7 @@ class GenshinService:
         return "".join(parts) + tx("genshin_service.until_ready")
 
     def _timedelta_to_seconds(self, td: Any) -> int:
-        """將 timedelta 或整數時間安全轉換為秒數"""
+        """Convert a timedelta or an integer time to seconds safely."""
         if not td:
             return 0
         if hasattr(td, "total_seconds"):

@@ -24,7 +24,7 @@ TZ_OFFSET = timezone(timedelta(hours=8))
 
 
 class CookieBindModal(LocalizedModal):
-    """彈出式輸入視窗：安全輸入 Cookie 各個欄位"""
+    """Pop-up form for entering each cookie field safely."""
 
     def __init__(
         self, service: "GenshinService", cog: "GenshinCog", region: str
@@ -39,7 +39,7 @@ class CookieBindModal(LocalizedModal):
         self.cog = cog
         self.region = region
 
-        # 根據區域設定不同的欄位
+        # The fields depend on the region
         if region == "cn":
             self.ltoken = discord.ui.TextInput[Any](
                 label="ltoken",
@@ -165,7 +165,7 @@ class CookieBindModal(LocalizedModal):
 
 
 class TutorialView(LocalizedView):
-    """用於顯示國服/國際服 Cookie 教學的按鈕選單"""
+    """Buttons that show the cookie guide for the Chinese or the global server."""
 
     i18n = {
         "global_tutorial.label": "genshin_cog.global_hoyolab_guide",
@@ -177,7 +177,7 @@ class TutorialView(LocalizedView):
         self.cog = cog
 
     def _create_tutorial_embed(self, region: str) -> discord.Embed:
-        """建立教學 embed"""
+        """Build the guide embed."""
         if region == "global":
             title = tx("genshin_cog.hoyolab_global_cookie_guide")
             color = discord.Color.from_rgb(52, 152, 219)
@@ -260,7 +260,7 @@ class TutorialView(LocalizedView):
 
 
 class GenshinCog(commands.Cog):
-    """HoYoLAB / 米游社 相關自動化與查詢功能"""
+    """HoYoLAB / Miyoushe automation and lookups."""
 
     # Personal tool: also usable in DMs and servers without the bot.
     mhy_group = app_commands.Group(
@@ -273,23 +273,23 @@ class GenshinCog(commands.Cog):
     )
 
     def __init__(self, bot: commands.Bot) -> None:
-        """初始化 GenshinCog"""
+        """Set up GenshinCog."""
         self.bot = bot
         self.service = GenshinService()
 
-        # 啟動自動簽到背景任務
+        # Start the automatic check-in task
         self._auto_signin_loop.start()
-        # 異步載入角色資料庫快取
+        # Load the character database cache asynchronously
         self._character_task = asyncio.create_task(self._init_character_names())
 
     async def cog_unload(self) -> None:
-        """卸載 Cog 時取消背景任務"""
+        """Cancel the background tasks when the cog unloads."""
         self._auto_signin_loop.cancel()
         self._character_task.cancel()
         await asyncio.gather(self._character_task, return_exceptions=True)
 
     async def _init_character_names(self) -> None:
-        """初始化角色資料庫快取"""
+        """Fill the character database cache."""
         try:
             print("[Genshin Cog] 正在下載與更新角色資料庫快取...")
             await genshin.utility.update_characters_any(
@@ -300,7 +300,7 @@ class GenshinCog(commands.Cog):
             print(f"[Genshin Cog] 角色資料庫快取更新失敗: {e}")
 
     def _get_game_display_name(self, game_str: str) -> str:
-        """取得遊戲顯示名稱"""
+        """The display name of a game."""
         mapping = {
             "genshin": tx("genshin_cog.genshin_impact"),
             "starrail": tx("genshin_cog.honkai_star_rail"),
@@ -311,7 +311,7 @@ class GenshinCog(commands.Cog):
         return mapping.get(game_str.lower(), "HoYoLAB")
 
     def _format_seconds(self, seconds: int) -> str:
-        """格式化秒數為可讀時間"""
+        """Format seconds as a readable time."""
         if seconds <= 0:
             return tx("genshin_cog.full")
         hours = seconds // 3600
@@ -320,7 +320,7 @@ class GenshinCog(commands.Cog):
             return tx("genshin_cog.about_hours_minutes", v0=(hours), v1=(minutes))
         return tx("genshin_cog.about_minutes", v0=(minutes))
 
-    # ─────────────── 背景簽到任務 ───────────────
+    # ── Background check-in task ──────────────────────────────────────
 
     @tasks.loop(minutes=30)
     async def _auto_signin_loop(self) -> None:
@@ -332,8 +332,8 @@ class GenshinCog(commands.Cog):
 
     async def _auto_signin_round(self) -> None:
         now = datetime.now(TZ_OFFSET)
-        # 設定在清晨 8:00 後自動進行簽到
-        # 如果今日尚未執行，且目前時間已過 8:00 AM，則開始執行
+        # Check in automatically after 8:00 in the morning
+        # Runs if today's has not run yet and it is past 8:00 AM
         if now.hour < 8:
             return
         today_str = now.strftime("%Y-%m-%d")
@@ -354,7 +354,7 @@ class GenshinCog(commands.Cog):
         except Exception:
             log.exception("Could not store the check-in date")
 
-        # 私訊通知使用者
+        # Tell the user by DM
         for user_id, user_results in results.items():
             await self._send_signin_report(user_id, user_results)
 
@@ -392,7 +392,7 @@ class GenshinCog(commands.Cog):
         except RuntimeError:
             self._auto_signin_loop.cancel()
 
-    # ─────────────── 斜線指令 ───────────────
+    # ── Slash commands ────────────────────────────────────────────────
 
     @mhy_group.command(
         name="bind",
@@ -1079,5 +1079,5 @@ class GenshinCog(commands.Cog):
 
 
 async def setup(bot: commands.Bot) -> None:
-    """載入 Cog"""
+    """Load the cog."""
     await bot.add_cog(GenshinCog(bot))

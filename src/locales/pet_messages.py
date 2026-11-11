@@ -1,7 +1,7 @@
 """English and Traditional Chinese copy for the companion game."""
 
 MESSAGES: dict[str, dict[str, str]] = {
-    # ── names ─────────────────────────────────────────────────────
+    # ── names ─────────────────────────────────────────────────────────
     "pet.species.fable": {"en": "Fable", "zh": "寓言"},
     "pet.species.ark": {"en": "Ark", "zh": "方舟"},
     "pet.species.nova": {"en": "Nova", "zh": "諾瓦"},
@@ -58,7 +58,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     "pet.need.satiety": {"en": "Satiety", "zh": "飽足"},
     "pet.need.mood": {"en": "Mood", "zh": "心情"},
     "pet.need.energy": {"en": "Energy", "zh": "體力"},
-    # ── the panel and its card ────────────────────────────────────
+    # ── the panel and its card ────────────────────────────────────────
     "pet.button.feed": {"en": "Feed", "zh": "餵食"},
     "pet.button.play": {"en": "Play", "zh": "玩耍"},
     "pet.button.nap": {"en": "Rest", "zh": "休息"},
@@ -123,7 +123,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Needs fall with time. /pet guide explains everything.",
         "zh": "三項數值會隨時間下降。/pet guide 有完整說明。",
     },
-    # ── replies ───────────────────────────────────────────────────
+    # ── replies ───────────────────────────────────────────────────────
     "pet.adopted": {
         "en": "**{name}** the {species} is yours. Its nature is **{nature}**.",
         "zh": "**{name}**（{species}）成為你的夥伴了，性格是**{nature}**。",
@@ -237,7 +237,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "The ranking is per server; use it in one.",
         "zh": "排行榜以伺服器為單位，請在伺服器裡使用。",
     },
-    # ── guide ─────────────────────────────────────────────────────
+    # ── guide ─────────────────────────────────────────────────────────
     "pet.guide.title": {"en": "Companions", "zh": "夥伴"},
     "pet.guide.start": {
         "en": "`/pet adopt` gives you one companion, the same in every server and in DMs. `/pet panel` shows it; the buttons feed it, play with it and let it rest.",
@@ -268,7 +268,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Nothing here is bought with money or traded between members. A trip's result is decided when it leaves. Duels (`/pet duel`) are friendly and cost the other side nothing.",
         "zh": "所有東西都不能用錢買，也不能在成員之間交易。遠征結果在出發時就決定了。切磋（`/pet duel`）是友誼賽，對方不會有任何損失。",
     },
-    # ── refusals ──────────────────────────────────────────────────
+    # ── refusals ──────────────────────────────────────────────────────
     "pet.error.no_pet": {
         "en": "You have no companion yet. `/pet adopt` gets you one.",
         "zh": "你還沒有夥伴，用 `/pet adopt` 領養一隻。",
@@ -385,7 +385,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Your companion could not be reached just now. Nothing changed; try again in a moment.",
         "zh": "暫時讀不到你的夥伴資料，什麼都沒有變動，請稍後再試。",
     },
-    # ── achievements ──────────────────────────────────────────────
+    # ── achievements ──────────────────────────────────────────────────
     "achievement.pet_adopt.name": {"en": "First meeting", "zh": "初次相遇"},
     "achievement.pet_adopt.description": {
         "en": "Adopt your first companion",

@@ -75,11 +75,11 @@ class GitHubAPIManager:
         return self.session
 
     async def make_request(self, method: str, endpoint: str, **kwargs: Any) -> Any:
-        """發送 API 請求，支援 ETag 條件請求。回傳 None 表示 304 無變更"""
+        """Send an API request, with ETag conditional requests. None means 304, nothing changed."""
         session = await self.get_session()
         url = f"{self.base_url}{endpoint}"
 
-        # 請求前先檢查速率限制，避免白送 403
+        # Check the rate limit before the request, so no 403 is wasted
         rate_info = self.rate_manager.rate_limits.get(endpoint)
         if rate_info and rate_info["remaining"] <= 1:
             wait_time = max(0, rate_info["reset_time"] - time.time())
@@ -89,7 +89,7 @@ class GitHubAPIManager:
 
         for attempt in range(self.rate_manager.max_retries):
             try:
-                # 注入 ETag 條件請求 header
+                # Add the ETag conditional request header
                 req_headers = kwargs.pop("headers", {}) or {}
                 cache_key = f"{method}:{endpoint}"
                 if cache_key in self._etag_cache:
@@ -102,13 +102,13 @@ class GitHubAPIManager:
                         endpoint, response.headers
                     )
 
-                    # 304 Not Modified — 不消耗配額
+                    # 304 Not Modified: uses no quota
                     if response.status == 304:
                         return self._response_cache.get(cache_key)
 
                     if response.status == 200:
                         data = await response.json()
-                        # 快取 ETag 和回應
+                        # Cache the ETag and the response
                         etag = response.headers.get("ETag")
                         if etag:
                             self._etag_cache[cache_key] = etag

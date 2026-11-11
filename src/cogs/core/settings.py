@@ -19,7 +19,7 @@ from src.utils.storage_worker import run_storage
 
 TZ_OFFSET = timezone(timedelta(hours=8))
 
-# 設定類別定義
+# The setting categories
 SETTING_CATEGORIES = (
     "log_channel",
     "report_channel",
@@ -41,11 +41,11 @@ def setting_options() -> list[discord.SelectOption]:
     ]
 
 
-# ==================== 設定頻道的 Select ====================
+# ── Select for choosing a channel ─────────────────────────────────
 
 
 class ChannelSelectView(LocalizedView):
-    """選擇頻道的視圖"""
+    """View for choosing a channel."""
 
     i18n = {
         "cancel_button.label": "settings.cancel",
@@ -68,7 +68,7 @@ class ChannelSelectView(LocalizedView):
     async def channel_select(
         self, interaction: discord.Interaction, select: ui.ChannelSelect[Any]
     ) -> None:
-        """頻道選擇回調"""
+        """A channel was chosen."""
         await interaction.response.defer(thinking=True, ephemeral=True)
         if (
             interaction.guild is None
@@ -115,11 +115,11 @@ class ChannelSelectView(LocalizedView):
         self.stop()
 
 
-# ==================== 防刷屏切換 ====================
+# ── Anti-spam toggle ──────────────────────────────────────────────
 
 
 class AntiSpamToggleView(LocalizedView):
-    """防刷屏開關切換"""
+    """Anti-spam on/off toggle."""
 
     i18n = {
         "toggle_button.label": "settings.toggle",
@@ -131,7 +131,7 @@ class AntiSpamToggleView(LocalizedView):
         self.guild_id = guild_id
         self.cog = cog
         self.current_enabled = current_enabled
-        # 動態更新按鈕標籤
+        # Update the button label
         if current_enabled:
             self.toggle_button.label = tx("settings.disable_spam_protection")
             self.toggle_button.style = discord.ButtonStyle.danger
@@ -144,7 +144,7 @@ class AntiSpamToggleView(LocalizedView):
     async def toggle_button(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
-        """切換防刷屏開關"""
+        """Turn anti-spam on or off."""
         await interaction.response.defer(thinking=True, ephemeral=True)
         anti_spam_cog = self.cog.bot.get_cog("AntiSpam")
         if not anti_spam_cog or not hasattr(anti_spam_cog, "manager"):
@@ -184,11 +184,11 @@ class AntiSpamToggleView(LocalizedView):
         self.stop()
 
 
-# ==================== 主選單 ====================
+# ── Main menu ─────────────────────────────────────────────────────
 
 
 class SettingsMenuView(LocalizedView):
-    """設定儀表板主選單"""
+    """Main menu of the settings dashboard."""
 
     i18n = {"category_select.placeholder": "settings.category_placeholder"}
 
@@ -208,7 +208,7 @@ class SettingsMenuView(LocalizedView):
     async def category_select(
         self, interaction: discord.Interaction, select: ui.Select[Any]
     ) -> None:
-        """設定類別選擇"""
+        """A setting category was chosen."""
         await interaction.response.defer(thinking=True, ephemeral=True)
         if (
             interaction.guild is None
@@ -283,11 +283,11 @@ class SettingsMenuView(LocalizedView):
             await interaction.followup.send(embed=embed, ephemeral=True)
 
 
-# ==================== Cog 主體 ====================
+# ── The cog ───────────────────────────────────────────────────────
 
 
 class Settings(commands.Cog):
-    """伺服器設定儀表板"""
+    """Server settings dashboard."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -298,7 +298,7 @@ class Settings(commands.Cog):
     @app_commands.default_permissions(administrator=True)
     @localized("interaction")
     async def settings(self, interaction: discord.Interaction) -> None:
-        """開啟設定儀表板"""
+        """Open the settings dashboard."""
         if interaction.guild is None:
             await interaction.response.send_message(
                 tx("bot_appearance.this_feature_is_only_available_in"), ephemeral=True
@@ -309,11 +309,11 @@ class Settings(commands.Cog):
         view = SettingsMenuView(self)
         await interaction.followup.send(embed=embed, view=view)
 
-    # ==================== Embed 產生器 ====================
+    # ── Embed builders ────────────────────────────────────────────────
 
     @localized("guild")
     async def build_overview_embed(self, guild: discord.Guild) -> discord.Embed:
-        """產生設定總覽 Embed"""
+        """Build the settings overview embed."""
         guild_id = guild.id
 
         embed = discord.Embed(
@@ -322,31 +322,31 @@ class Settings(commands.Cog):
             timestamp=datetime.now(TZ_OFFSET),
         )
 
-        # 日誌頻道
+        # Log channel
         log_ch = await run_storage(get_guild_log_channel, guild_id)
         log_text = f"<#{log_ch}>" if log_ch else tx("settings.not_configured")
         embed.add_field(name=tx("settings.log_channel"), value=log_text, inline=True)
 
-        # 舉報頻道
+        # Report channel
         report_ch = await run_storage(get_guild_report_channel, guild_id)
         report_text = f"<#{report_ch}>" if report_ch else tx("settings.not_configured")
         embed.add_field(
             name=tx("settings.report_channel"), value=report_text, inline=True
         )
 
-        # 防刷屏
+        # Anti-spam
         anti_spam_status = self._get_anti_spam_status(guild_id)
         embed.add_field(
             name=tx("settings.spam_protection"), value=anti_spam_status, inline=True
         )
 
-        # 歡迎訊息
+        # Welcome message
         welcome_status = self._get_welcome_status(guild_id)
         embed.add_field(
             name=tx("settings.welcome_messages"), value=welcome_status, inline=True
         )
 
-        # 倉庫追蹤
+        # Repository tracking
         repo_count = self._get_repo_count(guild_id)
         embed.add_field(
             name=tx("settings.repository_tracking"),
@@ -354,7 +354,7 @@ class Settings(commands.Cog):
             inline=True,
         )
 
-        # 年齡守門員
+        # Age guard
         age_guard_status = await run_storage(self._get_age_guard_status, guild_id)
         embed.add_field(
             name=tx("settings.age_guard"), value=age_guard_status, inline=True
@@ -364,7 +364,7 @@ class Settings(commands.Cog):
         return embed
 
     def build_anti_spam_panel(self, guild_id: int) -> Any:
-        """產生防刷屏設定面板"""
+        """Build the anti-spam settings panel."""
         anti_spam_cog = self.bot.get_cog("AntiSpam")
         if not anti_spam_cog or not hasattr(anti_spam_cog, "manager"):
             embed = discord.Embed(
@@ -466,7 +466,7 @@ class Settings(commands.Cog):
         return embed, view
 
     def build_welcome_embed(self, guild_id: int) -> discord.Embed:
-        """產生歡迎訊息設定面板"""
+        """Build the welcome message settings panel."""
         management_cog = self.bot.get_cog("Management")
         if not management_cog:
             return discord.Embed(
@@ -524,10 +524,10 @@ class Settings(commands.Cog):
         embed.set_footer(text=tx("settings.use_welcome_to_change_detailed_settings"))
         return embed
 
-    # ==================== 輔助方法 ====================
+    # ── Helpers ───────────────────────────────────────────────────────
 
     def _get_anti_spam_status(self, guild_id: int) -> str:
-        """取得防刷屏狀態文字"""
+        """The anti-spam status as text."""
         anti_spam_cog = self.bot.get_cog("AntiSpam")
         if not anti_spam_cog or not hasattr(anti_spam_cog, "manager"):
             return tx("settings.not_loaded")
@@ -539,7 +539,7 @@ class Settings(commands.Cog):
         )
 
     def _get_welcome_status(self, guild_id: int) -> str:
-        """取得歡迎訊息狀態文字"""
+        """The welcome message status as text."""
         management_cog = self.bot.get_cog("Management")
         if not management_cog:
             return tx("settings.not_loaded")
@@ -549,14 +549,14 @@ class Settings(commands.Cog):
         return tx("settings.enabled")
 
     def _get_repo_count(self, guild_id: int) -> int:
-        """取得倉庫追蹤數量"""
+        """How many repositories are tracked."""
         management_cog = self.bot.get_cog("Management")
         if not management_cog:
             return 0
         return len(management_cog.service.get_tracked_repos(str(guild_id)))
 
     def _get_age_guard_status(self, guild_id: int) -> str:
-        """取得年齡守門員狀態文字"""
+        """The age guard status as text."""
         from src.services.age_guard_service import AgeGuardService
 
         cfg = AgeGuardService().get_config(guild_id)
@@ -569,7 +569,7 @@ class Settings(commands.Cog):
         return tx("settings.enabled_incomplete_configuration")
 
     def build_age_guard_embed(self, guild_id: int) -> discord.Embed:
-        """產生年齡守門員設定面板"""
+        """Build the age guard settings panel."""
         from src.services.age_guard_service import AgeGuardService
 
         cfg = AgeGuardService().get_config(guild_id)

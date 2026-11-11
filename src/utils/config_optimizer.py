@@ -196,7 +196,7 @@ class OptimizedConfigManager:
             return self._write_config_locked(file_name, data)
 
     def _write_config_locked(self, file_name: str, data: Dict[str, Any]) -> bool:
-        """呼叫者持有檔案鎖；此函式不 await，也不重新取得鎖。"""
+        """The caller holds the file lock; this function does not await and does not take the lock again."""
         file_path = self.base_path / file_name
         try:
             file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -232,7 +232,7 @@ class OptimizedConfigManager:
                 print(f"[Config] Batch write error: {e}")
 
     async def close(self) -> None:
-        """停止監看並等待已接受的寫入完成；寫入失敗不能靜默略過。"""
+        """Stop watching and wait for accepted writes to finish; a failed write must not be skipped silently."""
         if not self._closed:
             self._closed = True
             watcher_tasks = [w._task for w in self._watchers.values() if w._task]

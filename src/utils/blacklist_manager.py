@@ -27,7 +27,7 @@ APPEALS_FILE = os.path.join(DATA_DIR, "appeals.json")
 
 
 def _load_json(path: str) -> Dict[Any, Any]:
-    """讀取 JSON 檔案"""
+    """Read a JSON file."""
     if document_exists(path):
         try:
             with open_document(path, "r", encoding="utf-8") as f:
@@ -41,14 +41,14 @@ def _load_json(path: str) -> Dict[Any, Any]:
 
 
 def _save_json(path: str, data: Dict[Any, Any]) -> None:
-    """寫入 JSON 檔案"""
+    """Write a JSON file."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open_document(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
 class BlacklistManager:
-    """黑名單管理器 (本地 + Mori.black + CatHome API 三軌)"""
+    """Blacklist manager (three sources: local, Mori.black and the CatHome API)."""
 
     _LOCAL_CACHE_TTL: float = 30.0
     # Every message is checked, so the API must never hold one up for long.
@@ -94,19 +94,19 @@ class BlacklistManager:
         self._local_cache_time: float = 0.0
 
     async def setup(self) -> None:
-        """初始化 HTTP session"""
+        """Set up the HTTP session."""
         if not self.session:
             self.session = aiohttp.ClientSession(timeout=self.API_TIMEOUT)
 
     async def close(self) -> None:
-        """關閉 HTTP session"""
+        """Close the HTTP session."""
         if self.session:
             await self.session.close()
 
-    # ==================== 本地黑名單 ====================
+    # ── Local blacklist ───────────────────────────────────────────────
 
     def _load_local(self) -> dict[Any, Any]:
-        """讀取本地黑名單 (帶 TTL cache)"""
+        """Read the local blacklist (with a TTL cache)."""
         now = time.monotonic()
         if (
             self._local_cache is not None
@@ -118,18 +118,18 @@ class BlacklistManager:
         return copy.deepcopy(self._local_cache)
 
     def _update_local_cache(self, data: dict[Any, Any]) -> None:
-        """儲存後同步更新快取"""
+        """Update the cache after saving."""
         self._local_cache = copy.deepcopy(data)
         self._local_cache_time = time.monotonic()
 
     def local_check(self, user_id: int) -> Optional[Dict[Any, Any]]:
-        """檢查本地黑名單 (同步, 零延遲)"""
+        """Check the local blacklist (synchronous, no delay)."""
         data = self._load_local()
         users = data.get("users", {})
         entry = users.get(str(user_id))
         if not entry:
             return None
-        # 檢查是否過期
+        # Check whether it has expired
         expires_at = entry.get("expires_at")
         if expires_at:
             try:
@@ -155,7 +155,7 @@ class BlacklistManager:
         expires_at: str | None = None,
         note: str | None = None,
     ) -> bool:
-        """新增本地黑名單"""
+        """Add to the local blacklist."""
         data = self._load_local()
         data.setdefault("users", {})
         user_id_str = str(user_id)
@@ -175,7 +175,7 @@ class BlacklistManager:
         return True
 
     def local_remove(self, user_id: int) -> bool:
-        """移除本地黑名單"""
+        """Remove from the local blacklist."""
         data = self._load_local()
         users = data.get("users", {})
         user_id_str = str(user_id)
@@ -189,20 +189,20 @@ class BlacklistManager:
         return True
 
     def local_list(self) -> Dict[str, Dict[Any, Any]]:
-        """取得所有本地黑名單"""
+        """The whole local blacklist."""
         result_value = self._load_local().get("users", {})
         if not isinstance(result_value, dict):
             raise TypeError("Unexpected stored or API value: expected dict")
         return result_value
 
-    # ==================== CatHome API ====================
+    # ── CatHome API ───────────────────────────────────────────────────
 
     async def api_check(self, user_id: int) -> Optional[Dict[Any, Any]]:
-        """檢查 CatHome API 黑名單 (非同步)"""
+        """Check the CatHome API blacklist (asynchronous)."""
         return await self._remote(CATHOME, user_id)
 
     async def mori_check(self, user_id: int) -> Optional[Dict[Any, Any]]:
-        """檢查 Mori.black 共享黑名單 (查本機的整份副本，過期才重新同步)"""
+        """Check the Mori.black shared blacklist (the local copy of the whole list, synced again only when it is stale)."""
         if not self._configured(MORI):
             return None
         await self._mori_fresh()
@@ -440,9 +440,9 @@ class BlacklistManager:
         return revoked
 
     async def check(self, user_id: int) -> Optional[Dict[Any, Any]]:
-        """三軌檢查: 本地優先, 再查 Mori.black, 最後 CatHome
+        """Check all three: local first, then Mori.black, then CatHome.
 
-        回傳 dict 含 "source" 鍵標記來源 ("local" / "mori" / "api")
+        Returns a dict whose "source" key names where it came from ("local", "mori" or "api").
         """
         # Keep the worker serialized while allowing the command's short lookup
         # deadline to expire without waiting for a slow database socket to close.
@@ -479,14 +479,14 @@ class BlacklistManager:
                 return {**found[label], "source": label}
         return None
 
-    # ==================== 申訴系統 ====================
+    # ── Appeals ───────────────────────────────────────────────────────
 
     def load_appeals(self) -> Dict[Any, Any]:
-        """讀取申訴資料"""
+        """Read the appeals."""
         return _load_json(APPEALS_FILE)
 
     def save_appeals(self, appeals: Dict[Any, Any]) -> None:
-        """儲存申訴資料"""
+        """Save the appeals."""
         _save_json(APPEALS_FILE, appeals)
 
     def add_appeal(
@@ -496,7 +496,7 @@ class BlacklistManager:
         source: str = "local",
         entry_ids: Optional[list[str]] = None,
     ) -> bool:
-        """提交申訴"""
+        """Submit an appeal."""
         appeals = self.load_appeals()
         user_id_str = str(user_id)
 
@@ -521,7 +521,7 @@ class BlacklistManager:
         return True
 
     def get_appeal(self, user_id: int) -> Optional[Dict[Any, Any]]:
-        """查詢申訴"""
+        """Look up an appeal."""
         appeals = self.load_appeals()
         return appeals.get(str(user_id))
 
@@ -532,7 +532,7 @@ class BlacklistManager:
         reviewer_id: int | None = None,
         review_reason: str | None = None,
     ) -> bool:
-        """更新申訴狀態"""
+        """Update the status of an appeal."""
         appeals = self.load_appeals()
         user_id_str = str(user_id)
 
@@ -548,7 +548,7 @@ class BlacklistManager:
         return True
 
     def get_pending_appeals(self) -> list[Any]:
-        """取得所有待處理申訴"""
+        """Every appeal still waiting."""
         appeals = self.load_appeals()
         return [
             appeal for appeal in appeals.values() if appeal.get("status") == "待處理"

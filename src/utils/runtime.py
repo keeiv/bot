@@ -1,4 +1,4 @@
-"""管理共享服務的一次性啟動與非同步關閉。"""
+"""Starts shared services once and shuts them down asynchronously."""
 
 import asyncio
 
@@ -21,7 +21,7 @@ async def initialize_optimizations() -> None:
 
 
 async def close_optimizations() -> None:
-    """每個服務都嘗試關閉，任一失敗仍向呼叫者回報。"""
+    """Every service gets a shutdown attempt; any failure is still reported to the caller."""
     services = (
         get_config_manager(),
         get_database_manager(),

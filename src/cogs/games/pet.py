@@ -1,4 +1,4 @@
-"""夥伴：一人一隻、跨伺服器共用的養成與遠征"""
+"""Companions: one per member, shared across servers, raised and sent on expeditions."""
 
 import asyncio
 import logging
@@ -261,7 +261,7 @@ SHOP_CHOICES = [
 
 
 class Pet(commands.Cog):
-    """夥伴養成"""
+    """Raising a companion."""
 
     # A personal companion: also usable in DMs and servers without the bot.
     pet = app_commands.Group(
@@ -277,7 +277,7 @@ class Pet(commands.Cog):
         self.bot = bot
         self.service = PetService()
 
-    # ── shared replies ────────────────────────────────────────────
+    # ── shared replies ────────────────────────────────────────────────
     async def _refuse(self, interaction: discord.Interaction, error: PetError) -> None:
         await interaction.followup.send(refusal(error), ephemeral=True)
 
@@ -332,7 +332,7 @@ class Pet(commands.Cog):
         if view["pet"]["level"] >= rules.PET_MAX_LEVEL:
             await self._achieve(interaction, "pet_max_level")
 
-    # ── beginning ─────────────────────────────────────────────────
+    # ── beginning ─────────────────────────────────────────────────────
     @pet.command(name="adopt", description="Adopt your companion: Fable, Ark or Nova")
     @app_commands.describe(
         species="Which companion to adopt",
@@ -423,7 +423,7 @@ class Pet(commands.Cog):
         lines += growth_lines(result, result["view"])
         await interaction.followup.send("\n".join(lines), ephemeral=True)
 
-    # ── expeditions ───────────────────────────────────────────────
+    # ── expeditions ───────────────────────────────────────────────────
     @pet.command(name="expedition", description="Send your companion on an expedition")
     @app_commands.describe(
         zone="Where to go (new zones open with your keeper level)",
@@ -501,7 +501,7 @@ class Pet(commands.Cog):
         await self._milestones(interaction, view)
         await self._show(interaction, view, lines + growth_lines(result, view))
 
-    # ── pack and shop ─────────────────────────────────────────────
+    # ── pack and shop ─────────────────────────────────────────────────
     @pet.command(name="bag", description="Show your coins and materials")
     @localized("interaction")
     async def bag(self, interaction: discord.Interaction) -> None:
@@ -561,7 +561,7 @@ class Pet(commands.Cog):
             ephemeral=True,
         )
 
-    # ── raising ───────────────────────────────────────────────────
+    # ── raising ───────────────────────────────────────────────────────
     @pet.command(
         name="breakthrough",
         description="Raise the level cap; past Lv 90, gain 2 levels",
@@ -667,7 +667,7 @@ class Pet(commands.Cog):
             ],
         )
 
-    # ── with other members ────────────────────────────────────────
+    # ── with other members ────────────────────────────────────────────
     @pet.command(
         name="duel", description="A friendly match against a member's companion"
     )

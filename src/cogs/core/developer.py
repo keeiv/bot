@@ -200,25 +200,25 @@ class DevInfoLayoutView(LayoutView):
 
 
 class Developer(commands.Cog):
-    """開發者專用指令 Cog - 只有開發者可見和使用"""
+    """Developer-only commands: only developers see and use them."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
     def is_developer_slash(self, interaction: discord.Interaction) -> bool:
-        """斜杠指令的開發者檢查"""
+        """Developer check for slash commands."""
         return interaction.user.id in DEVELOPER_IDS
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:
-        """記錄機器人啟動時間"""
+        """Record when the bot started."""
         if not hasattr(self.bot, "_start_time"):
             self.bot._start_time = datetime.now(timezone.utc)
 
     @commands.Cog.listener()
     @localized("message")
     async def on_message(self, message: discord.Message) -> None:
-        """處理 >>>info 開發者面板指令"""
+        """Handle the >>>info developer panel command."""
         if message.author.bot:
             return
         if not message.content.strip().startswith(">>>info"):
@@ -236,7 +236,7 @@ class Developer(commands.Cog):
     @app_commands.command(name="dev-status", description="Show developer status")
     @localized("interaction")
     async def dev_status_slash(self, interaction: discord.Interaction) -> None:
-        """開發者狀態檢查"""
+        """Developer status check."""
         if not self.is_developer_slash(interaction):
             await interaction.response.send_message(
                 tx("developer.denied_permission_to_use_this_command"), ephemeral=True
@@ -263,7 +263,7 @@ class Developer(commands.Cog):
     @commands.check(lambda ctx: ctx.author.id in DEVELOPER_IDS)
     @localized("ctx")
     async def dev_status_command(self, ctx: Any) -> None:
-        """開發者狀態檢查"""
+        """Developer status check."""
         embed = discord.Embed(
             title=tx("developer.developer_system_status"),
             color=discord.Color.from_rgb(155, 89, 182),
@@ -282,5 +282,5 @@ class Developer(commands.Cog):
 
 
 async def setup(bot: commands.Bot) -> None:
-    """載入 Cog"""
+    """Load the cog."""
     await bot.add_cog(Developer(bot))

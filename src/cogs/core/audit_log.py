@@ -12,14 +12,14 @@ from src.utils.time_utils import TZ_OFFSET
 
 
 class AuditLog(commands.Cog):
-    """伺服器審計日誌 Cog — 記錄成員、語音、角色、暱稱、頻道事件"""
+    """Server audit log: member, voice, role, nickname and channel events."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.service = AuditLogService()
 
     async def send_log_embed(self, guild_id: int, embed: discord.Embed) -> None:
-        """發送日誌 Embed 到設定的日誌頻道"""
+        """Send a log embed to the configured log channel."""
         log_channel_id = await run_storage(self.service.get_channel_id, guild_id)
         if not log_channel_id:
             return
@@ -32,12 +32,12 @@ class AuditLog(commands.Cog):
         except Exception as e:
             print(f"[失敗] 審計日誌發送失敗: {e}")
 
-    # ===== 成員加入 / 離開 =====
+    # ── Members joining and leaving ───────────────────────────────────
 
     @commands.Cog.listener()
     @localized("member")
     async def on_member_join(self, member: discord.Member) -> None:
-        """成員加入伺服器"""
+        """A member joined the server."""
         if member.bot:
             return
 
@@ -72,11 +72,11 @@ class AuditLog(commands.Cog):
     @commands.Cog.listener()
     @localized("member")
     async def on_member_remove(self, member: discord.Member) -> None:
-        """成員離開伺服器"""
+        """A member left the server."""
         if member.bot:
             return
 
-        # 計算在伺服器待了多久
+        # How long they were in the server
         if member.joined_at:
             stay_duration = datetime.now(TZ_OFFSET) - member.joined_at.astimezone(
                 TZ_OFFSET
@@ -105,7 +105,7 @@ class AuditLog(commands.Cog):
             inline=False,
         )
 
-        # 列出離開前的角色
+        # The roles they had when they left
         roles = [
             role.mention for role in member.roles if role != member.guild.default_role
         ]
@@ -130,7 +130,7 @@ class AuditLog(commands.Cog):
 
         await self.send_log_embed(member.guild.id, embed)
 
-    # ===== 語音頻道加入 / 離開 / 移動 =====
+    # ── Voice channels: join, leave, move ─────────────────────────────
 
     @commands.Cog.listener()
     @localized("member")
@@ -140,13 +140,13 @@ class AuditLog(commands.Cog):
         before: discord.VoiceState,
         after: discord.VoiceState,
     ) -> None:
-        """語音狀態變更"""
+        """A voice state changed."""
         if member.bot:
             return
 
         guild_id = member.guild.id
 
-        # 加入語音頻道
+        # Joined a voice channel
         if before.channel is None and after.channel is not None:
             embed = discord.Embed(
                 title=tx("audit_log.voice_joined_a_voice_channel"),
@@ -169,7 +169,7 @@ class AuditLog(commands.Cog):
             embed.set_footer(text=tx("audit_log.user_941f2d", v0=(member)))
             await self.send_log_embed(guild_id, embed)
 
-        # 離開語音頻道
+        # Left a voice channel
         elif before.channel is not None and after.channel is None:
             embed = discord.Embed(
                 title=tx("audit_log.voice_left_a_voice_channel"),
@@ -192,7 +192,7 @@ class AuditLog(commands.Cog):
             embed.set_footer(text=tx("audit_log.user_941f2d", v0=(member)))
             await self.send_log_embed(guild_id, embed)
 
-        # 移動語音頻道
+        # Moved between voice channels
         elif (
             before.channel is not None
             and after.channel is not None
@@ -224,20 +224,20 @@ class AuditLog(commands.Cog):
             embed.set_footer(text=tx("audit_log.user_941f2d", v0=(member)))
             await self.send_log_embed(guild_id, embed)
 
-    # ===== 角色變更 / 暱稱變更 =====
+    # ── Role and nickname changes ─────────────────────────────────────
 
     @commands.Cog.listener()
     @localized("after")
     async def on_member_update(
         self, before: discord.Member, after: discord.Member
     ) -> None:
-        """成員資料更新（角色、暱稱）"""
+        """A member was updated (roles, nickname)."""
         if before.bot:
             return
 
         guild_id = before.guild.id
 
-        # 角色變更
+        # Role change
         if before.roles != after.roles:
             added = set(after.roles) - set(before.roles)
             removed = set(before.roles) - set(after.roles)
@@ -292,7 +292,7 @@ class AuditLog(commands.Cog):
                 embed.set_footer(text=tx("audit_log.user_941f2d", v0=(after)))
                 await self.send_log_embed(guild_id, embed)
 
-        # 暱稱變更
+        # Nickname change
         if before.nick != after.nick:
             embed = discord.Embed(
                 title=tx("audit_log.nickname_nickname_changed"),
@@ -324,10 +324,10 @@ class AuditLog(commands.Cog):
             embed.set_footer(text=tx("audit_log.user_941f2d", v0=(after)))
             await self.send_log_embed(guild_id, embed)
 
-    # ===== 頻道建立 / 刪除 / 修改 =====
+    # ── Channels created, deleted, edited ─────────────────────────────
 
     def _channel_type_name(self, channel: discord.abc.GuildChannel) -> str:
-        """取得頻道類型的中文名稱"""
+        """The display name of a channel type."""
         type_map = {
             discord.ChannelType.text: tx("audit_log.text_channel"),
             discord.ChannelType.voice: tx("audit_log.voice_channel"),
@@ -341,7 +341,7 @@ class AuditLog(commands.Cog):
     @commands.Cog.listener()
     @localized("channel")
     async def on_guild_channel_create(self, channel: discord.abc.GuildChannel) -> None:
-        """頻道建立"""
+        """A channel was created."""
         embed = discord.Embed(
             title=tx("audit_log.channel_channel_created"),
             color=discord.Color.from_rgb(46, 204, 113),
@@ -371,7 +371,7 @@ class AuditLog(commands.Cog):
     @commands.Cog.listener()
     @localized("channel")
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
-        """頻道刪除"""
+        """A channel was deleted."""
         embed = discord.Embed(
             title=tx("audit_log.channel_channel_deleted"),
             color=discord.Color.from_rgb(231, 76, 60),
@@ -405,14 +405,14 @@ class AuditLog(commands.Cog):
         before: discord.abc.GuildChannel,
         after: discord.abc.GuildChannel,
     ) -> None:
-        """頻道修改"""
+        """A channel was edited."""
         changes = []
 
-        # 名稱變更
+        # Name change
         if before.name != after.name:
             changes.append((tx("audit_log.name"), before.name, after.name))
 
-        # 分類變更
+        # Category change
         before_category = (
             before.category.name if before.category else tx("audit_log.none_a6cdc8")
         )
@@ -422,7 +422,7 @@ class AuditLog(commands.Cog):
         if before_category != after_category:
             changes.append((tx("audit_log.category"), before_category, after_category))
 
-        # 文字頻道特有屬性
+        # Attributes only text channels have
         if isinstance(before, discord.TextChannel) and isinstance(
             after, discord.TextChannel
         ):
@@ -451,7 +451,7 @@ class AuditLog(commands.Cog):
                     )
                 )
 
-        # 語音頻道特有屬性
+        # Attributes only voice channels have
         if isinstance(before, discord.VoiceChannel) and isinstance(
             after, discord.VoiceChannel
         ):
@@ -509,5 +509,5 @@ class AuditLog(commands.Cog):
 
 
 async def setup(bot: commands.Bot) -> None:
-    """載入 Cog"""
+    """Load the cog."""
     await bot.add_cog(AuditLog(bot))

@@ -14,7 +14,7 @@ from src.utils.lang_context import interaction_lang
 
 logger = logging.getLogger(__name__)
 
-# 常用語言：Google 語言代碼 → 各介面語言的顯示名稱
+# Common languages: Google language code to the display name in each interface language
 LANGUAGES: dict[str, dict[Lang, str]] = {
     "zh-TW": {"en": "Chinese (Traditional)", "zh": "繁體中文"},
     "zh-CN": {"en": "Chinese (Simplified)", "zh": "簡體中文"},
@@ -34,7 +34,7 @@ LANGUAGES: dict[str, dict[Lang, str]] = {
 
 
 class LanguageSelect(discord.ui.Select[Any]):
-    """語言選擇下拉選單"""
+    """Language select menu."""
 
     def __init__(self, original_text: str, lang: Lang) -> None:
         self.original_text = original_text
@@ -71,7 +71,7 @@ class LanguageSelect(discord.ui.Select[Any]):
             title=t(lang, "translate.title", target=target_name),
             color=discord.Color.from_rgb(66, 133, 244),
         )
-        # 截斷避免超出 Embed 限制
+        # Cut it short to stay inside the embed limit
         original_display = (
             self.original_text[:1000] + "..."
             if len(self.original_text) > 1000
@@ -92,7 +92,7 @@ class LanguageSelect(discord.ui.Select[Any]):
 
 
 class LanguageSelectView(discord.ui.View):
-    """包含語言選擇的 View"""
+    """The view that holds the language select."""
 
     def __init__(self, original_text: str, lang: Lang) -> None:
         super().__init__(timeout=60)
@@ -100,7 +100,7 @@ class LanguageSelectView(discord.ui.View):
 
 
 class Translate(commands.Cog):
-    """右鍵選單翻譯系統"""
+    """Translation through the context menu."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -116,7 +116,7 @@ class Translate(commands.Cog):
         self.bot.tree.add_command(self.translate_ctx_menu)
 
     async def cog_unload(self) -> None:
-        """卸載 cog 時移除右鍵選單"""
+        """Remove the context menu when the cog unloads."""
         self.bot.tree.remove_command(
             self.translate_ctx_menu.name, type=self.translate_ctx_menu.type
         )
@@ -124,7 +124,7 @@ class Translate(commands.Cog):
     async def translate_message(
         self, interaction: discord.Interaction, message: discord.Message
     ) -> None:
-        """右鍵選單 - 翻譯訊息"""
+        """Context menu: translate a message."""
         lang = await interaction_lang(interaction)
         content = message.content
         if not content or not content.strip():

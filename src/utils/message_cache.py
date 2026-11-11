@@ -5,20 +5,19 @@ from datetime import timedelta
 from datetime import timezone
 from typing import Any, Dict, Optional
 
-# UTC+8 時區
+# The UTC+8 time zone
 TZ_OFFSET = timezone(timedelta(hours=8))
 
 
 class MessageCache:
-    """訊息內存緩存 - LRU 策略，提升查詢速度（支援同步和異步操作）"""
+    """In-memory message cache with an LRU policy, for faster lookups (synchronous and asynchronous use)."""
 
     def __init__(self, max_size: int = 1000, ttl_seconds: int = 3600) -> None:
-        """
-        初始化訊息緩存
+        """Set up the message cache.
 
         Args:
-            max_size: 最大緩存訊息數 (超過時退出最舊的)
-            ttl_seconds: 緩存生命週期 (秒)
+            max_size: the most messages to cache (the oldest leave beyond that)
+            ttl_seconds: how long an entry lives, in seconds
         """
         self.cache: OrderedDict[str, Dict[str, Any]] = OrderedDict()
         self.cache_timestamp: Dict[str, float] = {}
@@ -28,11 +27,11 @@ class MessageCache:
         self.misses = 0
 
     def _get_cache_key(self, guild_id: int, message_id: int) -> str:
-        """生成快取键"""
+        """Build the cache key."""
         return f"{guild_id}_{message_id}"
 
     def _is_expired(self, cache_key: str) -> bool:
-        """檢查快取是否過期"""
+        """Check whether an entry has expired."""
         if cache_key not in self.cache_timestamp:
             return True
 
@@ -40,26 +39,25 @@ class MessageCache:
         return elapsed > self.ttl_seconds
 
     def get(self, guild_id: int, message_id: int) -> Optional[Dict[str, Any]]:
-        """
-        從緩存中獲取訊息（同步版本）
+        """Get a message from the cache (synchronous).
 
         Args:
-            guild_id: 伺服器ID
-            message_id: 訊息ID
+            guild_id: the server ID
+            message_id: the message ID
 
         Returns:
-            訊息記錄 或 None
+            The message record, or None
         """
         cache_key = self._get_cache_key(guild_id, message_id)
 
-        # 檢查快取存在且未過期
+        # Check that the entry exists and has not expired
         if cache_key in self.cache and not self._is_expired(cache_key):
-            # LRU：移到末尾
+            # LRU: move to the end
             self.cache.move_to_end(cache_key)
             self.hits += 1
             return copy.deepcopy(self.cache[cache_key])
 
-        # 快取不存在或已過期
+        # The entry is missing or expired
         if cache_key in self.cache:
             del self.cache[cache_key]
             if cache_key in self.cache_timestamp:
@@ -69,37 +67,35 @@ class MessageCache:
         return None
 
     def set(self, guild_id: int, message_id: int, data: Dict[str, Any]) -> None:
-        """
-        將訊息保存到緩存（同步版本）
+        """Store a message in the cache (synchronous).
 
         Args:
-            guild_id: 伺服器ID
-            message_id: 訊息ID
-            data: 訊息記錄
+            guild_id: the server ID
+            message_id: the message ID
+            data: the message record
         """
         cache_key = self._get_cache_key(guild_id, message_id)
 
-        # 如果已存在，先移除
+        # If it already exists, remove it first
         if cache_key in self.cache:
             del self.cache[cache_key]
 
-        # 檢查是否超過容量
+        # Check whether it is over capacity
         if len(self.cache) >= self.max_size:
-            # 移除最舊的（第一個）
+            # Remove the oldest (the first)
             oldest_key, _ = self.cache.popitem(last=False)
             if oldest_key in self.cache_timestamp:
                 del self.cache_timestamp[oldest_key]
 
-        # 新增新項目
+        # Add the new entry
         self.cache[cache_key] = copy.deepcopy(data)
         self.cache_timestamp[cache_key] = datetime.now(TZ_OFFSET).timestamp()
 
     def batch_set(self, messages: Dict[str, Dict[str, Any]]) -> None:
-        """
-        批量設置快取（同步版本）
+        """Store several entries (synchronous).
 
         Args:
-            messages: {cache_key: message_data} 字典
+            messages: a {cache_key: message_data} dict
         """
         for cache_key, data in messages.items():
             if len(self.cache) >= self.max_size:
@@ -111,30 +107,28 @@ class MessageCache:
             self.cache_timestamp[cache_key] = datetime.now(TZ_OFFSET).timestamp()
 
     def update(self, guild_id: int, message_id: int, data: Dict[str, Any]) -> None:
-        """
-        更新緩存中的訊息（同步版本）
+        """Update a message in the cache (synchronous).
 
         Args:
-            guild_id: 伺服器ID
-            message_id: 訊息ID
-            data: 新的訊息記錄
+            guild_id: the server ID
+            message_id: the message ID
+            data: the new message record
         """
         cache_key = self._get_cache_key(guild_id, message_id)
 
         if cache_key in self.cache:
-            # 合併更新
+            # Merge the update
             self.cache[cache_key].update(copy.deepcopy(data))
             self.cache_timestamp[cache_key] = datetime.now(TZ_OFFSET).timestamp()
-            # 移到末尾（LRU）
+            # Move to the end (LRU)
             self.cache.move_to_end(cache_key)
 
     def delete(self, guild_id: int, message_id: int) -> None:
-        """
-        從緩存中刪除訊息（同步版本）
+        """Delete a message from the cache (synchronous).
 
         Args:
-            guild_id: 伺服器ID
-            message_id: 訊息ID
+            guild_id: the server ID
+            message_id: the message ID
         """
         cache_key = self._get_cache_key(guild_id, message_id)
 
@@ -144,11 +138,10 @@ class MessageCache:
             del self.cache_timestamp[cache_key]
 
     def clear_guild(self, guild_id: int) -> None:
-        """
-        清除某個伺服器的所有快取
+        """Clear every entry of one server.
 
         Args:
-            guild_id: 伺服器ID
+            guild_id: the server ID
         """
         keys_to_delete = [
             key for key in self.cache.keys() if key.startswith(f"{guild_id}_")
@@ -160,16 +153,15 @@ class MessageCache:
                 del self.cache_timestamp[key]
 
     def clear_all(self) -> None:
-        """清除所有快取"""
+        """Clear every entry."""
         self.cache.clear()
         self.cache_timestamp.clear()
 
     def get_stats(self) -> Dict[str, Any]:
-        """
-        獲取快取統計資訊
+        """Cache statistics.
 
         Returns:
-            統計資訊字典
+            A dict of statistics
         """
         total_requests = self.hits + self.misses
         hit_rate = (self.hits / total_requests * 100) if total_requests > 0 else 0
@@ -185,25 +177,24 @@ class MessageCache:
         }
 
     def reset_stats(self) -> None:
-        """重置統計資訊"""
+        """Reset the statistics."""
         self.hits = 0
         self.misses = 0
 
 
-# 全域訊息快取實例
+# The global message cache instance
 _global_message_cache: Optional[MessageCache] = None
 
 
 def get_message_cache(max_size: int = 1000, ttl_seconds: int = 3600) -> MessageCache:
-    """
-    獲取全域訊息快取實例（單例模式）
+    """The global message cache instance (a singleton).
 
     Args:
-        max_size: 最大緩存訊息數
-        ttl_seconds: 快取過期時間（秒）
+        max_size: the most messages to cache
+        ttl_seconds: how long an entry lives, in seconds
 
     Returns:
-        MessageCache 實例
+        The MessageCache instance
     """
     global _global_message_cache
 

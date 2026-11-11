@@ -1,4 +1,4 @@
-"""GenshinService 單元測試"""
+"""Unit tests for GenshinService."""
 
 from src.services.genshin_service import GenshinService
 

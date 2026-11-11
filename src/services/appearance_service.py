@@ -1,22 +1,22 @@
-"""機器人外觀申請業務邏輯服務"""
+"""Business logic for bot appearance requests."""
 
 from typing import Any, Optional
 
 
 class AppearanceService:
-    """外觀變更申請的暫存管理"""
+    """Holds appearance change requests until they are reviewed."""
 
     def __init__(self) -> None:
         self._pending: dict[str, dict[Any, Any]] = {}
 
     def add_request(self, request_id: str, data: dict[Any, Any]) -> None:
-        """新增待審核申請"""
+        """Add a request awaiting review."""
         self._pending[request_id] = data
 
     def get_request(self, request_id: str) -> Optional[dict[Any, Any]]:
-        """取得申請資料"""
+        """Get a request."""
         return self._pending.get(request_id)
 
     def remove_request(self, request_id: str) -> Optional[dict[Any, Any]]:
-        """移除並回傳申請資料"""
+        """Remove a request and return it."""
         return self._pending.pop(request_id, None)

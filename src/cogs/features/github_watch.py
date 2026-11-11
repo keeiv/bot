@@ -19,7 +19,7 @@ from src.utils.i18n import text as tx
 from src.utils.lang_context import localized
 from src.utils.storage_worker import run_storage
 
-# UTC+8 時區
+# The UTC+8 time zone
 TZ_OFFSET = timezone(timedelta(hours=8))
 
 
@@ -30,7 +30,7 @@ def _format_time(dt: datetime) -> str:
 
 
 class GithubWatch(commands.Cog):
-    """GitHub 推送通知"""
+    """GitHub push notifications."""
 
     repo_watch = app_commands.Group(
         name="repo_watch", description="GitHub repository updates"
@@ -63,13 +63,13 @@ class GithubWatch(commands.Cog):
     async def _fetch_latest_commit(
         self, owner: str, repo: str
     ) -> Optional[dict[Any, Any]]:
-        """取得最新 commit，回傳 None 表示無變更 (304)"""
+        """Fetch the latest commit; None means nothing changed (304)."""
         github_manager = await self._ensure_session()
 
         try:
             commits = await github_manager.get_commits(owner, repo, per_page=1)
 
-            # 304 Not Modified — 無變更
+            # 304 Not Modified: nothing changed
             if commits is None:
                 return None
 
@@ -185,7 +185,7 @@ class GithubWatch(commands.Cog):
 
                 commit = await self._fetch_latest_commit(owner, repo)
 
-                # None = 304 無變更，跳過
+                # None means 304, nothing changed: skip
                 if commit is None:
                     continue
 

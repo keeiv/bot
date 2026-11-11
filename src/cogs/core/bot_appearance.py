@@ -17,12 +17,12 @@ from src.utils.lang_context import localized
 from src.utils.localized_ui import LocalizedView
 from src.utils.time_utils import TZ_OFFSET
 
-# 圖片大小限制 8MB
+# Images are limited to 8 MB
 MAX_IMAGE_SIZE = 8 * 1024 * 1024
 
 
 class AppearanceApprovalView(LocalizedView):
-    """外觀變更審核視圖"""
+    """View for reviewing an appearance change."""
 
     i18n = {
         "approve_button.label": "bot_appearance.approve",
@@ -39,7 +39,7 @@ class AppearanceApprovalView(LocalizedView):
     async def approve_button(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
-        """核准變更"""
+        """Approve the change."""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
                 tx("blacklist.denied_appeal_review_permission_is_required"),
@@ -53,7 +53,7 @@ class AppearanceApprovalView(LocalizedView):
     async def reject_button(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
-        """拒絕變更"""
+        """Reject the change."""
         if interaction.user.id not in DEVELOPER_IDS:
             await interaction.response.send_message(
                 tx("blacklist.denied_appeal_review_permission_is_required"),
@@ -64,7 +64,7 @@ class AppearanceApprovalView(LocalizedView):
 
 
 class BotAppearance(commands.Cog):
-    """機器人外觀設定 Cog (伺服器級)"""
+    """Per-server appearance of the bot."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -86,7 +86,7 @@ class BotAppearance(commands.Cog):
         content_type: str,
         image_url: str,
     ) -> None:
-        """發送審核請求給開發者"""
+        """Send the review request to the developers."""
         if (
             interaction.guild is None
             or interaction.guild_id is None
@@ -290,7 +290,7 @@ class BotAppearance(commands.Cog):
         request_id: str,
         approved: bool,
     ) -> None:
-        """處理審核結果"""
+        """Handle the outcome of a review."""
         request = self.service.remove_request(request_id)
         if not request:
             await interaction.response.send_message(
@@ -322,7 +322,7 @@ class BotAppearance(commands.Cog):
                     request["content_type"],
                 )
 
-                # 更新審核訊息
+                # Update the review message
                 embed = discord.Embed(
                     title=tx("bot_appearance.approved_change", v0=(type_name)),
                     description=tx(
@@ -332,7 +332,7 @@ class BotAppearance(commands.Cog):
                 )
                 await interaction.edit_original_response(embed=embed, view=None)
 
-                # 通知申請者
+                # Tell the applicant
                 try:
                     channel = self.bot.get_channel(request["channel_id"])
                     if isinstance(
@@ -365,7 +365,7 @@ class BotAppearance(commands.Cog):
                     ephemeral=True,
                 )
         else:
-            # 拒絕
+            # Rejected
             embed = discord.Embed(
                 title=tx("bot_appearance.rejected_change", v0=(type_name)),
                 description=tx(
@@ -376,7 +376,7 @@ class BotAppearance(commands.Cog):
             )
             await interaction.response.edit_message(embed=embed, view=None)
 
-            # 通知申請者
+            # Tell the applicant
             try:
                 channel = self.bot.get_channel(request["channel_id"])
                 if isinstance(
@@ -414,7 +414,7 @@ class BotAppearance(commands.Cog):
     async def change_name(
         self, interaction: discord.Interaction, name: str | None = None
     ) -> None:
-        """更改機器人在伺服器中的暱稱"""
+        """Change the bot's nickname in the server."""
         if (
             interaction.guild is None
             or interaction.guild_id is None
@@ -468,7 +468,7 @@ class BotAppearance(commands.Cog):
     async def change_avatar(
         self, interaction: discord.Interaction, image: discord.Attachment
     ) -> None:
-        """更改機器人在此伺服器的頭像 (需審核)"""
+        """Change the bot's avatar in this server (needs review)."""
         if (
             interaction.guild is None
             or interaction.guild_id is None
@@ -533,7 +533,7 @@ class BotAppearance(commands.Cog):
     async def change_banner(
         self, interaction: discord.Interaction, image: discord.Attachment
     ) -> None:
-        """更改機器人在此伺服器的橫幅 (需審核)"""
+        """Change the bot's banner in this server (needs review)."""
         if (
             interaction.guild is None
             or interaction.guild_id is None
@@ -607,7 +607,7 @@ class BotAppearance(commands.Cog):
         interaction: discord.Interaction,
         target: app_commands.Choice[str],
     ) -> None:
-        """將機器人伺服器級頭像/橫幅還原為全域預設"""
+        """Reset the bot's server avatar and banner to the global defaults."""
         if (
             interaction.guild is None
             or interaction.guild_id is None
@@ -674,5 +674,5 @@ class BotAppearance(commands.Cog):
 
 
 async def setup(bot: commands.Bot) -> None:
-    """載入 Cog"""
+    """Load the cog."""
     await bot.add_cog(BotAppearance(bot))

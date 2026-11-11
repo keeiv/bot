@@ -1,14 +1,14 @@
-"""文字轉換工具模組"""
+"""Text conversion tools."""
 
 
 def to_traditional_chinese(text: str) -> str:
-    """將簡體字與特定星穹鐵道術語轉換為繁體中文
+    """Convert Simplified characters and certain Honkai: Star Rail terms to Traditional Chinese.
 
     Args:
-        text: 要轉換的文字
+        text: the text to convert
 
     Returns:
-        轉換後的繁體中文
+        The text in Traditional Chinese
     """
     if not text:
         return text

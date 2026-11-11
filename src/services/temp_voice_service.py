@@ -10,12 +10,12 @@ _DATA_FILE = "data/storage/temp_voice.json"
 
 
 class TempVoiceService:
-    """暫時語音頻道資料存取與業務邏輯"""
+    """Temporary voice channel data access and business logic."""
 
     def __init__(self) -> None:
         self._cache: Optional[dict[Any, Any]] = None
 
-    # ─────────────── 資料存取 ───────────────
+    # ── Data access ───────────────────────────────────────────────────
 
     def _load(self) -> dict[Any, Any]:
         if self._cache is not None:
@@ -35,10 +35,10 @@ class TempVoiceService:
             json.dump(data, f, ensure_ascii=False, indent=2)
         self._cache = copy.deepcopy(data)
 
-    # ─────────────── 伺服器設定 ───────────────
+    # ── Server settings ───────────────────────────────────────────────
 
     def get_guild_config(self, guild_id: int) -> Optional[dict[Any, Any]]:
-        """取得伺服器暫時語音頻道設定"""
+        """The server's temporary voice channel settings."""
         result_value = self._load().get("guilds", {}).get(str(guild_id))
         if result_value is None:
             return None
@@ -61,7 +61,7 @@ class TempVoiceService:
         category_id: Optional[int],
         name_template: str,
     ) -> None:
-        """儲存伺服器暫時語音頻道設定"""
+        """Save the server's temporary voice channel settings."""
         data = self._load()
         data.setdefault("guilds", {})[str(guild_id)] = {
             "trigger_channel_id": trigger_channel_id,
@@ -71,15 +71,15 @@ class TempVoiceService:
         self._save(data)
 
     def remove_guild_config(self, guild_id: int) -> None:
-        """移除伺服器設定"""
+        """Remove the server's settings."""
         data = self._load()
         data.setdefault("guilds", {}).pop(str(guild_id), None)
         self._save(data)
 
-    # ─────────────── 暫時頻道管理 ───────────────
+    # ── Temporary channel management ──────────────────────────────────
 
     def get_channel(self, channel_id: int) -> Optional[dict[Any, Any]]:
-        """取得暫時頻道資料"""
+        """One temporary channel's data."""
         result_value = self._load().get("channels", {}).get(str(channel_id))
         if result_value is None:
             return None
@@ -88,7 +88,7 @@ class TempVoiceService:
         return result_value
 
     def get_guild_channels(self, guild_id: int) -> list[dict[Any, Any]]:
-        """取得伺服器所有暫時頻道資料"""
+        """Every temporary channel's data in the server."""
         data = self._load()
         return [
             ch
@@ -97,7 +97,7 @@ class TempVoiceService:
         ]
 
     def get_all_channel_ids(self) -> list[int]:
-        """取得所有已記錄的暫時頻道 ID"""
+        """The IDs of every recorded temporary channel."""
         return [int(cid) for cid in self._load().get("channels", {}).keys()]
 
     def save_channel(
@@ -106,7 +106,7 @@ class TempVoiceService:
         guild_id: int,
         owner_id: int,
     ) -> None:
-        """建立暫時頻道記錄"""
+        """Create a temporary channel record."""
         data = self._load()
         data.setdefault("channels", {})[str(channel_id)] = {
             "guild_id": guild_id,
@@ -116,13 +116,13 @@ class TempVoiceService:
         self._save(data)
 
     def remove_channel(self, channel_id: int) -> None:
-        """移除暫時頻道記錄"""
+        """Remove a temporary channel record."""
         data = self._load()
         data.setdefault("channels", {}).pop(str(channel_id), None)
         self._save(data)
 
     def remove_stale_channels(self, valid_channel_ids: set[int]) -> int:
-        """移除不再存在的頻道記錄，回傳清理數量"""
+        """Remove records of channels that no longer exist; return how many were removed."""
         data = self._load()
         channels = data.get("channels", {})
         stale = [cid for cid in channels if int(cid) not in valid_channel_ids]
@@ -132,20 +132,20 @@ class TempVoiceService:
             self._save(data)
         return len(stale)
 
-    # ─────────────── 擁有者管理 ───────────────
+    # ── Owner management ──────────────────────────────────────────────
 
     def set_owner(self, channel_id: int, new_owner_id: int) -> None:
-        """更新頻道擁有者"""
+        """Update the channel's owner."""
         data = self._load()
         ch = data.get("channels", {}).get(str(channel_id))
         if ch:
             ch["owner_id"] = new_owner_id
             self._save(data)
 
-    # ─────────────── 封鎖清單 ───────────────
+    # ── Block list ────────────────────────────────────────────────────
 
     def add_ban(self, channel_id: int, user_id: int) -> None:
-        """新增封鎖用戶"""
+        """Add a blocked user."""
         data = self._load()
         ch = data.get("channels", {}).get(str(channel_id))
         if ch and user_id not in ch.get("banned_users", []):
@@ -153,7 +153,7 @@ class TempVoiceService:
             self._save(data)
 
     def remove_ban(self, channel_id: int, user_id: int) -> None:
-        """移除封鎖用戶"""
+        """Remove a blocked user."""
         data = self._load()
         ch = data.get("channels", {}).get(str(channel_id))
         if ch and user_id in ch.get("banned_users", []):

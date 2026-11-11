@@ -414,7 +414,7 @@ class EndfieldService:
             )
         return self._session
 
-    # ── links ─────────────────────────────────────────────────────
+    # ── links ─────────────────────────────────────────────────────────
     def _links(self) -> dict[str, dict[str, Any]]:
         try:
             raw = read_document(BINDINGS)
@@ -501,7 +501,7 @@ class EndfieldService:
         uid = str((link or {}).get("uid") or "")
         return uid if UID_RE.match(uid) else None
 
-    # ── Enka.Network ──────────────────────────────────────────────
+    # ── Enka.Network ──────────────────────────────────────────────────
     async def store(self) -> Store:
         """The name tables: from disk, refreshed from GitHub once a day."""
         async with self._store_lock:
@@ -629,7 +629,7 @@ class EndfieldService:
         self._raw[uid] = (now + ttl, data, now)
         return data, now
 
-    # ── SKPORT ────────────────────────────────────────────────────
+    # ── SKPORT ────────────────────────────────────────────────────────
     async def link_account(
         self, user_id: int, pasted: str, lang: str = "zh"
     ) -> Account:

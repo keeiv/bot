@@ -636,7 +636,7 @@ async def test_a_domain_entry_is_stored_as_its_host():
     assert c.manager.get_settings(GUILD)["blocked_domains"] == ["shady.example"]
 
 
-# ── review round: 希雨 ────────────────────────────────────────────
+# ── Review round: Xiyu ────────────────────────────────────────────
 def test_turning_spam_protection_off_does_not_turn_anti_nuke_off():
     m = manager(
         nuke_limit=3, enabled=False

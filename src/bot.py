@@ -68,17 +68,17 @@ class BlacklistCheckTree(app_commands.CommandTree):
         cmd_name = interaction.command.name if interaction.command else None
         if cmd_name in ["appeal", "appeal_status"]:
             return True
-        # 跳過 blacklist 群組指令 (開發者自行檢查權限)
+        # Skip the blacklist command group (developers check their own permission)
         top_level = interaction.data.get("name") if interaction.data else None
         if top_level == "blacklist":
             return True
-        # API 呼叫加超時，避免佔用 interaction 3 秒窗口
+        # Give the API call a timeout so it cannot use up the interaction's 3 seconds
         try:
             entry = await asyncio.wait_for(
                 bot.blacklist_manager.check(interaction.user.id), timeout=1.5
             )
         except asyncio.TimeoutError:
-            return True  # API 太慢就放行，不要卡住指令
+            return True  # Let the command through when the API is slow, instead of holding it up
         if not entry:
             return True
         mode = entry.get("mode")
@@ -87,7 +87,7 @@ class BlacklistCheckTree(app_commands.CommandTree):
         if mode == "global_ban" and guild is not None:
             await global_ban(bot, guild, interaction.user, entry)
         embed = blacklist_embed(await interaction_lang(interaction), entry)
-        # 動態載入申訴按鈕 (避免循環 import)
+        # Load the appeal button lazily (avoids a circular import)
         from src.cogs.core.blacklist import Blacklist
         from src.cogs.core.blacklist import BlockedNoticeView
 
@@ -198,5 +198,5 @@ class Bot(commands.Bot):
             if mode == "global_ban":
                 await global_ban(self, member.guild, member, entry)
             elif mode == "block":
-                # block 模式只擋指令，不踢人
+                # Block mode only stops commands; it does not kick
                 pass

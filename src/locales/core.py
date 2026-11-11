@@ -4,7 +4,7 @@ SITE = "https://botweb.shizune.life"
 ISSUES = "https://github.com/keeiv/bot/issues"
 
 MESSAGES: dict[str, dict[str, str]] = {
-    # ── Guide channel ──────────────────────────────────────────────
+    # ── Guide channel ─────────────────────────────────────────────────
     "guide.channel_name": {"en": "bot-guide", "zh": "bot-guide"},
     "guide.channel_topic": {
         "en": "How to use BOT. Admins can change the bot's language here.",
@@ -52,7 +52,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     "guide.select.placeholder": {"en": "Bot language", "zh": "機器人語言"},
     "guide.select.en": {"en": "Replies in English", "zh": "以英文回覆"},
     "guide.select.zh": {"en": "Replies in Chinese", "zh": "以中文回覆"},
-    # ── Language switching ─────────────────────────────────────────
+    # ── Language switching ────────────────────────────────────────────
     "language.denied": {
         "en": "Only members with the Manage Server permission can change this "
         "server's language.",
@@ -80,7 +80,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "The language could not be saved. Please try again in a moment.",
         "zh": "語言設定沒有儲存成功，請稍後再試一次。",
     },
-    # ── Blacklist notice (bot.py) ──────────────────────────────────
+    # ── Blacklist notice (bot.py) ─────────────────────────────────────
     "blacklist.title": {"en": "Access denied", "zh": "禁止使用"},
     "blacklist.body": {
         "en": "You have been blacklisted.\n\nReason: {reason}\nSource: {source}",
@@ -90,7 +90,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     "blacklist.source_local": {"en": "Local blacklist", "zh": "本地黑名單"},
     "blacklist.source_api": {"en": "CatHome API", "zh": "CatHome API"},
     "blacklist.source_mori": {"en": "Mori.black", "zh": "Mori.black 共享黑名單"},
-    # ── Translate message (context menu) ───────────────────────────
+    # ── Translate message (context menu) ──────────────────────────────
     "translate.no_text": {
         "en": "That message has no text to translate.",
         "zh": "這則訊息沒有可以翻譯的文字。",

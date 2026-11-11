@@ -7,9 +7,9 @@ import discord
 
 
 class LavalinkManager:
-    """Lavalink 節點管理：封裝 wavelink 節點建立與銷毀流程
+    """Lavalink node management: wraps creating and destroying wavelink nodes.
 
-    以非同步方法建立節點，若系統未安裝 `wavelink` 則會拋出錯誤。
+    Nodes are created by async methods; an error is raised if `wavelink` is not installed.
     """
 
     def __init__(self, bot: discord.Client) -> None:
@@ -23,9 +23,9 @@ class LavalinkManager:
         password: str = "youshallnotpass",
         identifier: str = "Lavalink",
     ) -> Any:
-        """建立並註冊 Lavalink 節點，成功回傳節點物件。
+        """Create and register a Lavalink node; return the node on success.
 
-        參數使用常見預設值，部署時請以環境變數或設定檔覆寫。
+        The parameters use common defaults; override them with environment variables or a config file when deploying.
         """
         try:
             wavelink = importlib.import_module("wavelink")
@@ -46,7 +46,7 @@ class LavalinkManager:
         return self.node
 
     async def destroy_node(self) -> None:
-        """安全銷毀已建立的節點"""
+        """Destroy the created nodes safely."""
         if self.node is None:
             return
         try:
@@ -58,5 +58,5 @@ class LavalinkManager:
 def get_manager(
     bot: discord.Client,
 ) -> LavalinkManager:
-    """建立或取得 Lavalink 管理器實例（簡單工廠）"""
+    """Create or return the Lavalink manager instance (a simple factory)."""
     return LavalinkManager(bot)

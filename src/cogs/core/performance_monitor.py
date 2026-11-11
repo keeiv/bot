@@ -7,7 +7,7 @@ from src.utils.network_optimizer import get_network_optimizer
 
 
 class PerformanceMonitorCog(commands.Cog):
-    """機器人效能背景監控 Cog"""
+    """Background performance monitoring."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -26,7 +26,7 @@ class PerformanceMonitorCog(commands.Cog):
             print(f"[效能監控] 收集指標時發生錯誤: {e}")
 
     async def collect_performance_metrics(self) -> None:
-        """收集效能指標"""
+        """Collect performance metrics."""
         db_manager = get_database_manager()
         if db_manager:
             cache_stats = await db_manager.get_cache_stats()

@@ -74,7 +74,7 @@ class ReviewServer:
         self.seen = {}
         self.tasks = set()
 
-    # ── web app ───────────────────────────────────────────────────
+    # ── web app ───────────────────────────────────────────────────────
     def create_app(self):
         @web.middleware
         async def authorize(request, handler):
@@ -131,7 +131,7 @@ class ReviewServer:
             }
         )
 
-    # ── review ────────────────────────────────────────────────────
+    # ── review ────────────────────────────────────────────────────────
     async def handle(self, request):
         if request.content_type != "multipart/form-data":
             raise web.HTTPBadRequest()
@@ -234,7 +234,7 @@ class ReviewServer:
             raise ValueError("圖片數量超過宣告上限")
         return manifest, images
 
-    # ── start-up: Ollama, then the three models ───────────────────
+    # ── start-up: Ollama, then the three models ───────────────────────
     async def prepare(self):
         """Get Ollama and all three models ready, retrying until it works."""
         while not self.ready:

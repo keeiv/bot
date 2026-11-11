@@ -49,7 +49,7 @@ MUTATION_FACTOR = 1.04
 MUTATION_LEVEL = 70
 MUTATION_COST = {SILVER: 2, GOLD: 6}
 
-# ── natures: one aptitude raised, one lowered, the sum always equal ─
+# ── natures: one aptitude raised, one lowered, the sum always equal ───
 NATURES = {
     "brave": ("atk", "def"),
     "fierce": ("atk", "spd"),

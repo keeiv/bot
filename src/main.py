@@ -18,22 +18,22 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 
 
 def signal_handler(signum: Any, frame: Any) -> None:
-    """處理信號終止"""
+    """Handle a termination signal."""
     print(f"[Info] 收到信號 {signum}，正在優雅關閉...")
     sys.exit(0)
 
 
 def main() -> None:
-    """機器人主進入點"""
+    """The bot's entry point."""
     if not TOKEN:
         print("錯誤：未設置 DISCORD_TOKEN 環境變數")
         sys.exit(1)
 
-    # 設置信號處理器用於優雅關閉
+    # Install signal handlers for a clean shutdown
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    # 檢查機器人實例是否已在運行
+    # Check whether an instance of the bot is already running
     lock_file = "bot.lock"
     if os.path.exists(lock_file):
         print("[警告] 檢測到鎖定文件，機器人實例可能已在運行")
@@ -41,7 +41,7 @@ def main() -> None:
             with open(lock_file, "r", encoding="utf-8") as f:
                 old_pid = f.read().strip()
             print(f"[警告] 舊實例 PID: {old_pid}")
-            # 檢查進程是否仍在運行
+            # Check whether that process is still running
             try:
                 if psutil.pid_exists(int(old_pid)):
                     print("[錯誤] 已有機器人實例運行，取消啟動")
@@ -51,7 +51,7 @@ def main() -> None:
         except Exception as e:
             print(f"[警告] 鎖定文件檢查失敗: {e}")
 
-    # 建立鎖定文件
+    # Create the lock file
     with open(lock_file, "w", encoding="utf-8") as f:
         f.write(str(os.getpid()))
 
@@ -70,7 +70,7 @@ def main() -> None:
         print(f"[錯誤] 機器人啟動失敗: {e}")
         raise
     finally:
-        # 清理鎖定文件
+        # Remove the lock file
         if os.path.exists(lock_file):
             os.remove(lock_file)
         print("[Info] Bot shutdown complete")

@@ -1,4 +1,4 @@
-"""成就業務邏輯服務"""
+"""Achievement business logic."""
 
 import copy
 from datetime import datetime
@@ -16,9 +16,9 @@ TZ_OFFSET = timezone(timedelta(hours=8))
 _DATA_FILE = "data/storage/achievements.json"
 _DATA_LOCK = threading.RLock()
 
-# 成就定義 (從 cog 搬移至此，cog 透過 service 取得)
+# Achievement definitions (moved here from the cog, which reads them through the service)
 ACHIEVEMENTS: dict[str, dict[Any, Any]] = {
-    # 聊天互動成就
+    # Chat achievements
     "first_edit": {
         "name": "首次編輯",
         "description": "在伺服器中編輯一條訊息",
@@ -49,7 +49,7 @@ ACHIEVEMENTS: dict[str, dict[Any, Any]] = {
         "description": "在伺服器發送 100 條訊息",
         "rarity": "uncommon",
     },
-    # 遊戲成就
+    # Game achievements
     "halo_broken": {
         "name": "光環破裂",
         "description": "首次在俄羅斯輪盤中失敗",
@@ -65,7 +65,7 @@ ACHIEVEMENTS: dict[str, dict[Any, Any]] = {
         "description": "在俄羅斯輪盤中獲勝 5 次",
         "rarity": "rare",
     },
-    # 夥伴成就
+    # Companion achievements
     "pet_adopt": {
         "name": "初次相遇",
         "description": "領養第一隻夥伴",
@@ -101,7 +101,7 @@ ACHIEVEMENTS: dict[str, dict[Any, Any]] = {
         "description": "在潛艇遊戲中獲勝 5 次",
         "rarity": "rare",
     },
-    # 社交成就
+    # Social achievements
     "server_newcomer": {
         "name": "伺服器新人",
         "description": "加入伺服器",
@@ -122,13 +122,13 @@ ACHIEVEMENTS: dict[str, dict[Any, Any]] = {
         "description": "查詢 /server_info 3 次",
         "rarity": "common",
     },
-    # 特殊成就
+    # Special achievements
     "first_interaction": {
         "name": "首次互動",
         "description": "在伺服器中執行第一個操作",
         "rarity": "common",
     },
-    # 探索者成就
+    # Explorer achievements
     "achievement_explorer": {
         "name": "窺探者",
         "description": "查看成就圖鑑",
@@ -146,7 +146,7 @@ RARITY_LABELS = {
 
 
 class AchievementService:
-    """成就資料存取與業務邏輯"""
+    """Achievement data access and business logic."""
 
     _CACHE_TTL: float = 60.0
 
@@ -155,7 +155,7 @@ class AchievementService:
         self._cache_time: float = 0.0
         self._lock = _DATA_LOCK
 
-    # ─────────────── 資料存取 ───────────────
+    # ── Data access ───────────────────────────────────────────────────
 
     @staticmethod
     def _validate(data: Any) -> None:
@@ -202,12 +202,12 @@ class AchievementService:
             self._cache = proposed
             self._cache_time = time.monotonic()
 
-    # ─────────────── 查詢 ───────────────
+    # ── Queries ───────────────────────────────────────────────────────
 
     def get_user_achievements(
         self, user_id: int, guild_id: Optional[int] = None
     ) -> list[str]:
-        """取得用戶已解鎖的成就 ID 列表"""
+        """The IDs of the achievements a user has unlocked."""
         data = self._load()
         user_data = data.get(str(user_id))
         if not user_data:
@@ -225,7 +225,7 @@ class AchievementService:
     def get_progress(
         self, user_id: int, guild_id: Optional[int] = None
     ) -> dict[Any, Any]:
-        """取得用戶成就進度"""
+        """A user's achievement progress."""
         unlocked = self.get_user_achievements(user_id, guild_id)
         regular = {k: v for k, v in ACHIEVEMENTS.items() if not v.get("developer_only")}
         total = len(regular) if guild_id is not None else len(ACHIEVEMENTS)
@@ -237,13 +237,13 @@ class AchievementService:
         }
 
     def get_achievement_info(self, achievement_id: str) -> Optional[dict[Any, Any]]:
-        """取得單一成就定義"""
+        """The definition of one achievement."""
         return copy.deepcopy(ACHIEVEMENTS.get(achievement_id))
 
-    # ─────────────── 解鎖 ───────────────
+    # ── Unlocking ─────────────────────────────────────────────────────
 
     def unlock(self, user_id: int, guild_id: int, achievement_id: str) -> bool:
-        """解鎖成就，回傳是否為新解鎖"""
+        """Unlock an achievement; return whether it is newly unlocked."""
         if achievement_id not in ACHIEVEMENTS:
             return False
         # Refresh inside the shared lock so another service instance's successful
@@ -264,7 +264,7 @@ class AchievementService:
             self._save(data)
             return True
 
-    # ─────────────── 顯示工具 ───────────────
+    # ── Display helpers ───────────────────────────────────────────────
 
     @staticmethod
     def describe(achievement_id: str) -> dict[Any, Any]:
@@ -276,12 +276,12 @@ class AchievementService:
 
     @staticmethod
     def get_rarity_label(rarity: str) -> str:
-        """取得稀有度標籤"""
+        """The label of a rarity."""
         return tx(f"rarity.{rarity}") if rarity in RARITY_LABELS else f"[{rarity}]"
 
     @staticmethod
     def get_progress_bar(percentage: float, length: int = 20) -> str:
-        """產生文字進度條"""
+        """Build a text progress bar."""
         filled = int(length * percentage / 100)
         bar = "█" * filled + "░" * (length - filled)
         return f"[{bar}] {percentage}%"

@@ -1,4 +1,4 @@
-"""黑名單申訴業務邏輯服務"""
+"""Business logic for blacklist appeals."""
 
 from datetime import datetime
 from typing import Any
@@ -20,9 +20,9 @@ def source_label(source: str | None) -> str:
 
 
 class BlacklistService:
-    """黑名單申訴流程邏輯 - 提交、接受、駁回與通知"""
+    """The blacklist appeal flow: submit, accept, reject and notify."""
 
-    # ========== 申訴提交 ==========
+    # ── Submitting an appeal ──────────────────────────────────────────
 
     async def submit_appeal(
         self,
@@ -30,13 +30,13 @@ class BlacklistService:
         user: discord.User | discord.Member,
         entry: dict[Any, Any],
     ) -> str:
-        """提交申訴並通知所有開發者。
+        """Submit an appeal and tell every developer.
 
         Returns:
-            "ok"              — 提交成功
-            "not_blacklisted" — 用戶不在黑名單
-            "already_pending" — 已有待處理申訴
-            "send_failed"     — 無法傳送 DM 給開發者
+            "ok"              submitted
+            "not_blacklisted" the user is not on the blacklist
+            "already_pending" an appeal is already waiting
+            "send_failed"     no developer could be sent a DM
         """
         if not entry:
             return "not_blacklisted"
@@ -61,7 +61,7 @@ class BlacklistService:
         user: discord.User | discord.Member,
         entry: dict[Any, Any],
     ) -> discord.Embed:
-        """建立供開發者審核的申訴 Embed"""
+        """Build the appeal embed the developers review."""
         source = entry.get("source", "local")
         reason = entry.get("reason", tx("blacklist_service.no_reason_given"))
 
@@ -90,7 +90,7 @@ class BlacklistService:
         )
         return embed
 
-    # ========== 接受申訴 ==========
+    # ── Accepting an appeal ───────────────────────────────────────────
 
     def accept_appeal(
         self,
@@ -99,7 +99,7 @@ class BlacklistService:
         reviewer: discord.User | discord.Member,
         reason_text: str = "",
     ) -> str:
-        """更新申訴狀態為已接受，並從本地黑名單移除（如來源為 local）"""
+        """Mark the appeal accepted, and remove it from the local blacklist (if its source is local)."""
         manager.update_appeal(
             target_user_id,
             status="已接受",
@@ -115,7 +115,7 @@ class BlacklistService:
     def build_accept_footer(
         self, reviewer: discord.User | discord.Member, reason_text: str = ""
     ) -> str:
-        """建立接受申訴的 footer 文字"""
+        """Build the footer text for an accepted appeal."""
         footer = tx(
             "blacklist_service.accepted_by_at",
             v0=(reviewer),
@@ -128,7 +128,7 @@ class BlacklistService:
     def build_notify_embed(
         self, accepted: bool, reason_text: str = "", source: str = "local"
     ) -> discord.Embed:
-        """建立通知用戶申訴結果的 Embed"""
+        """Build the embed that tells the user the outcome of the appeal."""
         if accepted:
             description = tx(
                 {
@@ -156,7 +156,7 @@ class BlacklistService:
             )
         return embed
 
-    # ========== 駁回申訴 ==========
+    # ── Rejecting an appeal ───────────────────────────────────────────
 
     def reject_appeal(
         self,
@@ -164,7 +164,7 @@ class BlacklistService:
         target_user_id: int,
         reviewer: discord.User | discord.Member,
     ) -> None:
-        """更新申訴狀態為已駁回"""
+        """Mark the appeal rejected."""
         manager.update_appeal(
             target_user_id,
             status="已駁回",
@@ -172,7 +172,7 @@ class BlacklistService:
         )
 
     def build_reject_footer(self, reviewer: discord.User | discord.Member) -> str:
-        """建立駁回申訴的 footer 文字"""
+        """Build the footer text for a rejected appeal."""
         return tx(
             "blacklist_service.rejected_by_at",
             v0=(reviewer),

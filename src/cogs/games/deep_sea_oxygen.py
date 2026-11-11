@@ -15,14 +15,14 @@ from src.utils.localized_ui import LocalizedView
 
 
 class DeepSeaOxygen(commands.Cog):
-    """深海氧氣瓶 - 耐力與貪婪的遊戲"""
+    """Deep-sea oxygen: a game of endurance and greed."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.active_games: Dict[int, "OxygenGame"] = {}  # channel_id -> game
 
     class GameView(LocalizedView):
-        """遊戲主視圖"""
+        """Main game view."""
 
         i18n = {
             "choose_oxygen.label": "deep_sea_oxygen.choose_oxygen_intake",
@@ -31,13 +31,13 @@ class DeepSeaOxygen(commands.Cog):
         }
 
         def __init__(self, game: "OxygenGame", cog: "DeepSeaOxygen") -> None:
-            super().__init__(timeout=300)  # 5分鐘超時
+            super().__init__(timeout=300)  # Times out after 5 minutes
             self.game = game
             self.cog = cog
 
         @localized()
         async def on_timeout(self) -> None:
-            """超時處理"""
+            """Handle the timeout."""
             if self.game.game_active:
                 self.game.game_active = False
                 embed = discord.Embed(
@@ -54,7 +54,7 @@ class DeepSeaOxygen(commands.Cog):
         async def choose_oxygen(
             self, interaction: discord.Interaction, button: ui.Button[Any]
         ) -> None:
-            """選擇吸氧量"""
+            """Choose how much oxygen to take."""
             if not self.game.game_active:
                 await interaction.response.send_message(
                     tx("deep_sea_oxygen.the_game_has_ended"), ephemeral=True
@@ -74,7 +74,7 @@ class DeepSeaOxygen(commands.Cog):
                 )
                 return
 
-            # 創建吸氧量選擇視圖
+            # Build the view for choosing how much oxygen to take
             view = self.cog.OxygenSelectView(self.game, self.cog, interaction.user)
             embed = discord.Embed(
                 title=tx("deep_sea_oxygen.oxygen_intake_a_deep_sea_choice"),
@@ -111,7 +111,7 @@ class DeepSeaOxygen(commands.Cog):
         async def use_item(
             self, interaction: discord.Interaction, button: ui.Button[Any]
         ) -> None:
-            """使用道具"""
+            """Use an item."""
             if not self.game.game_active:
                 await interaction.response.send_message(
                     tx("deep_sea_oxygen.the_game_has_ended"), ephemeral=True
@@ -124,7 +124,7 @@ class DeepSeaOxygen(commands.Cog):
                 )
                 return
 
-            # 獲取玩家道具
+            # The player's items
             if interaction.user == self.game.player1:
                 items = self.game.player1_items
             else:
@@ -136,7 +136,7 @@ class DeepSeaOxygen(commands.Cog):
                 )
                 return
 
-            # 創建道具選擇視圖
+            # Build the item selection view
             view = self.cog.ItemSelectView(self.game, self.cog, interaction.user)
             embed = discord.Embed(
                 title=tx("deep_sea_oxygen.item_selection_diving_tools"),
@@ -170,7 +170,7 @@ class DeepSeaOxygen(commands.Cog):
         async def check_status(
             self, interaction: discord.Interaction, button: ui.Button[Any]
         ) -> None:
-            """查看遊戲狀態"""
+            """Show the state of the game."""
             if not self.game.game_active:
                 await interaction.response.send_message(
                     tx("deep_sea_oxygen.the_game_has_ended"), ephemeral=True
@@ -230,17 +230,17 @@ class DeepSeaOxygen(commands.Cog):
             await interaction.response.send_message(embed=embed, ephemeral=True)
 
     class OxygenSelectView(LocalizedView):
-        """吸氧量選擇視圖"""
+        """View for choosing how much oxygen to take."""
 
         def __init__(
             self, game: "OxygenGame", cog: "DeepSeaOxygen", player: discord.Member
         ) -> None:
-            super().__init__(timeout=120)  # 2分鐘超時
+            super().__init__(timeout=120)  # Times out after 2 minutes
             self.game = game
             self.cog = cog
             self.player = player
 
-            # 創建吸氧量選項按鈕
+            # Build the oxygen option buttons
             oxygen_options = [
                 (500, 2000),
                 (800, 1500),
@@ -259,7 +259,7 @@ class DeepSeaOxygen(commands.Cog):
                 self.add_item(button)
 
         def _create_callback(self, oxygen: int, coins: int) -> Any:
-            """創建按鈕回調"""
+            """Build a button callback."""
 
             @localized("interaction")
             async def callback(interaction: discord.Interaction) -> None:
@@ -270,7 +270,7 @@ class DeepSeaOxygen(commands.Cog):
                     )
                     return
 
-                # 記錄玩家選擇
+                # Record the player's choice
                 self.game.round_choices[self.player.id] = oxygen
 
                 embed = discord.Embed(
@@ -285,7 +285,7 @@ class DeepSeaOxygen(commands.Cog):
 
                 await interaction.response.edit_message(embed=embed, view=None)
 
-                # 檢查是否兩人都已選擇
+                # Check whether both have chosen
                 if len(self.game.round_choices) == 2:
                     await self._reveal_round_results()
 
@@ -294,28 +294,28 @@ class DeepSeaOxygen(commands.Cog):
             return callback
 
         async def _reveal_round_results(self) -> None:
-            """揭示本輪結果"""
-            # 獲取兩位玩家的選擇
+            """Reveal the result of the round."""
+            # Both players' choices
             p1_oxygen = self.game.round_choices.get(self.game.player1.id, 0)
             p2_oxygen = self.game.round_choices.get(self.game.player2.id, 0)
 
-            # 計算 CT 獎勵
+            # Work out the CT reward
             p1_coins = self.game.calculate_coins(p1_oxygen)
             p2_coins = self.game.calculate_coins(p2_oxygen)
 
-            # 更新 CT
+            # Update CT
             self.game.player1_coins += p1_coins
             self.game.player2_coins += p2_coins
 
-            # 記錄本輪吸氧量
+            # Record the oxygen taken this round
             self.game.round_oxygen_usage[self.game.player1.id] = p1_oxygen
             self.game.round_oxygen_usage[self.game.player2.id] = p2_oxygen
 
-            # 扣除氧氣
+            # Take the oxygen away
             total_used = p1_oxygen + p2_oxygen
             self.game.total_oxygen -= total_used
 
-            # 創建結果 embed
+            # Build the result embed
             embed = discord.Embed(
                 title=tx(
                     "deep_sea_oxygen.round_results_oxygen_choices", v0=(self.game.round)
@@ -355,10 +355,10 @@ class DeepSeaOxygen(commands.Cog):
 
             await self.game.channel.send(embed=embed)
 
-            # 檢查死亡條件
+            # Check the death conditions
             await self._check_death_condition()
 
-            # 準備下一輪
+            # Prepare the next round
             if self.game.game_active:
                 self.game.round += 1
                 self.game.round_choices.clear()
@@ -367,9 +367,9 @@ class DeepSeaOxygen(commands.Cog):
                     await self._end_game()
 
         async def _check_death_condition(self) -> None:
-            """檢查死亡條件"""
+            """Check the death conditions."""
             if self.game.total_oxygen <= 0 and not self.game.eliminated_player:
-                # 氧氣見底，吸最少的人出局
+                # The oxygen ran out: whoever took the least is out
                 p1_oxygen = self.game.round_oxygen_usage.get(self.game.player1.id, 0)
                 p2_oxygen = self.game.round_oxygen_usage.get(self.game.player2.id, 0)
 
@@ -378,7 +378,7 @@ class DeepSeaOxygen(commands.Cog):
                 elif p2_oxygen < p1_oxygen:
                     self.game.eliminated_player = self.game.player2
                 else:
-                    # 平局，隨機淘汰一人
+                    # A tie: one is eliminated at random
                     self.game.eliminated_player = random.choice(
                         [self.game.player1, self.game.player2]
                     )
@@ -394,12 +394,12 @@ class DeepSeaOxygen(commands.Cog):
                 await self.game.channel.send(embed=embed)
 
         async def _end_game(self) -> None:
-            """結束遊戲"""
+            """End the game."""
             self.game.game_active = False
 
-            # 判定勝負
+            # Decide the winner
             if self.game.eliminated_player:
-                # 有人被淘汰，另一人直接獲勝
+                # Someone was eliminated: the other wins outright
                 winner = (
                     self.game.player1
                     if self.game.eliminated_player == self.game.player2
@@ -414,7 +414,7 @@ class DeepSeaOxygen(commands.Cog):
                     color=discord.Color.from_rgb(241, 196, 15),
                 )
             else:
-                # 無人被淘汰，比較 CT
+                # Nobody was eliminated: compare CT
                 if self.game.player1_coins > self.game.player2_coins:
                     winner = self.game.player1
                 elif self.game.player2_coins > self.game.player1_coins:
@@ -435,7 +435,7 @@ class DeepSeaOxygen(commands.Cog):
                     color=discord.Color.from_rgb(241, 196, 15),
                 )
 
-            # 顯示最終結果
+            # Show the final result
             embed.add_field(
                 name=f"{self.game.player1.display_name}",
                 value=tx("deep_sea_oxygen.final_ct", v0=(self.game.player1_coins)),
@@ -454,17 +454,17 @@ class DeepSeaOxygen(commands.Cog):
                 del self.cog.active_games[self.game.channel.id]
 
     class ItemSelectView(LocalizedView):
-        """道具選擇視圖"""
+        """Item selection view."""
 
         def __init__(
             self, game: "OxygenGame", cog: "DeepSeaOxygen", player: discord.Member
         ) -> None:
-            super().__init__(timeout=120)  # 2分鐘超時
+            super().__init__(timeout=120)  # Times out after 2 minutes
             self.game = game
             self.cog = cog
             self.player = player
 
-            # 獲取玩家道具
+            # The player's items
             if player == game.player1:
                 items = game.player1_items
             else:
@@ -478,7 +478,7 @@ class DeepSeaOxygen(commands.Cog):
                 self.add_item(button)
 
         def _create_item_callback(self, item: str) -> Any:
-            """創建道具回調"""
+            """Build an item callback."""
 
             @localized("interaction")
             async def callback(interaction: discord.Interaction) -> None:
@@ -494,9 +494,9 @@ class DeepSeaOxygen(commands.Cog):
             return callback
 
         async def _use_item(self, interaction: discord.Interaction, item: str) -> None:
-            """使用道具"""
+            """Use an item."""
             if item == "側錄器":
-                # 顯示對方上一輪吸氧量
+                # Show how much oxygen the opponent took last round
                 opponent = (
                     self.game.player2
                     if self.player == self.game.player1
@@ -515,14 +515,14 @@ class DeepSeaOxygen(commands.Cog):
                 )
                 await interaction.response.edit_message(embed=embed, view=None)
 
-                # 移除道具
+                # Remove the item
                 if self.player == self.game.player1:
                     self.game.player1_items.remove(item)
                 else:
                     self.game.player2_items.remove(item)
 
             elif item == "漏氣針":
-                # 額外損耗 1000 單位氧氣
+                # 1000 more units of oxygen are lost
                 self.game.total_oxygen -= 1000
 
                 embed = discord.Embed(
@@ -534,27 +534,27 @@ class DeepSeaOxygen(commands.Cog):
                 )
                 await interaction.response.edit_message(embed=embed, view=None)
 
-                # 移除道具
+                # Remove the item
                 if self.player == self.game.player1:
                     self.game.player1_items.remove(item)
                 else:
                     self.game.player2_items.remove(item)
 
-                # 檢查是否立即觸發死亡
+                # Check whether this causes death at once
                 if self.game.total_oxygen <= 0:
                     await self._check_immediate_death()
 
             self.stop()
 
         async def _check_immediate_death(self) -> None:
-            """檢查立即死亡"""
+            """Check for immediate death."""
             if self.game.total_oxygen <= 0 and not self.game.eliminated_player:
-                # 如果當前輪已經有選擇，比較當前輪的吸氧量
+                # If this round already has a choice, compare this round's oxygen
                 current_p1 = self.game.round_choices.get(self.game.player1.id, 0)
                 current_p2 = self.game.round_choices.get(self.game.player2.id, 0)
 
                 if current_p1 > 0 and current_p2 > 0:
-                    # 兩人都已選擇，比較吸氧量
+                    # Both have chosen: compare the oxygen taken
                     if current_p1 < current_p2:
                         self.game.eliminated_player = self.game.player1
                     elif current_p2 < current_p1:
@@ -574,7 +574,7 @@ class DeepSeaOxygen(commands.Cog):
                     )
                     await self.game.channel.send(embed=embed)
 
-                    # 立即結束遊戲
+                    # End the game at once
                     self.game.game_active = False
 
                     if self.game.channel.id in self.cog.active_games:
@@ -588,7 +588,7 @@ class DeepSeaOxygen(commands.Cog):
     async def start_oxygen_game(
         self, interaction: discord.Interaction, opponent: discord.Member
     ) -> None:
-        """開始深海氧氣瓶遊戲"""
+        """Start a deep-sea oxygen game."""
         if not isinstance(interaction.channel, discord.TextChannel) or not isinstance(
             interaction.user, discord.Member
         ):
@@ -596,14 +596,14 @@ class DeepSeaOxygen(commands.Cog):
                 tx("deep_sea_oxygen.start_the_game_in_a_server"), ephemeral=True
             )
             return
-        # 檢查是否已在遊戲中
+        # Check whether they are already in a game
         if interaction.channel.id in self.active_games:
             await interaction.response.send_message(
                 tx("deep_sea_oxygen.a_game_is_already_running_in"), ephemeral=True
             )
             return
 
-        # 檢查對手
+        # Check the opponent
         if opponent == interaction.user:
             await interaction.response.send_message(
                 tx("deep_sea_oxygen.the_opponent_must_be_another_member"),
@@ -617,11 +617,11 @@ class DeepSeaOxygen(commands.Cog):
             )
             return
 
-        # 創建遊戲
+        # Create the game
         game = OxygenGame(interaction.channel, interaction.user, opponent)
         self.active_games[interaction.channel.id] = game
 
-        # 發送邀請
+        # Send the invitation
         view = GameInviteView(game, self, opponent)
         embed = discord.Embed(
             title=tx("deep_sea_oxygen.game_invite_deep_sea_oxygen"),
@@ -637,7 +637,7 @@ class DeepSeaOxygen(commands.Cog):
 
 
 class GameInviteView(LocalizedView):
-    """遊戲邀請視圖"""
+    """Game invitation view."""
 
     i18n = {
         "accept.label": "blacklist.accept",
@@ -650,14 +650,14 @@ class GameInviteView(LocalizedView):
         cog: DeepSeaOxygen,
         opponent: discord.Member,
     ) -> None:
-        super().__init__(timeout=180)  # 3分鐘超時
+        super().__init__(timeout=180)  # Times out after 3 minutes
         self.game = game
         self.cog = cog
         self.opponent = opponent
 
     @localized()
     async def on_timeout(self) -> None:
-        """超時處理"""
+        """Handle the timeout."""
         if self.game.channel.id in self.cog.active_games:
             del self.cog.active_games[self.game.channel.id]
 
@@ -673,14 +673,14 @@ class GameInviteView(LocalizedView):
     async def accept(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
-        """接受邀請"""
+        """Accept the invitation."""
         if interaction.user != self.opponent:
             await interaction.response.send_message(
                 tx("deep_sea_oxygen.only_the_invited_player_can_accept"), ephemeral=True
             )
             return
 
-        # 開始遊戲
+        # Start the game
         view = DeepSeaOxygen.GameView(self.game, self.cog)
 
         embed = discord.Embed(
@@ -723,7 +723,7 @@ class GameInviteView(LocalizedView):
     async def decline(
         self, interaction: discord.Interaction, button: ui.Button[Any]
     ) -> None:
-        """拒絕邀請"""
+        """Decline the invitation."""
         if interaction.user != self.opponent:
             await interaction.response.send_message(
                 tx("deep_sea_oxygen.only_the_invited_player_can_decline"),
@@ -747,5 +747,5 @@ class GameInviteView(LocalizedView):
 
 
 async def setup(bot: commands.Bot) -> None:
-    """載入 Cog"""
+    """Load the cog."""
     await bot.add_cog(DeepSeaOxygen(bot))
