@@ -46,10 +46,16 @@ class MySQLConnection:
             raise StorageError("MySQL commit failed") from exc
 
     def rollback(self):
-        self.connection.rollback()
+        try:
+            self.connection.rollback()
+        except pymysql.MySQLError as exc:
+            raise StorageError("MySQL rollback failed") from exc
 
     def close(self):
-        self.connection.close()
+        try:
+            self.connection.close()
+        except pymysql.MySQLError:
+            pass  # already closed, or the server went away
 
     def __enter__(self):
         return self
@@ -59,6 +65,11 @@ class MySQLConnection:
             if kind is None:
                 self.commit()
             else:
-                self.rollback()
+                try:
+                    self.rollback()
+                except StorageError:
+                    # The connection is gone and took the transaction with it.
+                    # The error that brought us here is the one to report.
+                    pass
         finally:
             self.close()

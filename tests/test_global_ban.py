@@ -143,7 +143,7 @@ async def test_targets_come_from_both_lists_without_expired_or_block_entries(
     assert await manager.global_ban_targets() == {5: "mori", 7: "local"}
 
 
-# ── Review round: Xiyu ────────────────────────────────────────────
+# ── Mori switched off, refused batches, bans on join ──────────────
 async def test_a_ban_seen_on_mori_is_not_lifted_after_mori_is_switched_off():
     lists = Lists({5: "local"})
     enforcer = GlobalBanEnforcer(lists)
@@ -253,7 +253,7 @@ async def test_refusals_expire_and_leave_with_the_entry(monkeypatch):
     assert enforcer._refused == {}
 
 
-# ── review round 3 ────────────────────────────────────────────────
+# ── Later bans and unbans ─────────────────────────────────────────
 async def test_a_server_s_later_ban_is_not_taken_for_the_old_record():
     lists = Lists({5: "local"})
     enforcer = GlobalBanEnforcer(lists)

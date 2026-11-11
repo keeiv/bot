@@ -636,7 +636,7 @@ async def test_a_domain_entry_is_stored_as_its_host():
     assert c.manager.get_settings(GUILD)["blocked_domains"] == ["shady.example"]
 
 
-# ── Review round: Xiyu ────────────────────────────────────────────
+# ── Anti-nuke, raid accounts and alike files ──────────────────────
 def test_turning_spam_protection_off_does_not_turn_anti_nuke_off():
     m = manager(
         nuke_limit=3, enabled=False
@@ -699,7 +699,7 @@ async def test_only_the_owner_restores_roles():
     assert c.manager.get_strip(GUILD, 5) == [30]
 
 
-# ── review round 2 ────────────────────────────────────────────────
+# ── Waves with files, cleanup and repeated raids ──────────────────
 def test_files_alone_never_make_a_wave_however_alike():
     m = manager(flood_messages=100, similar_users=4, attachment_enabled=False)
     for user in (1, 2, 3, 4):
@@ -771,7 +771,7 @@ def test_a_warning_about_the_scam_is_left_alone(content):
     assert spam.DETECT_PHISHING not in post(m, 1, 10, content, 1)
 
 
-# ── review round 3 ────────────────────────────────────────────────
+# ── Ordering during a raid ────────────────────────────────────────
 async def test_the_raid_account_is_known_before_the_language_is_looked_up():
     c = cog()
     c.manager.update_settings(GUILD, {"raid_joins": 2, "raid_age_days": 0})
@@ -832,7 +832,7 @@ async def test_lockdown_off_ends_a_raid_that_locked_nothing():
     assert guild.text_channels[0].send_messages is False
 
 
-# ── security review ───────────────────────────────────────────────
+# ── Disguised hosts and copied posts ──────────────────────────────
 def test_a_backslash_cannot_hide_the_real_host():
     assert spam.link_host("https://evil.example\\@discord.com/") == "evil.example"
     m = manager(flood_messages=100)

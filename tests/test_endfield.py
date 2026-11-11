@@ -396,7 +396,7 @@ async def test_one_game_failing_does_not_hide_the_other():
     assert "萊萬汀" in await AiChat.game_profile(chat, 7)
 
 
-# ── review ────────────────────────────────────────────────────────
+# ── Unlinking mid-read and a full cache ───────────────────────────
 async def test_a_read_finished_after_unlinking_never_reaches_the_ai():
     from src.cogs.features.ai_chat import AiChat
 
@@ -805,7 +805,7 @@ async def test_own_operator_lookup_reaches_those_not_on_show(key):
     assert sent[0][1]["embed"].title.startswith("長息")
 
 
-# ── review: SKPORT accounts ───────────────────────────────────────
+# ── SKPORT accounts: concurrent links and unbinding ───────────────
 async def test_two_links_at_once_cannot_mix_up_the_accounts(key):
     svc, _, _ = account_service()
     real_store = svc._store_token

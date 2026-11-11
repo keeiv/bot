@@ -309,7 +309,7 @@ def test_the_instance_is_found_where_it_really_is(tmp_path):
 
     packaged, _ = _instance(tmp_path, packaged=True)
     found = database.find_instance(env)
-    assert found == packaged and found.packaged  # an app package (Codex)
+    assert found == packaged and found.packaged  # an app package
 
     standard, _ = _instance(tmp_path, packaged=False)
     assert database.find_instance(env) == standard  # the normal place wins
@@ -667,7 +667,7 @@ def test_the_target_is_started_while_another_apps_database_runs(tmp_path, monkey
 def test_a_server_whose_pid_file_is_in_the_real_data_folder_is_the_instance(
     tmp_path, monkeypatch
 ):
-    # How Codex's server is recognised: it was started with the app's own view of
+    # How a packaged app's server is recognised: it was started with the app's own view of
     # the path, but it wrote mysql.pid into the real folder.
     instance, _ = _instance(tmp_path, packaged=True)
     _pid_file(instance, "4242\n")

@@ -420,7 +420,7 @@ def start_database(
     where = "（實例在應用程式的套件資料夾）" if instance.packaged else ""
     process = None
     if running(instance):
-        # Already launched (by Codex, say) and not answering yet. Never start a
+        # Already launched (by another program, say) and not answering yet. Never start a
         # second server on the same data folder; just wait for the first.
         pass
     elif plan.via_script:

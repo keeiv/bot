@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock
 from unittest.mock import Mock
 
 import discord
+import pymysql
 import pytest
 
 from src.services.genshin_service import GenshinService
@@ -335,3 +336,60 @@ async def test_blacklist_lookup_deadline_does_not_wait_for_slow_storage(monkeypa
         release.set()
         # Drain the retained worker before the event loop is torn down.
         await run_storage(lambda: None)
+
+
+class LostConnection:
+    """A MySQL connection that dropped mid-query: nothing on it works any more."""
+
+    def cursor(self):
+        raise pymysql.err.OperationalError(2013, "Lost connection to MySQL server")
+
+    def commit(self):
+        raise pymysql.err.InterfaceError(0, "")
+
+    def rollback(self):
+        raise pymysql.err.InterfaceError(0, "")
+
+    def close(self):
+        raise pymysql.err.Error("Already closed")
+
+
+def test_a_lost_connection_surfaces_as_a_storage_error_not_a_driver_error(monkeypatch):
+    from src.utils import mysql_compat
+
+    monkeypatch.setattr(mysql_compat, "connect_mysql", lambda **_: LostConnection())
+    with pytest.raises(StorageError, match="transaction failed"):
+        with mysql_compat.MySQLConnection() as connection:
+            connection.execute("SELECT 1")
+    # Asked for directly, a rollback that cannot happen is still a storage error.
+    with pytest.raises(StorageError, match="rollback failed"):
+        mysql_compat.MySQLConnection().rollback()
+
+
+async def test_status_history_keeps_recording_after_a_lost_connection(monkeypatch):
+    from src.cogs.core.dashboard_api import DashboardAPI
+    from src.services.dashboard_history import StatusHistory
+    from src.utils import mysql_compat
+
+    monkeypatch.setenv("STORAGE_BACKEND", "mysql")
+    monkeypatch.setattr(mysql_compat, "connect_mysql", lambda **_: LostConnection())
+    history = object.__new__(StatusHistory)
+    cog = object.__new__(DashboardAPI)
+    cog.history = history
+    cog.runtime_status = lambda: {"online": True, "latencyMs": 40}
+
+    async def database():
+        return {"online": False}
+
+    cog.storage_health = type("Health", (), {"read": staticmethod(database)})()
+    rounds = []
+
+    async def stop_after_two(_seconds):
+        rounds.append(1)
+        if len(rounds) == 2:
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr("src.cogs.core.dashboard_api.asyncio.sleep", stop_after_two)
+    with pytest.raises(asyncio.CancelledError):
+        await cog.record_history()
+    assert len(rounds) == 2  # the failed minute was logged, and the next one ran

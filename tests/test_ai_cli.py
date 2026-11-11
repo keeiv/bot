@@ -745,7 +745,7 @@ def test_unknown_variables_never_reach_a_model_process():
     assert env == {"Path": "C:/bin"}
 
 
-# ── Xiyu's review: isolation, queue, cooldown and stale replies ───
+# ── Isolation, queue, cooldown and stale replies ──────────────────
 def test_both_tools_get_homes_of_their_own_not_the_owners(tmp_path):
     env = ai_cli.isolated_environment(
         {"CODEX_HOME": "C:/Users/owner/.codex", "Path": "C:/bin"}, home=tmp_path
@@ -819,7 +819,7 @@ async def test_choosing_answers_after_acknowledging_discord(tmp_path):
     assert service.choice(7) == "gpt"
 
 
-# ── Xiyu's second round ───────────────────────────────────────────
+# ── Nested verdicts and slow saves ────────────────────────────────
 def test_a_nested_verdict_never_overrides_the_top_level_one():
     from src.services.moderation_cli import strict_verdict
 
@@ -1032,7 +1032,7 @@ async def test_the_chosen_model_reaches_the_tool(tmp_path):
     assert args[args.index("-m") + 1] == "gpt-6-luna"
 
 
-# ── Xiyu on the allowance: delivery first, file jobs unaffected ───
+# ── The allowance: delivery first, file jobs unaffected ───────────
 async def test_a_reply_that_never_reaches_discord_costs_nothing(tmp_path):
     service, _ = chat(tmp_path, {ai_cli.CLAUDE: ["您好。"]})
     service.choose(7, ai_cli.CLAUDE)
