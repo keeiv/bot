@@ -9,7 +9,7 @@ from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 
-from src.services.global_ban_service import REASON as GLOBAL_BAN_REASON
+from src.services.global_ban_service import ban_now
 from src.utils.blacklist_manager import BlacklistManager
 from src.utils.command_sync import sync_global
 from src.utils.command_translator import CommandTranslator
@@ -48,10 +48,11 @@ async def global_ban(
     entry: dict[str, Any],
 ) -> None:
     """Ban a global_ban user here, and note it so it can be lifted with the entry."""
-    reason = entry.get("reason") or "No reason given"
     try:
-        await guild.ban(user, reason=f"{GLOBAL_BAN_REASON}: {reason}")
-    except Exception:
+        await ban_now(guild, user, entry.get("reason"))
+    except discord.HTTPException:
+        # No permission or a passing error; the scheduled round tries again.
+        logger.info("Immediate global ban of %s in %s failed", user.id, guild.id)
         return
     cog = bot.get_cog("GlobalBan")
     if cog is not None:

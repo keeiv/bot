@@ -18,10 +18,11 @@ Discord 應用程式需啟用 Message Content intent；程式也使用伺服器�
 
 ## 資料保存
 
-- 訊息記錄鍵：`data/logs/messages/message_log.json`。
+- 訊息記錄：資料表 `message_log`（一則訊息一列）與 `message_edits`（每次編輯一列）。JSON 相容模式存在 `data/storage/message_log.sqlite3`，MySQL 模式存在同名資料表。
+- 舊版的 `data/logs/messages/message_log.json` 在第一次啟動時匯入一次，之後不再讀取，原檔保留不動。
 - 頻道設定鍵：`data/storage/log_channels.json`，與審計日誌共用。
 - `/settings` 的一般日誌頻道另使用 `data/config/bot.json`，不能混為同一設定。
-- 正式 MySQL 模式保存於 `documents`，上述路徑是邏輯鍵；不更新保留的 JSON。JSON 相容模式才讀寫檔案。
+- 頻道設定在正式 MySQL 模式保存於 `documents`，上述路徑是邏輯鍵；JSON 相容模式才讀寫檔案。
 - 定期清理按訊息記錄的 `created_at` 保留 30 天，每 24 小時檢查一次。
 
 示意記錄如下；ID 與時間為範例值。`original_content` 保留最初內容，`edit_history` 保存之後的文字內容；日誌畫面使用當次 Discord 事件的內容。`last_edited_at` 和 `deleted_at` 分別在編輯、刪除時加入。

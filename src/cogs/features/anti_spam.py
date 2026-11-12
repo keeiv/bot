@@ -108,7 +108,13 @@ class AntiSpam(commands.Cog):
 
     @localized("guild")
     async def _auto_lift(self, guild: discord.Guild) -> None:
-        if not await self._deactivate_lockdown(guild, only_if_due=True):
+        left = await self._deactivate_lockdown(guild, only_if_due=True)
+        if left is None:
+            return
+        if left:
+            # Retrying every minute would not fix permissions; wait for an admin.
+            await run_storage(self.manager.save_lockdown_until, guild.id, None)
+            await self._send_log(guild.id, self._still_locked(left))
             return
         await self._send_log(
             guild.id,
@@ -292,6 +298,7 @@ class AntiSpam(commands.Cog):
                 self.manager.set_lockdown(guild.id, False)
                 raise
             self._unfinished.add(guild.id)
+        untouched = []
         for channel in guild.text_channels:
             try:
                 overwrite = channel.overwrites_for(default_role)
@@ -302,7 +309,12 @@ class AntiSpam(commands.Cog):
                     reason=tx("anti_spam.spam_protection_raid_lockdown_activated"),
                 )
             except discord.Forbidden:
-                continue
+                # Never locked, so there is nothing to restore there later.
+                untouched.append(channel.id)
+        channel_states = {
+            cid: state for cid, state in channel_states.items() if cid not in untouched
+        }
+        self._lockdown_states[guild.id] = channel_states
         await run_storage(
             self.manager.save_lockdown, guild.id, channel_states, complete=True
         )
@@ -310,30 +322,46 @@ class AntiSpam(commands.Cog):
 
     async def _deactivate_lockdown(
         self, guild: discord.Guild, only_if_due: bool = False
-    ) -> bool:
-        """Lift the lockdown and restore the permissions from before it; with only_if_due, only once it is due."""
+    ) -> list[int] | None:
+        """Lift the lockdown and restore the permissions from before it.
+
+        Returns the channels that are still locked (empty when all were restored),
+        or None when only_if_due was asked and the lockdown is not due.
+        """
         async with self._lockdown_lock(guild.id):
             if only_if_due and guild.id not in self.manager.due_lockdowns():
-                return False  # a raid in the meantime put it off
-            await self._unlock_channels(guild)
-            return True
+                return None  # a raid in the meantime put it off
+            return await self._unlock_channels(guild)
 
-    async def _unlock_channels(self, guild: discord.Guild) -> None:
+    async def _unlock_channels(self, guild: discord.Guild) -> list[int]:
         channel_states = self._lockdown_states.get(guild.id, {})
 
         default_role = guild.default_role
+        left: dict[int, bool | None] = {}
+        # Only the channels this lockdown changed; any other keeps whatever it has.
         for channel in guild.text_channels:
+            if channel.id not in channel_states:
+                continue
             try:
                 overwrite = channel.overwrites_for(default_role)
-                # Restore the state from before the lockdown; with nothing stored, use None (inherit the server default)
-                overwrite.update(send_messages=channel_states.get(channel.id))
+                # Restore the state from before the lockdown.
+                overwrite.update(send_messages=channel_states[channel.id])
                 await channel.set_permissions(
                     default_role,
                     overwrite=overwrite,
                     reason=tx("anti_spam.spam_protection_lockdown_lifted"),
                 )
-            except discord.Forbidden:
-                continue
+            except discord.NotFound:
+                continue  # deleted meanwhile: nothing left to restore
+            except discord.HTTPException:
+                # Refused (permissions changed) or failed: keep what it is owed.
+                left[channel.id] = channel_states[channel.id]
+        if left:
+            # Only these stay on record, still locked; the next lift starts from them.
+            await run_storage(self.manager.save_lockdown, guild.id, left, complete=True)
+            self._lockdown_states[guild.id] = left
+            self._unfinished.discard(guild.id)
+            return list(left)
         # Delete the record only after everything is restored; if it fails midway the original state is still there for the next lift
         try:
             await run_storage(self.manager.save_lockdown, guild.id, None)
@@ -347,6 +375,17 @@ class AntiSpam(commands.Cog):
         self.manager.set_lockdown(guild.id, False)
         self.manager.lockdown_until.pop(guild.id, None)
         self.manager.end_raid(guild.id)
+        return []
+
+    def _still_locked(self, channels: list[int]) -> discord.Embed:
+        return discord.Embed(
+            title=tx("anti_spam.lockdown_partly_lifted"),
+            description=tx(
+                "anti_spam.channels_still_locked",
+                v0=" ".join(f"<#{channel}>" for channel in channels),
+            ),
+            color=discord.Color.from_rgb(241, 196, 15),
+        )
 
     async def _punish_member(
         self, member: discord.Member, action: str, reason: str
@@ -1754,7 +1793,11 @@ class AntiSpam(commands.Cog):
                 ),
             )
             return
-        await self._deactivate_lockdown(interaction.guild)
+        left = await self._deactivate_lockdown(interaction.guild)
+        if left:
+            await interaction.followup.send(embed=self._still_locked(left))
+            await self._send_log(interaction.guild_id, self._still_locked(left))
+            return
 
         embed = discord.Embed(
             title=tx("anti_spam.success_lockdown_lifted"),

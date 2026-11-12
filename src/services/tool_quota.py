@@ -115,22 +115,53 @@ def week_start(now):
     )
 
 
+TOOL_SCHEMA = (
+    "CREATE TABLE IF NOT EXISTS tool_guard (id INTEGER PRIMARY KEY)",
+    "CREATE TABLE IF NOT EXISTS tool_tier_overrides (user_id VARCHAR(20) PRIMARY KEY, tier VARCHAR(16) NOT NULL, expires_at DOUBLE NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS tool_tier_grants (user_id VARCHAR(20) PRIMARY KEY, granted_by VARCHAR(20) NOT NULL, granted_at DOUBLE NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS tool_users (user_id VARCHAR(20) PRIMARY KEY, first_seen DOUBLE NOT NULL, epoch INTEGER NOT NULL DEFAULT 0)",
+    "CREATE TABLE IF NOT EXISTS tool_jobs (job_id VARCHAR(64) PRIMARY KEY, user_id VARCHAR(20) NOT NULL, epoch INTEGER NOT NULL, created_at DOUBLE NOT NULL, finished_at DOUBLE, expires_at DOUBLE NOT NULL, state VARCHAR(16) NOT NULL, reserved INTEGER NOT NULL, charged INTEGER NOT NULL DEFAULT 0, input_bytes BIGINT NOT NULL, seconds DOUBLE NOT NULL DEFAULT 0)",
+    "CREATE TABLE IF NOT EXISTS tool_coupons (coupon_id VARCHAR(128) PRIMARY KEY, user_id VARCHAR(20) NOT NULL, issued_at DOUBLE NOT NULL, used_at DOUBLE)",
+    "CREATE TABLE IF NOT EXISTS tool_actions (action_id VARCHAR(64) PRIMARY KEY, actor_id VARCHAR(20) NOT NULL, action VARCHAR(32) NOT NULL, target VARCHAR(32) NOT NULL, created_at DOUBLE NOT NULL, affected INTEGER NOT NULL)",
+)
+# Column order as created above; the storage migrator checks SQLite files against it.
+TOOL_COLUMNS = {
+    "tool_guard": ("id",),
+    "tool_tier_overrides": ("user_id", "tier", "expires_at"),
+    "tool_tier_grants": ("user_id", "granted_by", "granted_at"),
+    "tool_users": ("user_id", "first_seen", "epoch"),
+    "tool_jobs": (
+        "job_id",
+        "user_id",
+        "epoch",
+        "created_at",
+        "finished_at",
+        "expires_at",
+        "state",
+        "reserved",
+        "charged",
+        "input_bytes",
+        "seconds",
+    ),
+    "tool_coupons": ("coupon_id", "user_id", "issued_at", "used_at"),
+    "tool_actions": (
+        "action_id",
+        "actor_id",
+        "action",
+        "target",
+        "created_at",
+        "affected",
+    ),
+}
+
+
 class ToolQuota:
     def __init__(self, path="data/storage/tool_quota.sqlite3", clock=time.time):
         self.path = Path(path)
         self.clock = clock
         self.mysql = using_mysql()
-        statements = [
-            "CREATE TABLE IF NOT EXISTS tool_guard (id INTEGER PRIMARY KEY)",
-            "CREATE TABLE IF NOT EXISTS tool_tier_overrides (user_id VARCHAR(20) PRIMARY KEY, tier VARCHAR(16) NOT NULL, expires_at DOUBLE NOT NULL)",
-            "CREATE TABLE IF NOT EXISTS tool_tier_grants (user_id VARCHAR(20) PRIMARY KEY, granted_by VARCHAR(20) NOT NULL, granted_at DOUBLE NOT NULL)",
-            "CREATE TABLE IF NOT EXISTS tool_users (user_id VARCHAR(20) PRIMARY KEY, first_seen DOUBLE NOT NULL, epoch INTEGER NOT NULL DEFAULT 0)",
-            "CREATE TABLE IF NOT EXISTS tool_jobs (job_id VARCHAR(64) PRIMARY KEY, user_id VARCHAR(20) NOT NULL, epoch INTEGER NOT NULL, created_at DOUBLE NOT NULL, finished_at DOUBLE, expires_at DOUBLE NOT NULL, state VARCHAR(16) NOT NULL, reserved INTEGER NOT NULL, charged INTEGER NOT NULL DEFAULT 0, input_bytes BIGINT NOT NULL, seconds DOUBLE NOT NULL DEFAULT 0)",
-            "CREATE TABLE IF NOT EXISTS tool_coupons (coupon_id VARCHAR(128) PRIMARY KEY, user_id VARCHAR(20) NOT NULL, issued_at DOUBLE NOT NULL, used_at DOUBLE)",
-            "CREATE TABLE IF NOT EXISTS tool_actions (action_id VARCHAR(64) PRIMARY KEY, actor_id VARCHAR(20) NOT NULL, action VARCHAR(32) NOT NULL, target VARCHAR(32) NOT NULL, created_at DOUBLE NOT NULL, affected INTEGER NOT NULL)",
-        ]
         with self.connection() as db:
-            for sql in statements:
+            for sql in TOOL_SCHEMA:
                 db.execute(sql + (" ENGINE=InnoDB" if self.mysql else ""))
             ignore = "INSERT IGNORE" if self.mysql else "INSERT OR IGNORE"
             db.execute(f"{ignore} INTO tool_guard(id) VALUES (1)")

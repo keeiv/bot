@@ -312,7 +312,7 @@ From one Discord event to the bot's reply, there are four steps:
 `STORAGE_BACKEND` decides where data lives:
 
 - `mysql` (production): settings and user data are stored as documents in the `documents` table, and every read verifies the SHA-256 checksum, refusing the data if it doesn't match. If a connection or write fails, the error is reported directly; the bot never falls back to the JSON files.
-- `json` (compatibility mode, used for fresh installs): each piece of data is a JSON file under `data/`, written to a temporary file and then swapped in whole, so an interrupted write never leaves a partial file. Caches, metrics and audit records go to the SQLite file `data/storage/bot_database.db`.
+- `json` (compatibility mode, used for fresh installs): each piece of data is a JSON file under `data/`, written to a temporary file and then swapped in whole, so an interrupted write never leaves a partial file. Caches, metrics and audit records go to the SQLite file `data/storage/bot_database.db`; the file-tool quotas and the message log each have their own SQLite file (`tool_quota.sqlite3`, `message_log.sqlite3`), and the migration tool moves both to MySQL.
 
 ## Data and storage
 
@@ -321,6 +321,7 @@ From one Discord event to the bot's reply, there are four steps:
 | MySQL `documents` | Complete JSON documents keyed by their original file path, with SHA-256 checksums: settings, achievements, blacklist, osu! links, encrypted accounts and more |
 | MySQL `samples`, `sample_health`, `cache_entries`, `metrics`, `audit_logs` | Operational history, caches, metrics and audit data |
 | MySQL `tool_*` (`tool_users`, `tool_jobs` and 5 more) | File-tool quotas, tiers and job history |
+| MySQL `message_log`, `message_edits`, `message_log_meta` | The message log: one row per message and one per edit, kept for 30 days |
 | MySQL `migration_sources`, `migration_state` | Copies of migration sources and the verification marker |
 | `data/logs/runtime.log` | Runtime log, written through a background queue so logging never stalls the Discord heartbeat |
 | `.env` | Connection details and the encryption key; not tracked by Git |

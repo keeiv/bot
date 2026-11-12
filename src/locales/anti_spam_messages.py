@@ -294,6 +294,22 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "[Success] Raid mode ended",
         "zh": "[成功] 突襲模式已結束",
     },
+    "anti_spam.lockdown_partly_lifted": {
+        "en": "[Spam protection] Lockdown only partly lifted",
+        "zh": "[防炸群] 封鎖只解除了一部分",
+    },
+    "anti_spam.channels_still_locked": {
+        "en": (
+            "The bot could not restore these channels and they are still locked:"
+            " {v0}. Give it Manage Channels there, then run /anti_spam lockdown_off"
+            " again; it picks up from these channels."
+        ),
+        "zh": (
+            "機器人沒辦法還原這些頻道，它們仍在封鎖中：{v0}。"
+            "請在這些頻道給機器人「管理頻道」權限，再執行一次 /anti_spam lockdown_off，"
+            "會從這幾個頻道接著還原。"
+        ),
+    },
     "anti_spam.lockdown_auto_lifted": {
         "en": "[Spam protection] Lockdown lifted by itself",
         "zh": "[防炸群] 封鎖模式已自動解除",

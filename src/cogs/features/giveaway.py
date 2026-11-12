@@ -155,6 +155,17 @@ class Giveaway(commands.Cog):
                     log.exception("Giveaway %s could not be reopened", gid)
             except Exception:
                 log.exception("Giveaway %s could not be settled", gid)
+        # Results that were drawn but never posted get another try each round.
+        try:
+            pending = await run_storage(self.service.pending_announcements)
+        except Exception:
+            log.exception("Could not read the unposted giveaway results")
+            return
+        for gid, ga in pending:
+            try:
+                await self._announce(gid, ga, list(ga.get("winner_ids") or []))
+            except Exception:
+                log.exception("Giveaway %s: posting the result failed again", gid)
 
     # ── Command group ─────────────────────────────────────────────────
 
@@ -402,12 +413,17 @@ class Giveaway(commands.Cog):
     # ── Internal methods ──────────────────────────────────────────────
 
     async def _end_giveaway(self, giveaway_id: str, ga: dict[Any, Any]) -> None:
-        """Settle a giveaway and post the result."""
+        """Draw the winners, store them, then post the result."""
+        winner_ids = await run_storage(self.service.pick_winners, giveaway_id)
+        await run_storage(self.service.mark_ended, giveaway_id, winner_ids)
+        await self._announce(giveaway_id, ga, winner_ids)
+
+    async def _announce(
+        self, giveaway_id: str, ga: dict[Any, Any], winner_ids: list[str]
+    ) -> None:
+        """Post a stored result; a failure is counted and retried, never dropped."""
         lang = await guild_language(ga["guild_id"])
         with language_scope(lang):
-            winner_ids = await run_storage(self.service.pick_winners, giveaway_id)
-            await run_storage(self.service.mark_ended, giveaway_id, winner_ids)
-
             participants_count = len(ga.get("participants", []))
             if winner_ids:
                 mentions = ", ".join(f"<@{uid}>" for uid in winner_ids)
@@ -487,7 +503,12 @@ class Giveaway(commands.Cog):
                         )
                     )
             except Exception:
-                pass
+                log.exception(
+                    "The result of giveaway %s could not be posted", giveaway_id
+                )
+                await run_storage(self.service.mark_announced, giveaway_id, False)
+                return
+            await run_storage(self.service.mark_announced, giveaway_id, True)
 
 
 async def setup(bot: commands.Bot) -> None:

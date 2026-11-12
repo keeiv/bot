@@ -15,6 +15,10 @@ import sqlite3
 from dotenv import load_dotenv
 import psutil
 
+from src.services.message_log_store import COLUMNS as MESSAGE_LOG_COLUMNS
+from src.services.message_log_store import mysql_schema as message_log_schema
+from src.services.tool_quota import TOOL_COLUMNS
+from src.services.tool_quota import TOOL_SCHEMA
 from src.utils.document_store import canonical
 from src.utils.document_store import connect_mysql
 from src.utils.document_store import digest
@@ -43,6 +47,22 @@ INSERT_SQL = {
     "metrics": "INSERT INTO metrics(id,metric_name,value,timestamp,metadata) VALUES (%s,%s,%s,%s,%s)",
     "audit_logs": "INSERT INTO audit_logs(id,action,user_id,guild_id,timestamp,details) VALUES (%s,%s,%s,%s,%s,%s)",
 }
+
+# The file tools' quota and the message log keep their own SQLite tables in JSON
+# mode. They move over column for column, into tables made from the same schema.
+for _table, _columns in {**TOOL_COLUMNS, **MESSAGE_LOG_COLUMNS}.items():
+    _listed = ",".join(f"`{column}`" for column in _columns)
+    TABLES[_table] = _columns
+    # Table and column names come from the constants above, never from data.
+    SELECT_SQL[_table] = (
+        f"SELECT {_listed} FROM {_table} ORDER BY {_listed}"  # nosec B608
+    )
+    INSERT_SQL[_table] = (
+        f"INSERT INTO {_table}({_listed}) VALUES ({','.join(['%s'] * len(_columns))})"  # nosec B608
+    )
+EXTRA_SCHEMA = (
+    tuple(f"{sql} ENGINE=InnoDB" for sql in TOOL_SCHEMA) + message_log_schema()
+)
 
 
 def unique_object(pairs):
@@ -119,6 +139,8 @@ def migrate(root: Path, backup: Path):
     with connect_mysql() as connection:
         try:
             with connection.cursor() as cursor:
+                for statement in EXTRA_SCHEMA:
+                    cursor.execute(statement)
                 for key, raw in archives.items():
                     sha = hashlib.sha256(raw).hexdigest()
                     cursor.execute(

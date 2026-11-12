@@ -9,6 +9,7 @@ from typing import Any, Optional
 
 import discord
 
+from src.services.message_log_store import MessageLogStore
 from src.utils.document_store import read_document
 from src.utils.document_store import write_document
 from src.utils.i18n import text as tx
@@ -16,9 +17,7 @@ from src.utils.message_cache import get_message_cache
 from src.utils.time_utils import get_current_time_str
 from src.utils.time_utils import TZ_OFFSET
 
-_LOG_FILE = "data/logs/messages/message_log.json"
 _CHANNELS_FILE = "data/storage/log_channels.json"
-_CACHE_TTL = 120.0
 _CHANNELS_TTL = 60.0
 LOG_RETENTION_DAYS = 30
 _MESSAGE_LOCK = threading.RLock()
@@ -28,8 +27,7 @@ class MessageLogService:
     """Message log data access and business logic."""
 
     def __init__(self) -> None:
-        self._msg_cache: Optional[dict[Any, Any]] = None
-        self._msg_cache_time: float = 0.0
+        self.store = MessageLogStore()
         self._ch_cache: dict[Any, Any] = {}
         self._ch_cache_time: float = 0.0
         self.message_cache = get_message_cache()
@@ -73,37 +71,6 @@ class MessageLogService:
 
     # ── Message log ───────────────────────────────────────────────────
 
-    def load_message_log(self, force: bool = False) -> dict[Any, Any]:
-        """Load an independent copy; a failed read does not empty a valid cache."""
-        with _MESSAGE_LOCK:
-            now = time.monotonic()
-            if (
-                not force
-                and self._msg_cache is not None
-                and (now - self._msg_cache_time) < _CACHE_TTL
-            ):
-                return copy.deepcopy(self._msg_cache)
-            try:
-                data = read_document(_LOG_FILE)
-            except FileNotFoundError:
-                data = {}
-            if not isinstance(data, dict):
-                raise TypeError("Message log must be an object")
-            self._msg_cache = copy.deepcopy(data)
-            self._msg_cache_time = now
-            return copy.deepcopy(data)
-
-    def save_message_log(self, data: dict[Any, Any]) -> None:
-        """Publish to the cache only after saving succeeds; the caller handles a failure."""
-        with _MESSAGE_LOCK:
-            if not isinstance(data, dict):
-                raise TypeError("Message log must be an object")
-            snapshot = copy.deepcopy(data)
-            write_document(_LOG_FILE, snapshot)
-            self._msg_cache = snapshot
-            self._msg_cache_time = time.monotonic()
-            self.message_cache.clear_all()
-
     def add_record(
         self,
         guild_id: int,
@@ -113,92 +80,71 @@ class MessageLogService:
         channel_id: int,
         attachments: Optional[list[Any]] = None,
     ) -> None:
-        """Add a message record."""
-        attachment_urls = [a.url for a in attachments] if attachments else []
+        """Add a message record; a repeated delivery keeps the first one."""
         record = {
             "message_id": message_id,
             "guild_id": guild_id,
             "channel_id": channel_id,
             "author_id": author_id,
             "original_content": content,
-            "edit_history": [],
-            "deleted": False,
-            "attachments": attachment_urls,
+            "attachments": [a.url for a in attachments] if attachments else [],
             "created_at": datetime.now(TZ_OFFSET).isoformat(),
         }
         with _MESSAGE_LOCK:
-            logs = self.load_message_log(force=True)
-            key = f"{guild_id}_{message_id}"
-            if key in logs:
-                self.message_cache.set(guild_id, message_id, logs[key])
-                return
-            logs[key] = record
-            self.save_message_log(logs)
-            self.message_cache.set(guild_id, message_id, record)
+            with self.store.transaction(write=True) as db:
+                self.store.insert(db, record)
+                stored = self.store.read(db, guild_id, message_id)
+            # The cache only learns what was committed.
+            self.message_cache.set(guild_id, message_id, stored)
 
     def record_edit(self, guild_id: int, message_id: int, new_content: str) -> bool:
         """Record a message edit; return whether the original record was found."""
         with _MESSAGE_LOCK:
-            logs = self.load_message_log(force=True)
-            key = f"{guild_id}_{message_id}"
-            if key not in logs:
-                return False
-            logs[key]["edit_history"].append(new_content)
-            logs[key]["last_edited_at"] = datetime.now(TZ_OFFSET).isoformat()
-            self.save_message_log(logs)
-            self.message_cache.set(guild_id, message_id, logs[key])
+            with self.store.transaction(write=True) as db:
+                if not self.store.lock_row(db, guild_id, message_id):
+                    return False
+                at = datetime.now(TZ_OFFSET).isoformat()
+                self.store.append_edit(db, guild_id, message_id, new_content, at)
+                stored = self.store.read(db, guild_id, message_id)
+            self.message_cache.set(guild_id, message_id, stored)
             return True
 
     def mark_deleted(self, guild_id: int, message_id: int) -> bool:
         """Mark a message deleted; return whether the original record was found."""
         with _MESSAGE_LOCK:
-            logs = self.load_message_log(force=True)
-            key = f"{guild_id}_{message_id}"
-            if key not in logs:
-                return False
-            logs[key]["deleted"] = True
-            logs[key]["deleted_at"] = datetime.now(TZ_OFFSET).isoformat()
-            self.save_message_log(logs)
-            self.message_cache.set(guild_id, message_id, logs[key])
+            with self.store.transaction(write=True) as db:
+                at = datetime.now(TZ_OFFSET).isoformat()
+                if not self.store.mark_deleted(db, guild_id, message_id, at):
+                    return False
+                stored = self.store.read(db, guild_id, message_id)
+            self.message_cache.set(guild_id, message_id, stored)
             return True
 
     def get_record(self, guild_id: int, message_id: int) -> Optional[dict[Any, Any]]:
-        """Get a message record (from the cache first)."""
+        """Get a message record (from the cache first); the caller gets its own copy."""
         with _MESSAGE_LOCK:
             cached = self.message_cache.get(guild_id, message_id)
             if cached is not None:
                 return copy.deepcopy(cached)
-            record = self.load_message_log(force=True).get(f"{guild_id}_{message_id}")
+            with self.store.transaction() as db:
+                record = self.store.read(db, guild_id, message_id)
             if record:
                 self.message_cache.set(guild_id, message_id, record)
             return copy.deepcopy(record)
 
     def cleanup_old_logs(self) -> int:
-        """Remove records older than the retention period; return how many were removed."""
+        """Remove records past the retention period, or from servers without a log channel."""
         with _MESSAGE_LOCK:
-            logs = self.load_message_log(force=True)
-            if not logs:
-                return 0
             cutoff = (
                 datetime.now(TZ_OFFSET) - timedelta(days=LOG_RETENTION_DAYS)
             ).isoformat()
-            logging = {str(g) for g in self.load_log_channels()}
-            # Too old, or from a server that has no log channel (any more): gone.
-            to_remove = [
-                k
-                for k, v in logs.items()
-                if v.get("created_at", "") < cutoff
-                or str(v.get("guild_id")) not in logging
-            ]
-            for key in to_remove:
-                del logs[key]
-            if to_remove:
-                self.save_message_log(logs)
-                for key in to_remove:
-                    guild_id, _, message_id = key.partition("_")
-                    if guild_id.isdigit() and message_id.isdigit():
-                        self.message_cache.delete(int(guild_id), int(message_id))
-            return len(to_remove)
+            logging = [int(g) for g in self.load_log_channels() if str(g).isdigit()]
+            with self.store.transaction(write=True) as db:
+                gone = self.store.expired(db, cutoff, logging)
+                self.store.remove(db, gone)
+            for guild_id, message_id in gone:
+                self.message_cache.delete(guild_id, message_id)
+            return len(gone)
 
     # ── Tools ─────────────────────────────────────────────────────────
 

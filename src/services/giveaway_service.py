@@ -18,6 +18,11 @@ TZ_OFFSET = timezone(timedelta(hours=8))
 _DATA_FILE = "data/storage/giveaways.json"
 
 
+# A result that cannot be posted (deleted channel, lost access) is retried this
+# many times, one loop apart, then left in the log.
+ANNOUNCE_TRIES = 5
+
+
 class GiveawayService:
     """Giveaway data access and business logic."""
 
@@ -118,14 +123,40 @@ class GiveawayService:
         return random.sample(participants, num_winners)
 
     def mark_ended(self, giveaway_id: str, winner_ids: list[str]) -> None:
-        """Mark the giveaway ended and record the winners."""
+        """Record the winners. The announcement is still owed until mark_announced."""
         data = self._load()
         ga = data.get(giveaway_id)
         if ga:
             ga["ended"] = True
             ga["winner_ids"] = winner_ids
             ga["settled"] = True
+            ga.pop("drawing", None)
+            ga["announced"] = False
+            ga["announce_tries"] = 0
             self._save(data)
+
+    def mark_announced(self, giveaway_id: str, posted: bool) -> None:
+        """Record that the result was posted, or count one more failed try."""
+        data = self._load()
+        ga = data.get(giveaway_id)
+        if not ga:
+            return
+        if posted:
+            ga["announced"] = True
+        else:
+            ga["announce_tries"] = int(ga.get("announce_tries", 0)) + 1
+        self._save(data)
+
+    def pending_announcements(self) -> list[tuple[str, dict[Any, Any]]]:
+        """Settled giveaways whose result has not been posted yet, within the try limit."""
+        data = self._load()
+        return [
+            (gid, dict(ga))
+            for gid, ga in data.items()
+            if ga.get("settled")
+            and ga.get("announced") is False
+            and int(ga.get("announce_tries", 0)) < ANNOUNCE_TRIES
+        ]
 
     def reopen(self, giveaway_id: str) -> None:
         """Put back a giveaway that was marked ended when it came due but has no winners drawn yet."""
@@ -155,7 +186,12 @@ class GiveawayService:
         return winner_ids
 
     def check_expired(self) -> list[tuple[str, dict[Any, Any]]]:
-        """Find every giveaway that is due but not ended, and mark it ended (without choosing winners)."""
+        """Find every giveaway that is due, close it, and return it for drawing.
+
+        A giveaway closed here carries `drawing` until its winners are stored, so
+        one whose draw was cut short (a restart, a failed write) is returned again
+        on the next check instead of staying closed with nobody drawn.
+        """
         now = datetime.now(TZ_OFFSET).timestamp()
         expired: list[tuple[str, dict[Any, Any]]] = []
         data = self._load()
@@ -163,10 +199,13 @@ class GiveawayService:
 
         for gid, ga in list(data.items()):
             if ga.get("ended"):
+                if ga.get("drawing") and not ga.get("settled"):
+                    expired.append((gid, dict(ga)))
                 continue
             if now >= ga.get("end_time", float("inf")):
-                expired.append((gid, dict(ga)))
                 ga["ended"] = True
+                ga["drawing"] = True
+                expired.append((gid, dict(ga)))
                 changed = True
 
         if changed:

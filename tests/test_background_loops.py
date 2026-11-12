@@ -17,6 +17,7 @@ from src.cogs.features import genshin_cog
 from src.cogs.features import giveaway
 from src.cogs.features.genshin_cog import GenshinCog
 from src.cogs.features.giveaway import Giveaway
+from src.services.giveaway_service import ANNOUNCE_TRIES
 from src.utils.document_store import StorageError
 
 
@@ -124,6 +125,9 @@ class GiveawayService:
 
     def reopen(self, giveaway_id):
         self.reopened.append(giveaway_id)
+
+    def pending_announcements(self):
+        return []
 
 
 def giveaway_cog(service):
@@ -262,3 +266,74 @@ def test_nobody_joins_or_leaves_after_the_deadline(monkeypatch):
     assert service.toggle_participant("late", "1") == (None, 0)
     assert data["late"]["participants"] == ["1"]
     assert service.toggle_participant("open", "2") == ("joined", 1)
+
+
+def stored_giveaways(monkeypatch, data):
+    service = object.__new__(giveaway.GiveawayService)
+    monkeypatch.setattr(service, "_load", lambda: data, raising=False)
+    monkeypatch.setattr(service, "_save", lambda _: None, raising=False)
+    return service
+
+
+def test_a_draw_cut_short_is_picked_up_on_the_next_check(monkeypatch):
+    """Closed by one check, then the bot stopped before the winners were stored."""
+    data = {
+        "due": {"ended": False, "end_time": 1.0, "participants": ["1"]},
+        "old": {"ended": True, "winner_ids": []},  # ended before drawing was tracked
+    }
+    service = stored_giveaways(monkeypatch, data)
+    assert [gid for gid, _ in service.check_expired()] == ["due"]
+    assert data["due"]["drawing"] is True
+    # The restart: nothing settled it, so the next check returns it again.
+    assert [gid for gid, _ in service.check_expired()] == ["due"]
+    service.mark_ended("due", ["1"])
+    assert "drawing" not in data["due"]
+    assert service.check_expired() == []
+
+
+def test_an_unposted_result_is_retried_a_few_times_then_left(monkeypatch):
+    data = {"a": {"ended": False, "end_time": 1.0, "participants": ["1"]}}
+    service = stored_giveaways(monkeypatch, data)
+    service.mark_ended("a", ["1"])
+    assert [gid for gid, _ in service.pending_announcements()] == ["a"]
+    for _ in range(ANNOUNCE_TRIES):
+        service.mark_announced("a", False)
+    assert service.pending_announcements() == []
+    data["a"]["announce_tries"] = 0
+    service.mark_announced("a", True)
+    assert service.pending_announcements() == []
+
+
+async def test_a_failed_post_is_counted_instead_of_swallowed(monkeypatch):
+    data = {
+        "a": {
+            "ended": False,
+            "end_time": 1.0,
+            "participants": ["1"],
+            "winners": 1,
+            "guild_id": 5,
+            "channel_id": 6,
+            "message_id": 7,
+            "prize": "P",
+            "host_id": 8,
+        }
+    }
+    service = stored_giveaways(monkeypatch, data)
+    monkeypatch.setattr(service, "get", lambda gid: data.get(gid), raising=False)
+
+    async def english(_):
+        return "en"
+
+    monkeypatch.setattr("src.cogs.features.giveaway.guild_language", english)
+    cog = object.__new__(Giveaway)
+    cog.service = service
+    cog.bot = SimpleNamespace(
+        wait_until_ready=AsyncMock(),
+        get_channel=lambda _: None,
+        fetch_channel=AsyncMock(side_effect=RuntimeError("channel gone")),
+    )
+    await Giveaway.check_giveaways.coro(cog)
+    assert data["a"]["winner_ids"] == ["1"]
+    assert data["a"]["announced"] is False
+    # One try in the drawing round, one more from the retry pass of the same round.
+    assert data["a"]["announce_tries"] == 2

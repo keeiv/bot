@@ -11,10 +11,10 @@ def test_cleanup_nonempty_logs():
     from src.services.message_log_service import MessageLogService
 
     service = MessageLogService()
-    service.load_message_log = lambda force=False: {
-        "1_2": {"created_at": "2000-01-01T00:00:00+08:00"}
-    }
-    service.save_message_log = lambda logs: None
+    service.set_log_channel_id(1, 99)
+    service.add_record(1, 2, "old", 3, 4)
+    with service.store.transaction(write=True) as db:
+        db.execute("UPDATE message_log SET created_at='2000-01-01T00:00:00+08:00'")
     assert service.cleanup_old_logs() == 1
 
 

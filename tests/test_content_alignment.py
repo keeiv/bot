@@ -2,20 +2,21 @@
 
 from concurrent.futures import ThreadPoolExecutor
 import copy
+from datetime import datetime
+from datetime import timedelta
 import os
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from unittest.mock import Mock
 
 import discord
-import pymysql
 import pytest
 
 from src.cogs.core.blacklist import AppealAcceptModal
 from src.cogs.core.message_logger import MessageLogger
 from src.cogs.features.temp_voice import TempVoice
 from src.cogs.features.ticket import Ticket
-from src.services import message_log_service
+from src.services import message_log_store
 from src.services.blacklist_service import BlacklistService
 from src.services.message_log_service import MessageLogService
 from src.utils.document_store import initialize_schema
@@ -23,6 +24,8 @@ from src.utils.document_store import read_document
 from src.utils.document_store import StorageError
 from src.utils.document_store import write_document
 from src.utils.message_cache import MessageCache
+from src.utils.mysql_compat import MySQLConnection
+from src.utils.time_utils import TZ_OFFSET
 
 
 @pytest.fixture(params=["json", "mysql"])
@@ -35,127 +38,182 @@ def log_service(request, monkeypatch, tmp_path):
         monkeypatch.setenv("MYSQL_DATABASE", database)
     monkeypatch.setenv("STORAGE_BACKEND", request.param)
     monkeypatch.setenv("STORAGE_ROOT", str(tmp_path))
-    path = f"data/storage/{tmp_path.name}-messages.json"
-    monkeypatch.setattr(message_log_service, "_LOG_FILE", path)
+    message_log_store.forget_ready()
     if request.param == "mysql":
         initialize_schema()
+        with MySQLConnection() as db:
+            for sql in message_log_store.mysql_schema():
+                db.execute(sql)
+            for table in ("message_edits", "message_log", "message_log_meta"):
+                db.execute(f"DELETE FROM {table}")
+            # Earlier runs may have left an old-format log behind to be imported.
+            db.execute(
+                "DELETE FROM documents WHERE path=?", (message_log_store.LEGACY_FILE,)
+            )
     service = MessageLogService()
     service.message_cache = MessageCache()
-    return service, path, request.param
+    yield service, request.param
+    message_log_store.forget_ready()
 
 
-def seed_log(service, path):
+def seed_log(service):
     service.add_record(9, 7, "A", 42, 8)
-    data = read_document(path)
-    data["9_7"]["future"] = {"labels": ["preserved"]}
-    data["9_7"]["created_at"] = "2000-01-01T00:00:00+08:00"
-    service.save_message_log(data)
-    service.message_cache.set(9, 7, data["9_7"])
-    return data
+    return service.get_record(9, 7)
+
+
+class FailingCommit:
+    """A connection whose commit fails, as a full disk or a dropped server would."""
+
+    def __init__(self, inner):
+        self.inner = inner
+
+    def execute(self, *args):
+        return self.inner.execute(*args)
+
+    def commit(self):
+        raise StorageError("test commit failure")
+
+    def rollback(self):
+        self.inner.rollback()
+
+    def close(self):
+        self.inner.close()
 
 
 @pytest.mark.parametrize("operation", ["add", "edit", "delete", "cleanup"])
-def test_log_failed_commit_preserves_both_caches_and_storage(
+def test_log_failed_commit_changes_neither_cache_nor_storage(
     log_service, monkeypatch, operation
 ):
-    service, path, backend = log_service
-    baseline = seed_log(service, path)
-    cached = service.get_record(9, 7)
-    if backend == "mysql":
-        monkeypatch.setattr(
-            pymysql.connections.Connection,
-            "commit",
-            Mock(side_effect=pymysql.OperationalError(2013, "test commit failure")),
-        )
-    else:
-        monkeypatch.setattr(
-            "src.utils.document_store.os.replace",
-            Mock(side_effect=OSError("test disk failure")),
-        )
+    service, _ = log_service
+    seed_log(service)
+    service.set_log_channel_id(9, 50)
+    old = (datetime.now(TZ_OFFSET) - timedelta(days=60)).isoformat()
+    with service.store.transaction(write=True) as db:
+        db.execute("UPDATE message_log SET created_at=?", (old,))
+    service.message_cache.clear_all()
+    baseline = service.get_record(9, 7)
+    real = service.store._connect
+    monkeypatch.setattr(service.store, "_connect", lambda: FailingCommit(real()))
     operations = {
         "add": lambda: service.add_record(10, 8, "new", 43, 8),
         "edit": lambda: service.record_edit(9, 7, "B"),
         "delete": lambda: service.mark_deleted(9, 7),
         "cleanup": service.cleanup_old_logs,
     }
-    with pytest.raises((OSError, StorageError)):
+    with pytest.raises(StorageError):
         operations[operation]()
-    assert service.load_message_log() == baseline
-    assert service.get_record(9, 7) == cached
-    assert read_document(path) == baseline
+    assert service.get_record(9, 7) == baseline
+    monkeypatch.setattr(service.store, "_connect", real)
+    service.message_cache.clear_all()
+    assert service.get_record(9, 7) == baseline
+    assert service.get_record(10, 8) is None
 
 
-def test_log_snapshots_and_cache_updates_are_detached(log_service):
-    service, path, _ = log_service
-    baseline = seed_log(service, path)
-    service.load_message_log()["9_7"]["future"]["labels"].append("outside")
+def test_log_records_handed_out_are_copies(log_service):
+    service, _ = log_service
+    seed_log(service)
     service.get_record(9, 7)["edit_history"].append("outside")
-    baseline["9_7"]["future"]["labels"].clear()
-    assert service.get_record(9, 7)["future"]["labels"] == ["preserved"]
     assert service.get_record(9, 7)["edit_history"] == []
-    assert service.load_message_log() == read_document(path)
     updates = {"edit_history": ["B"]}
     service.message_cache.update(9, 7, updates)
     updates["edit_history"].append("outside")
     assert service.message_cache.get(9, 7)["edit_history"] == ["B"]
 
 
-def test_log_invalid_read_does_not_replace_valid_cache(log_service):
-    service, path, _ = log_service
-    baseline = seed_log(service, path)
-    write_document(path, [])
-    with pytest.raises(TypeError, match="Message log must be an object"):
-        service.record_edit(9, 7, "B")
-    assert service.load_message_log() == baseline
-    assert read_document(path) == []
+def test_log_an_edit_is_a_row_not_a_rewrite(log_service):
+    service, _ = log_service
+    seed_log(service)
+    service.add_record(9, 8, "other message", 42, 8)
+    service.record_edit(9, 7, "B")
+    service.record_edit(9, 7, "C")
+    with service.store.transaction() as db:
+        edits = db.execute(
+            "SELECT seq, content FROM message_edits WHERE guild_id=? AND message_id=? ORDER BY seq",
+            (9, 7),
+        ).fetchall()
+    assert [tuple(row) for row in edits] == [(1, "B"), (2, "C")]
+    assert service.get_record(9, 8)["edit_history"] == []
+    assert service.record_edit(9, 999, "nothing to edit") is False
 
 
 def test_log_concurrent_instances_preserve_each_edit(log_service):
-    service, path, _ = log_service
-    seed_log(service, path)
+    service, _ = log_service
+    seed_log(service)
     other = MessageLogService()
     other.message_cache = MessageCache()
-    other.load_message_log()
     with ThreadPoolExecutor(max_workers=4) as workers:
         futures = [
             workers.submit((service if i % 2 else other).record_edit, 9, 7, str(i))
             for i in range(12)
         ]
         assert all(future.result() for future in futures)
-    record = read_document(path)["9_7"]
+    service.message_cache.clear_all()
+    record = service.get_record(9, 7)
     assert sorted(record["edit_history"], key=int) == [str(i) for i in range(12)]
     assert record["original_content"] == "A"
-    assert record["future"] == {"labels": ["preserved"]}
 
 
-def test_log_cleanup_evicts_removed_records(log_service):
-    service, path, _ = log_service
-    seed_log(service, path)
+def test_log_cleanup_evicts_old_records_and_their_edits(log_service):
+    service, _ = log_service
+    service.set_log_channel_id(9, 50)
+    seed_log(service)
+    service.record_edit(9, 7, "B")
+    service.add_record(9, 8, "fresh", 42, 8)
+    old = (datetime.now(TZ_OFFSET) - timedelta(days=60)).isoformat()
+    with service.store.transaction(write=True) as db:
+        db.execute("UPDATE message_log SET created_at=? WHERE message_id=7", (old,))
     assert service.cleanup_old_logs() == 1
     assert service.get_record(9, 7) is None
-    assert read_document(path) == {}
+    assert service.get_record(9, 8)["original_content"] == "fresh"
+    with service.store.transaction() as db:
+        assert db.execute("SELECT COUNT(*) FROM message_edits").fetchone()[0] == 0
 
 
 def test_log_repeated_delivery_does_not_reset_history(log_service):
-    service, path, _ = log_service
-    seed_log(service, path)
+    service, _ = log_service
+    seed_log(service)
     service.record_edit(9, 7, "B")
-    before = read_document(path)
+    before = service.get_record(9, 7)
     service.add_record(9, 7, "overwritten", 43, 10)
-    assert read_document(path) == before
-    assert service.get_record(9, 7) == before["9_7"]
+    service.message_cache.clear_all()
+    assert service.get_record(9, 7) == before
 
 
-def test_log_public_save_refreshes_record_cache_across_instances(log_service):
-    service, path, _ = log_service
-    before = seed_log(service, path)
-    other = MessageLogService()
-    other.message_cache = service.message_cache
-    other.load_message_log()
-    updated = copy.deepcopy(before)
-    updated["9_7"]["edit_history"].append("B")
-    service.save_message_log(updated)
-    assert other.get_record(9, 7)["edit_history"] == ["B"]
+def test_log_legacy_json_is_imported_once_and_left_alone(log_service):
+    service, _ = log_service
+    legacy = {
+        "9_7": {
+            "message_id": 7,
+            "guild_id": 9,
+            "channel_id": 8,
+            "author_id": 42,
+            "original_content": "old",
+            "edit_history": ["older edit"],
+            "deleted": True,
+            "deleted_at": "2026-11-01T00:00:00+08:00",
+            "attachments": ["https://cdn.example/a.png"],
+            "created_at": "2026-11-01T00:00:00+08:00",
+            "future": {"labels": ["preserved"]},
+        },
+        "broken": "not a record",
+    }
+    write_document(message_log_store.LEGACY_FILE, legacy)
+    message_log_store.forget_ready()
+    fresh = MessageLogService()
+    fresh.message_cache = MessageCache()
+    record = fresh.get_record(9, 7)
+    assert record["original_content"] == "old"
+    assert record["edit_history"] == ["older edit"]
+    assert record["deleted"] is True
+    assert record["future"] == {"labels": ["preserved"]}
+    assert read_document(message_log_store.LEGACY_FILE) == legacy
+    # A later change to the old file is not imported again.
+    legacy["9_7"]["original_content"] = "changed"
+    write_document(message_log_store.LEGACY_FILE, legacy)
+    message_log_store.forget_ready()
+    again = MessageLogService()
+    again.message_cache = MessageCache()
+    assert again.get_record(9, 7)["original_content"] == "old"
 
 
 def message(content, attachments=()):

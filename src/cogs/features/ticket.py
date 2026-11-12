@@ -4,9 +4,11 @@ from src.utils.storage_worker import run_storage
 
 """工單系統 Cog"""
 
+import asyncio
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
+import logging
 
 import discord
 from discord import ui
@@ -25,6 +27,13 @@ TZ_OFFSET = timezone(timedelta(hours=8))
 
 # Module-level singleton, so the persistent views and the cog share one service instance
 _service = TicketService()
+# One opening at a time per member and server: a double click must not make two threads.
+_opening: dict[tuple[int, int], asyncio.Lock] = {}
+log = logging.getLogger(__name__)
+
+
+def _opening_lock(guild_id: int, user_id: int) -> asyncio.Lock:
+    return _opening.setdefault((guild_id, user_id), asyncio.Lock())
 
 
 class CloseReasonModal(LocalizedModal, title="Close ticket"):
@@ -203,6 +212,82 @@ class TicketOpenView(LocalizedView):
     def __init__(self) -> None:
         super().__init__(timeout=None)
 
+    async def _open_ticket(
+        self, interaction: discord.Interaction, guild: discord.Guild
+    ) -> "tuple[discord.Thread, int] | None":
+        """Check, create the thread and record it, as one step per member.
+
+        A thread whose record cannot be saved is deleted again: an unrecorded
+        thread would let the member open ticket after ticket.
+        """
+        # Check for a ticket that is already open
+        existing_tid = await run_storage(
+            _service.find_open_ticket, guild.id, interaction.user.id
+        )
+        if existing_tid:
+            await interaction.followup.send(
+                tx("ticket.failed_an_open_ticket_already_exists", v0=(existing_tid)),
+                ephemeral=True,
+            )
+            return None
+
+        # Increase the ticket number
+        ticket_count = await run_storage(_service.increment_ticket_count, guild.id)
+
+        thread_name = tx(
+            "ticket.ticket", v0=(ticket_count), v1=(interaction.user.display_name)
+        )
+
+        # Create the private thread
+        channel = interaction.channel
+        if not isinstance(channel, discord.TextChannel):
+            await interaction.followup.send(
+                tx("ticket.the_ticket_panel_must_be_in"), ephemeral=True
+            )
+            return None
+        try:
+            thread = await channel.create_thread(
+                name=thread_name,
+                type=discord.ChannelType.private_thread,
+                auto_archive_duration=1440,
+            )
+        except discord.Forbidden:
+            await interaction.followup.send(
+                tx("ticket.failed_the_bot_cannot_create_private"), ephemeral=True
+            )
+            return None
+        except Exception as e:
+            await interaction.followup.send(
+                tx("ticket.failed_ticket_creation_failed", v0=(e)), ephemeral=True
+            )
+            return None
+
+        # Save the ticket
+        try:
+            await run_storage(
+                _service.create_ticket,
+                guild_id=guild.id,
+                thread_id=thread.id,
+                channel_id=channel.id,
+                creator_id=interaction.user.id,
+                ticket_number=ticket_count,
+            )
+        except Exception as e:
+            log.exception(
+                "Ticket thread %s could not be recorded; removing it", thread.id
+            )
+            try:
+                await thread.delete()
+            except discord.HTTPException:
+                log.exception(
+                    "Unrecorded ticket thread %s could not be removed", thread.id
+                )
+            await interaction.followup.send(
+                tx("ticket.failed_ticket_creation_failed", v0=(e)), ephemeral=True
+            )
+            return None
+        return thread, ticket_count
+
     @ui.button(
         label="Open ticket",
         style=discord.ButtonStyle.primary,
@@ -231,57 +316,11 @@ class TicketOpenView(LocalizedView):
 
         role_id = guild_config.get("role_id")
 
-        # Check for a ticket that is already open
-        existing_tid = await run_storage(
-            _service.find_open_ticket, guild.id, interaction.user.id
-        )
-        if existing_tid:
-            await interaction.followup.send(
-                tx("ticket.failed_an_open_ticket_already_exists", v0=(existing_tid)),
-                ephemeral=True,
-            )
+        async with _opening_lock(guild.id, interaction.user.id):
+            opened = await self._open_ticket(interaction, guild)
+        if opened is None:
             return
-
-        # Increase the ticket number
-        ticket_count = await run_storage(_service.increment_ticket_count, guild.id)
-
-        thread_name = tx(
-            "ticket.ticket", v0=(ticket_count), v1=(interaction.user.display_name)
-        )
-
-        # Create the private thread
-        channel = interaction.channel
-        if not isinstance(channel, discord.TextChannel):
-            await interaction.followup.send(
-                tx("ticket.the_ticket_panel_must_be_in"), ephemeral=True
-            )
-            return
-        try:
-            thread = await channel.create_thread(
-                name=thread_name,
-                type=discord.ChannelType.private_thread,
-                auto_archive_duration=1440,
-            )
-        except discord.Forbidden:
-            await interaction.followup.send(
-                tx("ticket.failed_the_bot_cannot_create_private"), ephemeral=True
-            )
-            return
-        except Exception as e:
-            await interaction.followup.send(
-                tx("ticket.failed_ticket_creation_failed", v0=(e)), ephemeral=True
-            )
-            return
-
-        # Save the ticket
-        await run_storage(
-            _service.create_ticket,
-            guild_id=guild.id,
-            thread_id=thread.id,
-            channel_id=channel.id,
-            creator_id=interaction.user.id,
-            ticket_number=ticket_count,
-        )
+        thread, ticket_count = opened
 
         # Welcome embed
         embed = discord.Embed(

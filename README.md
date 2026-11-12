@@ -309,7 +309,7 @@ python -X utf8 -m src.control_panel
 資料放在哪裡由 `STORAGE_BACKEND` 決定：
 
 - `mysql`（正式環境）：設定與使用者資料以文件形式存在 `documents` 資料表，每次讀取都核對 SHA-256，不一致就拒絕使用。連線或寫入失敗時直接回報錯誤，不會退回讀寫 JSON 檔。
-- `json`（相容模式，全新安裝使用）：每份資料是 `data/` 底下的 JSON 檔，先寫入暫存檔再整檔取代，寫到一半中斷也不會留下殘缺的檔案。快取、指標與審計紀錄放在 SQLite 檔 `data/storage/bot_database.db`。
+- `json`（相容模式，全新安裝使用）：每份資料是 `data/` 底下的 JSON 檔，先寫入暫存檔再整檔取代，寫到一半中斷也不會留下殘缺的檔案。快取、指標與審計紀錄放在 SQLite 檔 `data/storage/bot_database.db`；檔案工具的額度與訊息日誌各有自己的 SQLite 檔（`tool_quota.sqlite3`、`message_log.sqlite3`），搬移工具會一併搬到 MySQL。
 
 ## 資料與儲存
 
@@ -318,6 +318,7 @@ python -X utf8 -m src.control_panel
 | MySQL `documents` | 以原本的檔案路徑為鍵保存完整 JSON 與 SHA-256 校驗值：設定、成就、黑名單、osu! 綁定、加密帳號等 |
 | MySQL `samples`、`sample_health`、`cache_entries`、`metrics`、`audit_logs` | 運作歷史、快取、指標與審計資料 |
 | MySQL `tool_*`（`tool_users`、`tool_jobs` 等 7 張） | 檔案工具的額度、等級與處理紀錄 |
+| MySQL `message_log`、`message_edits`、`message_log_meta` | 訊息日誌：一則訊息一列、每次編輯一列，保留 30 天 |
 | MySQL `migration_sources`、`migration_state` | 搬移來源副本與驗證標記 |
 | `data/logs/runtime.log` | 執行日誌，經背景佇列寫入，避免卡住 Discord 心跳 |
 | `.env` | 連線資訊與加密金鑰，不納入 Git |

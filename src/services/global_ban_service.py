@@ -27,6 +27,23 @@ BULK_LIMIT = 200  # users per bulk ban request
 SINGLE_LIMIT = 25  # one-by-one bans per server per round, without Manage Server
 RETRY_SECONDS = 3600  # how long a user Discord would not ban is left alone
 BULK_NOBODY_BANNED = 500000  # Discord's code for a batch where nobody could be banned
+# A global ban removes no messages, whichever path makes it: the round below or
+# the immediate ban when a listed user shows up (src/bot.py).
+DELETE_SECONDS = 0
+
+
+def ban_reason(detail: str | None = None) -> str:
+    """The audit log reason every global ban carries, so _lift can recognise its own."""
+    return f"{REASON}: {detail or 'Mori.black / BOT. blacklist'}"
+
+
+async def ban_now(
+    guild: discord.Guild, user: discord.abc.Snowflake, detail: str | None
+) -> None:
+    """Ban one listed user straight away, the same way the scheduled round does."""
+    await guild.ban(
+        user, reason=ban_reason(detail), delete_message_seconds=DELETE_SECONDS
+    )
 
 
 def sources(value: str) -> set[str]:
@@ -134,7 +151,7 @@ class GlobalBanEnforcer:
         ]
         if not new:
             return
-        reason = f"{REASON}: Mori.black / BOT. blacklist"
+        reason = ban_reason()
         if guild.me.guild_permissions.manage_guild:
             for start in range(0, len(new), BULK_LIMIT):
                 chunk = new[start : start + BULK_LIMIT]
@@ -142,7 +159,7 @@ class GlobalBanEnforcer:
                     result = await guild.bulk_ban(
                         [discord.Object(u) for u in chunk],
                         reason=reason,
-                        delete_message_seconds=0,
+                        delete_message_seconds=DELETE_SECONDS,
                     )
                 except discord.HTTPException as error:
                     if error.code != BULK_NOBODY_BANNED:
@@ -159,7 +176,9 @@ class GlobalBanEnforcer:
         for user in new[:SINGLE_LIMIT]:  # the rest next round
             try:
                 await guild.ban(
-                    discord.Object(user), reason=reason, delete_message_seconds=0
+                    discord.Object(user),
+                    reason=reason,
+                    delete_message_seconds=DELETE_SECONDS,
                 )
             except discord.Forbidden:
                 self._set_aside(guild, [user])

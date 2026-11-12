@@ -89,6 +89,64 @@ async def test_lossless_migration_and_live_storage(tmp_path, monkeypatch):
         assert conn.execute("SELECT COUNT(*) FROM metrics").fetchone()[0] == 1
 
 
+@pytest.mark.skipif(
+    os.getenv("MYSQL_INTEGRATION_TEST") != "1",
+    reason="Requires isolated MySQL test database",
+)
+def test_tool_quota_and_message_log_tables_move_over(tmp_path, monkeypatch):
+    """JSON mode keeps these two in SQLite; the migrator must carry them, not refuse."""
+    import pymysql
+
+    from src.services import message_log_store
+    from src.services.message_log_service import MessageLogService
+    from src.services.tool_quota import ToolQuota
+
+    database = os.environ.get("MYSQL_TEST_DATABASE", "")
+    assert database.endswith("_test"), "Never run against production"
+    monkeypatch.setenv("MYSQL_DATABASE", database)
+    monkeypatch.setenv("STORAGE_ROOT", str(tmp_path))
+    monkeypatch.setenv("STORAGE_BACKEND", "json")
+    monkeypatch.chdir(tmp_path)
+    message_log_store.forget_ready()
+    quota = ToolQuota()
+    with quota.connection() as db:
+        db.execute(
+            "INSERT INTO tool_users(user_id, first_seen, epoch) VALUES ('42', 1.5, 0)"
+        )
+    log = MessageLogService()
+    log.add_record(9, 7, "繁體中文 🎵", 42, 8)
+    log.record_edit(9, 7, "edited")
+    # Other tests in this database may have filled these tables; start them empty.
+    connection = pymysql.connect(
+        host=os.environ["MYSQL_HOST"],
+        port=int(os.environ.get("MYSQL_PORT", 3306)),
+        user=os.environ["MYSQL_USER"],
+        password=os.environ["MYSQL_PASSWORD"],
+        database=database,
+    )
+    with connection, connection.cursor() as cursor:
+        for table in (
+            "message_edits",
+            "message_log",
+            "message_log_meta",
+            "tool_users",
+            "tool_guard",
+        ):
+            cursor.execute(f"DROP TABLE IF EXISTS {table}")
+        connection.commit()
+    report = migrate(tmp_path, tmp_path / "backup")
+    assert report["tables"]["tool_users"]["rows"] == 1
+    assert report["tables"]["message_log"]["rows"] == 1
+    assert report["tables"]["message_edits"]["rows"] == 1
+    monkeypatch.setenv("STORAGE_BACKEND", "mysql")
+    message_log_store.forget_ready()
+    moved = MessageLogService()
+    record = moved.get_record(9, 7)
+    assert record["original_content"] == "繁體中文 🎵"
+    assert record["edit_history"] == ["edited"]
+    message_log_store.forget_ready()
+
+
 def test_json_writer_exception_does_not_truncate_source(tmp_path):
     from src.utils.document_store import open_document
 

@@ -237,21 +237,15 @@ async def test_messages_are_kept_only_where_a_log_channel_is_set():
 
 
 def test_cleanup_drops_records_of_servers_without_a_log_channel():
-    from datetime import datetime
-
     from src.services.message_log_service import MessageLogService
 
     service = MessageLogService()
     service.set_log_channel_id(1, 99)
-    now = datetime.now().astimezone().isoformat()
-    service.save_message_log(
-        {
-            "1_10": {"guild_id": 1, "created_at": now},
-            "2_20": {"guild_id": 2, "created_at": now},
-        }
-    )
+    service.add_record(1, 10, "kept", 7, 3)
+    service.add_record(2, 20, "dropped", 7, 3)
     assert service.cleanup_old_logs() == 1
-    assert list(service.load_message_log(force=True)) == ["1_10"]
+    assert service.get_record(1, 10) is not None
+    assert service.get_record(2, 20) is None
 
 
 # ── the blacklist API never holds messages up ─────────────────────
@@ -453,3 +447,45 @@ async def test_a_raid_after_a_lift_that_could_not_be_saved_still_locks(monkeypat
     monkeypatch.setattr(cog.manager, "save_lockdown", real_save)
     await cog._deactivate_lockdown(guild)
     assert [c.send_messages for c in channels] == [None, True]
+
+
+class LockedOutChannel(LockChannel):
+    """The bot lost Manage Channels here; with `refuse_lock` it never had it."""
+
+    def __init__(self, channel_id, send_messages, refuse_lock=False):
+        super().__init__(channel_id, send_messages)
+        self.refusing = refuse_lock
+
+    async def set_permissions(self, role, *, overwrite, reason):
+        if self.refusing:
+            raise discord.Forbidden(SimpleNamespace(status=403, reason="x"), "x")
+        await super().set_permissions(role, overwrite=overwrite, reason=reason)
+
+
+async def test_a_channel_that_refuses_the_unlock_stays_on_record_until_it_is_restored():
+    stuck = LockedOutChannel(2, True)
+    channels = [LockChannel(1, None), stuck]
+    guild = SimpleNamespace(id=9, default_role=object(), text_channels=channels)
+    await anti_spam_cog()._activate_lockdown(guild)
+    stuck.refusing = True  # permissions changed during the lockdown
+    left = await anti_spam_cog()._deactivate_lockdown(guild)
+    assert left == [2]
+    assert [c.send_messages for c in channels] == [None, False]
+    restarted = anti_spam_cog()
+    assert restarted.manager.is_lockdown(9)  # still locked, and it knows where
+    assert restarted._lockdown_states[9] == {2: True}
+    stuck.refusing = False  # an admin fixed the permissions
+    assert await restarted._deactivate_lockdown(guild) == []
+    assert stuck.send_messages is True
+    assert not anti_spam_cog().manager.is_lockdown(9)
+
+
+async def test_a_channel_that_refused_the_lock_is_not_owed_a_restore():
+    never = LockedOutChannel(2, True, refuse_lock=True)
+    channels = [LockChannel(1, None), never]
+    guild = SimpleNamespace(id=9, default_role=object(), text_channels=channels)
+    cog = anti_spam_cog()
+    await cog._activate_lockdown(guild)
+    assert cog._lockdown_states[9] == {1: None}
+    assert await anti_spam_cog()._deactivate_lockdown(guild) == []
+    assert not anti_spam_cog().manager.is_lockdown(9)
