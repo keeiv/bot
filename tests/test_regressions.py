@@ -76,46 +76,6 @@ async def test_giveaway_restart_keeps_both_views():
         await bot.close()
 
 
-def make_game():
-    from src.services.game_service import RouletteGame
-
-    p1 = SimpleNamespace(id=1, mention="p1", display_name="p1")
-    p2 = SimpleNamespace(id=2, mention="p2", display_name="p2")
-    game = RouletteGame(SimpleNamespace(id=3, send=AsyncMock()), p1, p2)
-    interaction = SimpleNamespace(
-        guild_id=None,
-        locale=discord.Locale.taiwan_chinese,
-        client=SimpleNamespace(get_guild=lambda _: None),
-        user=p1,
-        response=SimpleNamespace(send_message=AsyncMock()),
-    )
-    return game, interaction
-
-
-async def test_shuffle_item():
-    from src.cogs.games.russian_roulette import RussianRoulette
-
-    game, interaction = make_game()
-    game.player1_items = ["命運洗牌"]
-    view = RussianRoulette.ItemSelectView(game, None, game.player1_items)
-    await view._use_item(interaction, "命運洗牌")
-    assert 1 <= game.bullet_position <= 6
-
-
-async def test_activated_blank_halves_damage():
-    from src.cogs.games.russian_roulette import RussianRoulette
-
-    game, interaction = make_game()
-    game.player1_items = ["空包彈"]
-    game.bullet_position = game.current_chamber = 1
-    cog = SimpleNamespace(active_games={})
-    itemview = RussianRoulette.ItemSelectView(game, cog, game.player1_items)
-    await itemview._use_item(interaction, "空包彈")
-    view = RussianRoulette.GameView(game, cog)
-    await view.pull_trigger.callback(interaction)
-    assert game.player1_chips == 4250
-
-
 async def test_repeated_initialization_no_task_leak():
     from src.utils.config_optimizer import get_config_manager
     from src.utils.database_manager import get_database_manager

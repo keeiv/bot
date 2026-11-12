@@ -46,7 +46,7 @@
 | 防護與管理 | 13 種偵測（含跨頻道洗版、惡意連結、突襲、防破壞）、自動加重處分、黑名單與申訴、舉報、訊息與審計日誌 | `/anti_spam` `/blacklist` `/appeal` `/clear` `/kick` `/ban` `/mute` `/warn` |
 | 迎接新成員 | 歡迎訊息範本、自動身分組、年齡守門 | `/welcome` `/auto_role` `/age_guard` |
 | 伺服器服務 | 工單、臨時語音、抽獎、身分組與表情符號、伺服器設定面板 | `>>>ticket` `/temp_voice` `/giveaway` `/role` `/emoji` `/settings` |
-| 遊戲與成就 | 夥伴養成、兩款雙人小遊戲、22 個成就 | `/pet` `/deep-sea-oxygen` `/russian-roulette` `/achievements` |
+| 遊戲與成就 | 夥伴養成、兩款 Discord 活動遊戲、22 個成就 | `/pet` `/deep-sea-oxygen` `/russian-roulette` `/achievements` |
 | 帳號整合 | osu!、HoYoLAB／米游社、明日方舟：終末地、GitHub 倉庫通知 | `/osu` `/mhy` `/endfield` `/repo_watch` `/repo_track` |
 | 工具 | 檔案轉換與壓縮（NovaGrid）、訊息翻譯、AI 聊天 | `/convert` `/compress` `/usage` `翻譯訊息` `/ai` |
 | 語言 | 英文與中文介面，伺服器與個人各自設定 | `/language` |
@@ -114,8 +114,9 @@
 
 ### 遊戲與成就
 
-- `/deep-sea-oxygen` 深海氧氣瓶：雙人合作回合制，共享氧氣與道具。
-- `/russian-roulette` 俄羅斯輪盤：雙人對戰，籌碼與道具。
+- **鏽錨站**（Discord 活動）：在語音頻道開啟，2 到 6 人同桌，也能單人跟莊家練習。網頁由官網提供，規則與狀態都在伺服器端判定。
+  - `/russian-roulette` 鏽輪：一把六發左輪、一顆子彈，空響拿鹽，槍越燙鹽越多；三袋水喝乾就出局。
+  - `/deep-sea-oxygen` 沉鐘：大家共用一口潛鐘和一瓶氣，每輪暗中決定出去多久，回鐘由短到長，氣不夠時最晚回來的人回不來。
 - `/pet` 夥伴：每人一隻、跨伺服器共用的像素夥伴（寓言、方舟、諾瓦）。照顧、遠征收集材料、突破與進化，Lv 2 到 100。規則見 [夥伴](docs/pet.md)。
 - 成就共 22 個（普通 7、少見 7、稀有 6、史詩 1、傳說 1），涵蓋聊天、遊戲、夥伴與社交。`/achievements` 查看進度，`/achievement_codex` 看全部成就，`/achievement_info` 看單一成就。
 

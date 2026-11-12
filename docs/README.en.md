@@ -49,7 +49,7 @@ plus a web dashboard where you can set most of it up.
 | Protection & moderation | 13 detectors (including cross-channel spam, malicious links, raids and anti-nuke), automatic escalation, blacklist and appeals, reports, message and audit logs | `/anti_spam` `/blacklist` `/appeal` `/clear` `/kick` `/ban` `/mute` `/warn` |
 | Welcoming members | Welcome message templates, auto roles, age guard | `/welcome` `/auto_role` `/age_guard` |
 | Server services | Tickets, temporary voice, giveaways, roles and emojis, a server settings panel | `>>>ticket` `/temp_voice` `/giveaway` `/role` `/emoji` `/settings` |
-| Games & achievements | Companions, two two-player mini-games, 22 achievements | `/pet` `/deep-sea-oxygen` `/russian-roulette` `/achievements` |
+| Games & achievements | Companions, two Discord activity games, 22 achievements | `/pet` `/deep-sea-oxygen` `/russian-roulette` `/achievements` |
 | Account integrations | osu!, HoYoLAB / Miyoushe, Arknights: Endfield, GitHub repository notifications | `/osu` `/mhy` `/endfield` `/repo_watch` `/repo_track` |
 | Tools | File conversion and compression (NovaGrid), message translation, AI chat | `/convert` `/compress` `/usage` `Translate message` `/ai` |
 | Language | English and Chinese interface, set per server and per user | `/language` |
@@ -117,8 +117,9 @@ Six actions are available: warn, delete message, mute, kick, ban and lock channe
 
 ### Games & achievements
 
-- `/deep-sea-oxygen`: a turn-based co-op game for two, with shared oxygen and items.
-- `/russian-roulette`: a two-player duel with chips and items.
+- **Rust Anchor Station** (a Discord activity): opened in a voice channel, 2 to 6 at a table, or alone against the house for practice. The website serves it, and the server decides every rule and keeps the state.
+  - `/russian-roulette` the Rust Wheel: one revolver, one round; empty clicks pay salt, more as the gun gets hotter; drink your last of three water skins and you are out.
+  - `/deep-sea-oxygen` the Sunken Bell: one bell and one tank for everyone; each round you choose in secret how long to stay out, divers come back shortest first, and when the air runs short the last ones back do not make it.
 - `/pet`: one pixel companion each (Fable, Ark or Nova), the same in every server. Care for it, send it on expeditions for materials, break through and evolve it, Lv 2 to 100. The rules are in [companions](pet.md) (Chinese).
 - 22 achievements (7 common, 7 uncommon, 6 rare, 1 epic, 1 legendary) covering chat, games, companions and social activity. `/achievements` shows your progress, `/achievement_codex` lists them all, and `/achievement_info` shows the details of one.
 

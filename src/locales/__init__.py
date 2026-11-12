@@ -24,7 +24,6 @@ from src.locales import core
 from src.locales import dashboard_api_messages
 from src.locales import dashboard_checks_messages
 from src.locales import dashboard_service_messages
-from src.locales import deep_sea_oxygen_messages
 from src.locales import developer_messages
 from src.locales import domain
 from src.locales import endfield_messages
@@ -46,8 +45,8 @@ from src.locales import osu_service_messages
 from src.locales import pet_messages
 from src.locales import report_messages
 from src.locales import report_service_messages
-from src.locales import russian_roulette_messages
 from src.locales import settings_messages
+from src.locales import station_messages
 from src.locales import temp_voice_messages
 from src.locales import ticket_messages
 from src.locales import ticket_service_messages
@@ -75,7 +74,6 @@ _MODULES = [
     dashboard_api_messages,
     dashboard_checks_messages,
     dashboard_service_messages,
-    deep_sea_oxygen_messages,
     developer_messages,
     endfield_messages,
     error_handler_messages,
@@ -94,8 +92,8 @@ _MODULES = [
     pet_messages,
     report_messages,
     report_service_messages,
-    russian_roulette_messages,
     settings_messages,
+    station_messages,
     temp_voice_messages,
     ticket_messages,
     ticket_service_messages,
