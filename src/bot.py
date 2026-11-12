@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 
 from src.services.global_ban_service import REASON as GLOBAL_BAN_REASON
 from src.utils.blacklist_manager import BlacklistManager
+from src.utils.command_sync import sync_global
 from src.utils.command_translator import CommandTranslator
 from src.utils.i18n import Lang
 from src.utils.i18n import t
@@ -133,7 +134,7 @@ class Bot(commands.Bot):
         await self.blacklist_manager.setup()
         await self.load_cogs()
         await self.tree.set_translator(CommandTranslator())
-        await self.tree.sync()
+        await sync_global(self.tree)
 
     async def close(self) -> None:
         try:
