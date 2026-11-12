@@ -272,6 +272,8 @@ class AntiSpam(commands.Cog):
             # Finish a lockdown cut short: its snapshot still has the originals;
             # a channel made since gets its own before it is locked.
             channel_states = self._lockdown_states[guild.id]
+            # Channels already on record keep their originals even if they refuse now.
+            carried = set(channel_states)
             added = {
                 channel.id: channel.overwrites_for(default_role).send_messages
                 for channel in guild.text_channels
@@ -282,6 +284,7 @@ class AntiSpam(commands.Cog):
                 await run_storage(self.manager.save_lockdown, guild.id, merged)
                 channel_states = self._lockdown_states[guild.id] = merged  # saved
         else:
+            carried = set()
             self.manager.set_lockdown(guild.id, True)
             # Store the original send_messages state before changing permissions: a restart midway can still restore it exactly
             channel_states = {
@@ -311,8 +314,11 @@ class AntiSpam(commands.Cog):
             except discord.Forbidden:
                 # Never locked, so there is nothing to restore there later.
                 untouched.append(channel.id)
+        # A channel first seen now that refused the lock was never changed.
         channel_states = {
-            cid: state for cid, state in channel_states.items() if cid not in untouched
+            cid: state
+            for cid, state in channel_states.items()
+            if cid in carried or cid not in untouched
         }
         self._lockdown_states[guild.id] = channel_states
         await run_storage(
@@ -358,9 +364,13 @@ class AntiSpam(commands.Cog):
                 left[channel.id] = channel_states[channel.id]
         if left:
             # Only these stay on record, still locked; the next lift starts from them.
-            await run_storage(self.manager.save_lockdown, guild.id, left, complete=True)
+            # The lockdown is now incomplete, like one cut short: a new raid
+            # snapshots the reopened channels again and locks them all.
+            await run_storage(
+                self.manager.save_lockdown, guild.id, left, complete=False
+            )
             self._lockdown_states[guild.id] = left
-            self._unfinished.discard(guild.id)
+            self._unfinished.add(guild.id)
             return list(left)
         # Delete the record only after everything is restored; if it fails midway the original state is still there for the next lift
         try:

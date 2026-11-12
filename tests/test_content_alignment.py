@@ -179,8 +179,10 @@ def test_log_repeated_delivery_does_not_reset_history(log_service):
     assert service.get_record(9, 7) == before
 
 
-def test_log_legacy_json_is_imported_once_and_left_alone(log_service):
+def test_log_legacy_json_is_imported_once_then_emptied(log_service):
     service, _ = log_service
+    recent = (datetime.now(TZ_OFFSET) - timedelta(days=3)).isoformat()
+    stale = (datetime.now(TZ_OFFSET) - timedelta(days=45)).isoformat()
     legacy = {
         "9_7": {
             "message_id": 7,
@@ -190,10 +192,16 @@ def test_log_legacy_json_is_imported_once_and_left_alone(log_service):
             "original_content": "old",
             "edit_history": ["older edit"],
             "deleted": True,
-            "deleted_at": "2026-11-01T00:00:00+08:00",
+            "deleted_at": recent,
             "attachments": ["https://cdn.example/a.png"],
-            "created_at": "2026-11-01T00:00:00+08:00",
+            "created_at": recent,
             "future": {"labels": ["preserved"]},
+        },
+        "9_6": {
+            "message_id": 6,
+            "guild_id": 9,
+            "original_content": "expired",
+            "created_at": stale,
         },
         "broken": "not a record",
     }
@@ -206,14 +214,16 @@ def test_log_legacy_json_is_imported_once_and_left_alone(log_service):
     assert record["edit_history"] == ["older edit"]
     assert record["deleted"] is True
     assert record["future"] == {"labels": ["preserved"]}
-    assert read_document(message_log_store.LEGACY_FILE) == legacy
-    # A later change to the old file is not imported again.
-    legacy["9_7"]["original_content"] = "changed"
+    # Past retention is not carried over, and the old file no longer holds message text.
+    assert fresh.get_record(9, 6) is None
+    assert read_document(message_log_store.LEGACY_FILE) == {}
+    # Anything written to the old file later is neither imported nor kept.
     write_document(message_log_store.LEGACY_FILE, legacy)
     message_log_store.forget_ready()
     again = MessageLogService()
     again.message_cache = MessageCache()
-    assert again.get_record(9, 7)["original_content"] == "old"
+    assert again.get_record(9, 6) is None
+    assert read_document(message_log_store.LEGACY_FILE) == {}
 
 
 def message(content, attachments=()):

@@ -489,3 +489,21 @@ async def test_a_channel_that_refused_the_lock_is_not_owed_a_restore():
     assert cog._lockdown_states[9] == {1: None}
     assert await anti_spam_cog()._deactivate_lockdown(guild) == []
     assert not anti_spam_cog().manager.is_lockdown(9)
+
+
+async def test_a_raid_after_a_partial_lift_locks_the_reopened_channels_again():
+    stuck = LockedOutChannel(2, True)
+    reopened = LockChannel(1, None)
+    guild = SimpleNamespace(
+        id=9, default_role=object(), text_channels=[reopened, stuck]
+    )
+    await anti_spam_cog()._activate_lockdown(guild)
+    stuck.refusing = True
+    cog = anti_spam_cog()
+    assert await cog._deactivate_lockdown(guild) == [2]
+    assert reopened.send_messages is None  # open again
+    await anti_spam_cog()._activate_lockdown(guild)  # the next raid, after a restart
+    assert reopened.send_messages is False
+    stuck.refusing = False
+    assert await anti_spam_cog()._deactivate_lockdown(guild) == []
+    assert [reopened.send_messages, stuck.send_messages] == [None, True]

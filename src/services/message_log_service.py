@@ -10,6 +10,7 @@ from typing import Any, Optional
 import discord
 
 from src.services.message_log_store import MessageLogStore
+from src.services.message_log_store import RETENTION_DAYS
 from src.utils.document_store import read_document
 from src.utils.document_store import write_document
 from src.utils.i18n import text as tx
@@ -19,7 +20,7 @@ from src.utils.time_utils import TZ_OFFSET
 
 _CHANNELS_FILE = "data/storage/log_channels.json"
 _CHANNELS_TTL = 60.0
-LOG_RETENTION_DAYS = 30
+LOG_RETENTION_DAYS = RETENTION_DAYS
 _MESSAGE_LOCK = threading.RLock()
 
 

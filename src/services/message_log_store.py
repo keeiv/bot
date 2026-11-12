@@ -5,12 +5,16 @@ each message is a row and each edit is a row of its own, so recording an edit is
 an insert, not a rewrite of every server's history. The same SQL runs on SQLite
 (data/storage/message_log.sqlite3) in JSON mode and on MySQL in MySQL mode.
 
-The first time a store opens, records from the old JSON document are copied in
-once; the document itself is left as it was.
+The first time a store opens, records from the old JSON document that are still
+within the retention period are copied in once, and the document is then emptied:
+left as it was, it would keep message text past the 30 days the log promises.
 """
 
 from contextlib import contextmanager
+from datetime import datetime
+from datetime import timedelta
 import json
+import logging
 import os
 from pathlib import Path
 import sqlite3
@@ -19,9 +23,14 @@ from typing import Any, Iterator, Optional
 
 from src.utils.document_store import read_document
 from src.utils.document_store import using_mysql
+from src.utils.document_store import write_document
 from src.utils.mysql_compat import MySQLConnection
+from src.utils.time_utils import TZ_OFFSET
+
+log = logging.getLogger(__name__)
 
 LEGACY_FILE = "data/logs/messages/message_log.json"
+RETENTION_DAYS = 30
 SQLITE_FILE = "data/storage/message_log.sqlite3"
 
 SCHEMA = (
@@ -119,6 +128,7 @@ class MessageLogStore:
                     db.execute(sql)
                 self._import_legacy(db)
                 db.commit()
+                self._empty_legacy(db)
             except BaseException:
                 try:
                     db.rollback()
@@ -142,9 +152,12 @@ class MessageLogStore:
             raise TypeError("Message log must be an object")
         ignore = "INSERT IGNORE" if self.mysql else "INSERT OR IGNORE"
         imported = 0
+        cutoff = (datetime.now(TZ_OFFSET) - timedelta(days=RETENTION_DAYS)).isoformat()
         for record in legacy.values():
             if not isinstance(record, dict):
                 continue
+            if str(record.get("created_at") or "") < cutoff:
+                continue  # already past retention: not carried over
             try:
                 guild_id, message_id = int(record["guild_id"]), int(
                     record["message_id"]
@@ -188,6 +201,25 @@ class MessageLogStore:
             f"{ignore} INTO message_log_meta (name, value) VALUES (?, ?)",
             (_LEGACY_MARK, str(imported)),
         )
+
+    def _empty_legacy(self, db: Any) -> None:
+        """Once imported, the old document is emptied; retried on every start until it is."""
+        if not db.execute(
+            "SELECT value FROM message_log_meta WHERE name=?", (_LEGACY_MARK,)
+        ).fetchone():
+            return
+        try:
+            legacy = read_document(LEGACY_FILE)
+        except FileNotFoundError:
+            return
+        if legacy == {}:
+            return
+        try:
+            write_document(LEGACY_FILE, {})
+        except Exception:
+            log.exception(
+                "The imported message log %s could not be emptied", LEGACY_FILE
+            )
 
     # ── Records ───────────────────────────────────────────────────────
 
