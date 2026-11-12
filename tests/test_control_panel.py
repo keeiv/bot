@@ -388,7 +388,7 @@ def test_restart_stops_then_starts(paths):
 
 # ── menu ──────────────────────────────────────────────────────────
 def test_menu_keeps_every_key_of_the_old_launcher():
-    assert set(menu.BY_KEY) == set("123456789twrdslqmh")
+    assert set(menu.BY_KEY) == set("123456789twrbdslqmh")
     assert len(menu.ITEMS) == len(menu.BY_KEY)  # no duplicate hotkeys
     assert menu.BY_KEY["t"].label == "檔案工具終端"
 
@@ -404,7 +404,7 @@ def test_every_menu_item_has_something_to_run(paths):
         "worker",
         "review",
     }
-    handled |= {"database", "host"}
+    handled |= {"database", "host", "browser"}
     handled |= {"project", "data", "quit"}
     for item in menu.ITEMS:
         if item.action in handled:

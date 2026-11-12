@@ -129,6 +129,13 @@ COLUMNS: tuple[MenuColumn, ...] = (
                 "submenu",
             ),
             MenuItem(
+                "b",
+                "資料庫管理",
+                "用中文欄位名稱瀏覽並修改機器人存的資料；機器人停止時才能修改",
+                "browser",
+                "page",
+            ),
+            MenuItem(
                 "d",
                 "開發者指令說明",
                 "在 Discord 裡使用的開發者指令",

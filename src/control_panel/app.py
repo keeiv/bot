@@ -17,6 +17,7 @@ from rich.live import Live
 
 from src.control_panel import actions
 from src.control_panel import ai_usage
+from src.control_panel import data_browser
 from src.control_panel import database
 from src.control_panel import launch
 from src.control_panel import menu
@@ -398,6 +399,8 @@ class ControlPanel:
             self._page(self._guide_page, None)
         elif item.action == "logs":
             self._log_viewer()
+        elif item.action == "browser":
+            self._data_browser()
         elif item.action == "worker":
             self._worker_menu("區網檔案工作站", menu.WORKER_CHOICES)
         elif item.action == "review":
@@ -514,6 +517,104 @@ class ControlPanel:
             return key not in ("q", "esc", "ctrl-c")
 
         self._page(build, on_key)
+
+    # data browser
+    def _data_browser(self, store: Optional[data_browser.Store] = None) -> None:
+        """Browse the stored documents; leave the page only to type a new value."""
+        browser = data_browser.Browser(
+            store or data_browser.Store(self.paths.root),
+            lambda: data_browser.read_only_reason(self.reader.read()),
+        )
+        try:
+            browser.load()
+        except Exception as exc:  # shown to the user, never fatal
+            self.say("err", f"無法讀取資料庫：{exc}")
+            return
+        editing: list[Optional[data_browser.Row]] = [None]
+
+        def build() -> RenderableType:
+            size = self.console.size
+            return data_browser.page(browser, self.clock(), size.width, size.height)
+
+        def on_key(key: str) -> bool:
+            if key in ("q", "ctrl-c"):
+                return False
+            if key == "e":
+                return not self._pick_edit(browser, editing)
+            try:
+                return browser.on_key(key)
+            except Exception as exc:  # a broken document must not close the page
+                browser.notice = ("err", f"讀取失敗：{exc}")
+                return True
+
+        while True:
+            editing[0] = None
+            self._page(build, on_key)
+            row = editing[0]
+            if row is None:
+                return
+            self._edit_value(browser, row)
+
+    @staticmethod
+    def _pick_edit(
+        browser: data_browser.Browser, editing: list[Optional[data_browser.Row]]
+    ) -> bool:
+        """True when the selected row can be edited now (it is then remembered)."""
+        browser.notice = None
+        row = browser.edit_target()
+        if row is None:
+            browser.notice = ("info", "選一個單一的值再按 E；分組與清單要先展開")
+            return False
+        reason = browser.read_only()
+        if reason:
+            browser.notice = ("warn", reason)
+            return False
+        editing[0] = row
+        return True
+
+    def _edit_value(self, browser: data_browser.Browser, row: data_browser.Row) -> None:
+        current = browser.node()[row.key]
+        width = self.console.size.width
+        self.console.clear()
+        self.console.print(render.page_title("資料庫管理", width))
+        self.console.print()
+        self.console.print(data_browser.edit_card(browser, row, current, width))
+        try:
+            with self.keyboard.cooked():
+                text = self.console.input(f"[bold {theme.ACCENT}]新的值[/] › ")
+        except (KeyboardInterrupt, EOFError):
+            text = ""
+        if text.strip() == "":
+            browser.notice = ("info", "已取消，沒有修改")
+            return
+        try:
+            value = data_browser.parse_value(text, current)
+        except ValueError as exc:
+            browser.notice = ("err", f"沒有修改：{exc}")
+            return
+        if value == current and type(value) is type(current):
+            browser.notice = ("info", "值沒有改變")
+            return
+        self.console.print()
+        self.console.print(data_browser.change_line(row, current, value))
+        self.console.print(f"[{theme.DIM}]按 Y 寫入，其他鍵取消[/]")
+        if self.keyboard.poll(3600) != "y":
+            browser.notice = ("info", "已取消，沒有修改")
+            return
+        try:
+            backup = browser.apply(row, value)
+        except data_browser.ReadOnly as exc:
+            browser.notice = ("warn", str(exc))
+        except data_browser.Conflict:
+            browser.reload()
+            browser.notice = (
+                "err",
+                "這份資料在開啟後被改動過，沒有寫入。已重新讀取，請確認後再改一次。",
+            )
+        except Exception as exc:  # shown to the user, never fatal
+            browser.notice = ("err", f"寫入失敗，沒有修改：{exc}")
+        else:
+            browser.notice = ("ok", f"已儲存「{row.label}」，舊版本在 {backup}")
 
     def _worker_menu(self, title: str, choices: tuple[menu.Choice, ...]) -> None:
         position = [0]
