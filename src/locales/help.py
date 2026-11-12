@@ -42,6 +42,7 @@ _RED = discord.Color.from_rgb(231, 76, 60)
 _YELLOW = discord.Color.from_rgb(241, 196, 15)
 _PURPLE = discord.Color.from_rgb(155, 89, 182)
 _TEAL = discord.Color.from_rgb(26, 188, 156)
+_RUST = discord.Color.from_rgb(196, 92, 44)
 
 CATEGORIES: dict[str, tuple[HelpCategory, ...]] = {
     "zh": (
@@ -217,8 +218,7 @@ CATEGORIES: dict[str, tuple[HelpCategory, ...]] = {
                 HelpBlock(
                     title="遊戲",
                     lines=(
-                        "`/deep-sea-oxygen` - 沉鐘（活動）：共用一瓶氣的潛水",
-                        "`/russian-roulette` - 鏽輪（活動）：俄羅斯輪盤",
+                        "鏽輪與沉鐘在「鏽錨站」分區",
                         "`/pet adopt` - 領養夥伴（寓言、方舟、諾瓦）",
                         "`/pet panel` - 查看並照顧夥伴",
                         "`/pet expedition` - 派夥伴遠征",
@@ -240,6 +240,57 @@ CATEGORIES: dict[str, tuple[HelpCategory, ...]] = {
                         "`/repo_watch set` - 設定倉庫監控",
                         "`/repo_track add` - 追蹤 keeiv/bot 更新",
                         "`/repo_track status` - 查看追蹤狀態",
+                    ),
+                ),
+            ),
+        ),
+        HelpCategory(
+            key="station",
+            label="鏽錨站",
+            description="鏽輪與沉鐘：Discord 活動裡的兩張桌",
+            accent_color=_RUST,
+            summary=(
+                "海退後的乾海，鹽漠上的鏽錨站。兩款遊戲都在 Discord 活動裡進行，"
+                "2 到 6 人同桌，也能單人跟莊家練習；電腦、網頁與手機都能玩。"
+            ),
+            blocks=(
+                HelpBlock(
+                    title="怎麼開",
+                    lines=(
+                        "`/russian-roulette` - 開啟鏽輪",
+                        "`/deep-sea-oxygen` - 開啟沉鐘",
+                        "也可以進語音頻道，從活動列表選 BOT. 的「鏽錨站」",
+                        "進去後按「入座」，有兩人以上就能「開局」",
+                    ),
+                ),
+                HelpBlock(
+                    title="鏽輪：六發左輪，一顆子彈",
+                    lines=(
+                        "輪到你至少扣一次扳機",
+                        "空響拿鹽：第幾發就拿幾份，可以再扣或交槍收鹽",
+                        "中彈少一袋水、沒收這輪的鹽；三袋水喝乾就出局",
+                        "手數用完或有人出局時結算，沒出局的人比鹽",
+                    ),
+                ),
+                HelpBlock(
+                    title="鏽輪道具",
+                    lines=(
+                        "聽輪：偷聽下一發，只有你知道",
+                        "轉輪：重新上膛，回到六分之一",
+                        "讓手：這輪不扣也能交槍",
+                        "退彈：把下一發退出來給大家看",
+                        "破壞鏈鋸：下一槍變散彈槍。對自己開，空響鹽加倍、"
+                        "中彈扣兩袋水；對別人開，空響自己扣 1 鹽、"
+                        "中彈對方扣 1 袋水和這發的鹽，不加倍",
+                    ),
+                ),
+                HelpBlock(
+                    title="沉鐘：一口鐘，一瓶氣",
+                    lines=(
+                        "每輪暗中決定：留在鐘裡、出去 1 到 3 分鐘，或帶著袋子上浮",
+                        "回鐘由短到長；氣不夠時，同一批回來的人全被關在外面",
+                        "備用氣瓶救你一次，代價是丟掉一半；氣錶每人能讀一次精確值",
+                        "撐到第 7 層海底每人多拿 12；氣用光就緊急上浮，袋子丟一半",
                     ),
                 ),
             ),
@@ -464,8 +515,7 @@ CATEGORIES: dict[str, tuple[HelpCategory, ...]] = {
                 HelpBlock(
                     title="Games",
                     lines=(
-                        "`/deep-sea-oxygen` - the Sunken Bell (activity): a shared-air dive",
-                        "`/russian-roulette` - the Rust Wheel (activity): Russian roulette",
+                        "The Rust Wheel and the Sunken Bell: see Rust Anchor Station",
                         "`/pet adopt` - adopt a companion (Fable, Ark, Nova)",
                         "`/pet panel` - see and care for your companion",
                         "`/pet expedition` - send it on an expedition",
@@ -487,6 +537,68 @@ CATEGORIES: dict[str, tuple[HelpCategory, ...]] = {
                         "`/repo_watch set` - watch a repository",
                         "`/repo_track add` - follow keeiv/bot updates",
                         "`/repo_track status` - see tracking status",
+                    ),
+                ),
+            ),
+        ),
+        HelpCategory(
+            key="station",
+            label="Rust Anchor Station",
+            description="The Rust Wheel and the Sunken Bell, played as an activity",
+            accent_color=_RUST,
+            summary=(
+                "The Dry Sea, after the water left: a station on the salt. Both games "
+                "run as a Discord activity, 2 to 6 at a table or alone against the "
+                "house, on desktop, the web and phones."
+            ),
+            blocks=(
+                HelpBlock(
+                    title="Opening a table",
+                    lines=(
+                        "`/russian-roulette` - open the Rust Wheel",
+                        "`/deep-sea-oxygen` - open the Sunken Bell",
+                        "Or join a voice channel and pick BOT.'s Rust Anchor Station "
+                        "from the activities",
+                        "Take a seat; with two or more seated, deal in",
+                    ),
+                ),
+                HelpBlock(
+                    title="The Rust Wheel: one revolver, one round",
+                    lines=(
+                        "On your turn, pull at least once",
+                        "An empty click pays as much salt as chambers fired; pull "
+                        "again or hand the gun on and bank it",
+                        "A live round costs a water skin and this turn's salt; drink "
+                        "the last of three and you are out",
+                        "When the turns run out or someone is out, the rest are "
+                        "ranked by salt",
+                    ),
+                ),
+                HelpBlock(
+                    title="Rust Wheel tools",
+                    lines=(
+                        "Listen: hear the next chamber; only you learn it",
+                        "Spin: reload, back to one in six",
+                        "Pass: hand the gun on without pulling",
+                        "Eject: drop the next chamber for everyone to see",
+                        "Breaker chainsaw: the next shot is a scattergun. At "
+                        "yourself, an empty chamber pays double and a live one "
+                        "costs two skins; at a rival, an empty chamber costs you 1 "
+                        "salt and a live one costs them a skin and the chamber's "
+                        "salt, undoubled",
+                    ),
+                ),
+                HelpBlock(
+                    title="The Sunken Bell: one bell, one tank",
+                    lines=(
+                        "Each round choose in secret: stay in, go out 1 to 3 "
+                        "minutes, or go up with your bag",
+                        "Divers come back shortest first; when the air runs short, "
+                        "that whole group is cut off",
+                        "A spare bottle saves you once for half your load; each "
+                        "diver may read the gauge exactly once",
+                        "Reach level 7 and everyone aboard takes 12 more; an empty "
+                        "tank halves every bag",
                     ),
                 ),
             ),
