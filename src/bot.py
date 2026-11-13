@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import pkgutil
+import sys
 from typing import Any
 
 import discord
@@ -13,6 +14,7 @@ from src.services.global_ban_service import ban_now
 from src.utils.blacklist_manager import BlacklistManager
 from src.utils.command_sync import sync_global
 from src.utils.command_translator import CommandTranslator
+from src.utils.event_errors import StorageOutageLog
 from src.utils.i18n import Lang
 from src.utils.i18n import t
 from src.utils.lang_context import interaction_lang
@@ -121,6 +123,7 @@ class Bot(commands.Bot):
                 guild=True, dm_channel=False, private_channel=False
             ),
         )
+        self.storage_outages = StorageOutageLog()
         self.api_key = os.getenv("BLACKLIST_API_KEY")
         self.api_base = "https://api.cathome.shop/v1/blacklist"
         self.blacklist_manager = BlacklistManager(
@@ -129,6 +132,12 @@ class Bot(commands.Bot):
             mori_token=os.getenv("MORI_BLACK_TOKEN"),
             mori_url=os.getenv("MORI_BLACK_URL"),
         )
+
+    async def on_error(self, event_method: str, /, *args: Any, **kwargs: Any) -> None:
+        """Keep storage outages to one line; anything else keeps its traceback."""
+        if self.storage_outages.report(event_method, sys.exc_info()[1]):
+            return
+        await super().on_error(event_method, *args, **kwargs)
 
     async def setup_hook(self) -> None:
         await initialize_optimizations()
