@@ -9,7 +9,6 @@ import pytest
 
 from src.migrate_storage import migrate
 from src.services.dashboard_history import StatusHistory
-from src.services.osu_service import OsuService
 from src.utils.database_manager import DatabaseManager
 from src.utils.document_store import read_document
 from src.utils.document_store import require_migration
@@ -27,7 +26,7 @@ async def test_lossless_migration_and_live_storage(tmp_path, monkeypatch):
     monkeypatch.setenv("STORAGE_ROOT", str(tmp_path))
     storage = tmp_path / "data/storage"
     storage.mkdir(parents=True)
-    source = storage / "osu_links.json"
+    source = storage / "sample_links.json"
     source.write_text(
         json.dumps({"42": "中文 🎵", "large": 1461349028263497969}, ensure_ascii=False),
         encoding="utf-8",
@@ -50,10 +49,9 @@ async def test_lossless_migration_and_live_storage(tmp_path, monkeypatch):
     monkeypatch.setenv("STORAGE_BACKEND", "mysql")
     require_migration()
     assert read_document(source)["large"] == 1461349028263497969
-    osu = OsuService()
-    assert osu.get_bound_username(42) == "中文 🎵"
-    osu.bind(99, "new binding")
-    assert OsuService().get_bound_username(99) == "new binding"
+    assert read_document(source)["42"] == "中文 🎵"
+    write_document(source, {**read_document(source), "99": "new binding"})
+    assert read_document(source)["99"] == "new binding"
     assert source.read_bytes() == original
     # A stale source must not overwrite newer MySQL writes.
     with pytest.raises(RuntimeError, match="refusing overwrite"):

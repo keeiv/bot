@@ -13,8 +13,6 @@ for credential in (
     "DISCORD_TOKEN",
     "BLACKLIST_API_KEY",
     "MORI_BLACK_TOKEN",
-    "OSU_CLIENT_ID",
-    "OSU_CLIENT_SECRET",
     "GITHUB_TOKEN",
     "API_KEY",
     "BOT_API_ENABLED",

@@ -50,7 +50,6 @@ class DashboardAccount:
         return account
 
     def read(self, user_id):
-        osu = self.bot.get_cog("OsuInfo")
         hoyo = self.bot.get_cog("GenshinCog")
         bound = hoyo.service.get_bound_user(user_id) if hoyo else None
         endfield = self.bot.get_cog("EndfieldCog")
@@ -60,10 +59,6 @@ class DashboardAccount:
                 "available": bool(endfield),
                 "uid": endfield.service.bound_uid(user_id) if endfield else None,
                 "account": bool(endfield and endfield.service.has_account(user_id)),
-            },
-            "osu": {
-                "available": bool(osu and osu.service.api is not None),
-                "username": osu.service.get_bound_username(user_id) if osu else None,
             },
             "hoyolab": {
                 "available": bool(hoyo),
@@ -91,7 +86,7 @@ class DashboardAccount:
         if not isinstance(body, dict):
             raise ValueError("Invalid account request")
         game, action = body.get("game"), body.get("action")
-        if game not in ("osu", "hoyolab", "endfield") or action not in (
+        if game not in ("hoyolab", "endfield") or action not in (
             "bind",
             "unbind",
         ):
@@ -101,34 +96,16 @@ class DashboardAccount:
             return await self.read_full(user_id)
         expected = {"game", "action"}
         if action == "bind":
-            expected |= {"username"} if game == "osu" else {"cookie", "region"}
+            expected |= {"cookie", "region"}
         if set(body) != expected:
             raise ValueError("Invalid account request")
-        cog = self.bot.get_cog("OsuInfo" if game == "osu" else "GenshinCog")
+        cog = self.bot.get_cog("GenshinCog")
         if cog is None:
             raise ValueError("Game integration unavailable")
         service = cog.service
         if action == "unbind":
-            if game == "osu":
-                await run_storage(service.unbind, user_id)
-            else:
-                await run_storage(service.unbind_account, user_id)
-                self.bot.dispatch("mhy_unbound", int(user_id))
-        elif game == "osu":
-            username = body["username"]
-            if not isinstance(username, str) or not 1 <= len(username.strip()) <= 32:
-                raise ValueError("Invalid osu username")
-            if service.api is None:
-                raise ValueError("Game integration unavailable")
-            try:
-                user = await asyncio.wait_for(
-                    asyncio.to_thread(service.api.user, username.strip()), timeout=8
-                )
-            except Exception:
-                raise ValueError("Unable to verify osu account") from None
-            if not user or not isinstance(user.username, str):
-                raise ValueError("Unable to verify osu account")
-            await run_storage(service.bind, user_id, user.username)
+            await run_storage(service.unbind_account, user_id)
+            self.bot.dispatch("mhy_unbound", int(user_id))
         else:
             cookie, region = body["cookie"], body["region"]
             if (

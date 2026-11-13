@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -17,7 +16,6 @@ from discord.ui import TextDisplay
 from discord.ui import Thumbnail
 
 from src.services.achievement_service import AchievementService
-from src.services.osu_service import OsuService
 from src.utils.i18n import from_locale
 from src.utils.i18n import Lang
 from src.utils.i18n import t
@@ -36,10 +34,6 @@ class AchievementsCogProtocol(Protocol):
     def unlock_achievement(
         self, user_id: int, guild_id: Optional[int], achievement: str
     ) -> None: ...
-
-
-class OsuInfoCogProtocol(Protocol):
-    service: OsuService
 
 
 class UserServerInfo(commands.Cog):
@@ -121,7 +115,6 @@ class UserServerInfo(commands.Cog):
         status: str,
         roles_text: Optional[str],
         achievement_text: Optional[str],
-        osu_text: Optional[str],
         queried_at: str,
         lang: Lang,
     ) -> LayoutView:
@@ -187,16 +180,6 @@ class UserServerInfo(commands.Cog):
                         (achievement_text,),
                         3500,
                         lang=lang,
-                    )
-                )
-            )
-
-        if osu_text:
-            self.add_separator(container)
-            container.add_item(
-                TextDisplay(
-                    self.format_text_block(
-                        t(lang, "info.user.osu"), (osu_text,), 3500, lang=lang
                     )
                 )
             )
@@ -397,86 +380,6 @@ class UserServerInfo(commands.Cog):
                 except Exception as e:
                     log.warning("[成就] 顯示進度失敗: %s", type(e).__name__)
 
-            osu_text = None
-            if not target_user.bot:
-                try:
-                    osu_cog = cast(
-                        Optional[OsuInfoCogProtocol],
-                        self.bot.get_cog("OsuInfo"),
-                    )
-                    if osu_cog:
-                        service = osu_cog.service
-                        bound_username = service.get_bound_username(target_user.id)
-                        if bound_username:
-                            osu_text = t(
-                                lang, "info.user.osu_linked", name=bound_username
-                            )
-                            service.ensure_api()
-                            osu_user = await asyncio.wait_for(
-                                asyncio.to_thread(service.api.user, bound_username),
-                                timeout=10,
-                            )
-                            stats = osu_user.statistics
-
-                            global_rank = getattr(stats, "global_rank", None)
-                            country_rank = getattr(stats, "country_rank", None)
-                            pp = getattr(stats, "pp", None)
-                            accuracy = getattr(stats, "hit_accuracy", None)
-
-                            unranked = t(lang, "info.user.osu_unranked")
-                            unknown = t(lang, "info.user.osu_unknown")
-                            osu_lines = [
-                                t(
-                                    lang,
-                                    "info.user.osu_username",
-                                    value=osu_user.username,
-                                ),
-                                t(
-                                    lang,
-                                    "info.user.osu_global_rank",
-                                    value=(
-                                        f"#{global_rank:,}"
-                                        if isinstance(global_rank, int)
-                                        else unranked
-                                    ),
-                                ),
-                                t(
-                                    lang,
-                                    "info.user.osu_country_rank",
-                                    value=(
-                                        f"#{country_rank:,}"
-                                        if isinstance(country_rank, int)
-                                        else unranked
-                                    ),
-                                ),
-                                t(
-                                    lang,
-                                    "info.user.osu_pp",
-                                    value=(
-                                        f"{pp:,.2f}"
-                                        if isinstance(pp, (int, float))
-                                        else unknown
-                                    ),
-                                ),
-                                t(
-                                    lang,
-                                    "info.user.osu_accuracy",
-                                    value=(
-                                        f"{accuracy:.2f}%"
-                                        if isinstance(accuracy, (int, float))
-                                        else unknown
-                                    ),
-                                ),
-                                t(
-                                    lang,
-                                    "info.user.osu_link",
-                                    value=f"https://osu.ppy.sh/users/{osu_user.id}",
-                                ),
-                            ]
-                            osu_text = self.truncate_text("\n".join(osu_lines), 3500)
-                except Exception as e:
-                    log.warning("[osu] 即時資料取得失敗: %s", type(e).__name__)
-
             view = self.build_user_info_view(
                 target_user,
                 display_name,
@@ -485,7 +388,6 @@ class UserServerInfo(commands.Cog):
                 status,
                 roles_text,
                 achievement_text,
-                osu_text,
                 queried_at,
                 lang,
             )

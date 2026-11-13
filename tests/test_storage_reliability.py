@@ -13,7 +13,6 @@ import pymysql
 import pytest
 
 from src.services.genshin_service import GenshinService
-from src.services.osu_service import OsuService
 from src.services.report_service import ReportService
 from src.utils.database_manager import DatabaseConnectionPool
 from src.utils.database_manager import DatabaseManager
@@ -140,22 +139,6 @@ async def test_hoyolab_write_failure_preserves_cached_account(monkeypatch, opera
     assert service._accounts == before
 
 
-@pytest.mark.parametrize("operation", ["bind", "unbind"])
-async def test_osu_write_failure_preserves_cached_link(monkeypatch, operation):
-    service = OsuService()
-    service.bind(42, "old")
-    monkeypatch.setattr(
-        service, "_save_links", Mock(side_effect=StorageError("offline"))
-    )
-    with pytest.raises(StorageError):
-        (
-            await run_storage(service.bind, 42, "new")
-            if operation == "bind"
-            else await run_storage(service.unbind, 42)
-        )
-    assert service.get_bound_username(42) == "old"
-
-
 def member(guild, user_id, rank, ban=True, moderate=True):
     result = Mock(spec=discord.Member)
     result.id = user_id
@@ -218,20 +201,6 @@ async def test_live_mysql_recovers_closed_connection(monkeypatch, tmp_path):
     assert result.fetchone()["alive"] == 1
     await pool.return_connection(recovered)
     pool.close()
-
-
-async def test_concurrent_osu_bindings_preserve_every_user():
-    from src.utils.document_store import read_document
-
-    service = OsuService()
-    await asyncio.gather(
-        *(
-            run_blocking(service.bind, user_id, f"player-{user_id}")
-            for user_id in range(12)
-        )
-    )
-    saved = read_document("data/storage/osu_links.json")
-    assert saved == {str(user_id): f"player-{user_id}" for user_id in range(12)}
 
 
 async def test_report_ban_button_requires_ban_permission():

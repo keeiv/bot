@@ -17,10 +17,6 @@
 
 `Unknown interaction` 可能是首次回覆超過 Discord 的互動時限。耗時處理前先 defer，之後使用 followup；不要重複首次回覆。
 
-## 綁定存在但 osu! 查詢不可用
-
-綁定資料與 API 初始化分開。檢查 `OSU_CLIENT_ID`／`OSU_CLIENT_SECRET` 及套件；不要刪除綁定資料來排查憑證問題。
-
 ## GitHub 限流
 
 核對 `GITHUB_TOKEN` 是否已載入，並確認其他程序是否共用同一帳號額度。現有快取、ETag 與冷卻會減少重複請求；遵循回應中的限流等待時間，重啟程序會重置記憶體冷卻而不會增加額度。

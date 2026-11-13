@@ -48,6 +48,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     "audit_log.channel": {"en": "Channel", "zh": "頻道"},
     "audit_log.days": {"en": "{v0} days", "zh": "{v0} 天"},
     "audit_log.hours": {"en": "{v0} hours", "zh": "{v0} 小時"},
+    "audit_log.minutes": {"en": "{v0} minutes", "zh": "{v0} 分鐘"},
     "audit_log.voice_joined_a_voice_channel": {
         "en": "[Voice] Joined a voice channel",
         "zh": "[語音] 加入語音頻道",

@@ -55,7 +55,6 @@ IMPORTS = (
     "PIL",
     "cryptography",
     "genshin",
-    "ossapi",
     "psutil",
     "dotenv",
     "deep_translator",
@@ -64,8 +63,6 @@ IMPORTS = (
 
 ENV_TEMPLATE = """# BOT. local settings. This file is not tracked by Git; never share it.
 DISCORD_TOKEN=
-OSU_CLIENT_ID=
-OSU_CLIENT_SECRET=
 GITHUB_TOKEN=
 BLACKLIST_API_KEY=
 # Start in JSON mode. MySQL mode needs a finished migration (see README).

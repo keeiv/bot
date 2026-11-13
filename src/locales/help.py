@@ -52,7 +52,7 @@ CATEGORIES: dict[str, tuple[HelpCategory, ...]] = {
             description="機器人介紹與常用入口",
             accent_color=_BLUE,
             summary=(
-                "功能完整的 Discord 機器人，包含管理、社群工具、遊戲、osu! 整合與 "
+                "功能完整的 Discord 機器人，包含管理、社群工具、遊戲、遊戲帳號整合與 "
                 "GitHub 監控。使用下拉選單可以切換不同分區。"
             ),
             blocks=(
@@ -71,7 +71,7 @@ CATEGORIES: dict[str, tuple[HelpCategory, ...]] = {
                     lines=(
                         "`/clear` - 清除指定數量的訊息",
                         "`/giveaway start` - 建立抽獎活動",
-                        "`/osu bind` - 綁定 osu! 帳號",
+                        "`/mhy bind` - 綁定 HoYoLAB／米游社帳號",
                         "`/repo_track status` - 查看 keeiv/bot 追蹤狀態",
                     ),
                 ),
@@ -211,9 +211,9 @@ CATEGORIES: dict[str, tuple[HelpCategory, ...]] = {
         HelpCategory(
             key="integrations",
             label="遊戲與整合",
-            description="遊戲、osu! 與 GitHub",
+            description="遊戲、遊戲帳號與 GitHub",
             accent_color=_PURPLE,
-            summary="娛樂功能與外部服務整合，包含 osu! 和 GitHub 工作流。",
+            summary="娛樂功能與外部服務整合，包含 HoYoLAB、終末地和 GitHub 工作流。",
             blocks=(
                 HelpBlock(
                     title="遊戲",
@@ -226,12 +226,13 @@ CATEGORIES: dict[str, tuple[HelpCategory, ...]] = {
                     ),
                 ),
                 HelpBlock(
-                    title="osu! 整合",
+                    title="遊戲帳號",
                     lines=(
-                        "`/user_info_osu` - 查詢 osu! 玩家資料",
-                        "`/osu bind` - 綁定 osu! 帳號",
-                        "`/osu best` - 查詢 BP",
-                        "`/osu recent` - 查詢最近遊玩",
+                        "`/mhy bind` - 綁定 HoYoLAB／米游社帳號",
+                        "`/mhy notes` - 查看即時便箋",
+                        "`/mhy checkin` - 立即簽到",
+                        "`/endfield bind` - 綁定終末地 UID",
+                        "`/endfield profile` - 查看終末地名片",
                     ),
                 ),
                 HelpBlock(
@@ -344,8 +345,8 @@ CATEGORIES: dict[str, tuple[HelpCategory, ...]] = {
             description="What the bot does and where to start",
             accent_color=_BLUE,
             summary=(
-                "A Discord bot for moderation, community tools, games, osu! and "
-                "GitHub updates. Use the menu below to switch sections."
+                "A Discord bot for moderation, community tools, games, game "
+                "accounts and GitHub updates. Use the menu below to switch sections."
             ),
             blocks=(
                 HelpBlock(
@@ -363,7 +364,7 @@ CATEGORIES: dict[str, tuple[HelpCategory, ...]] = {
                     lines=(
                         "`/clear` - delete a number of recent messages",
                         "`/giveaway start` - start a giveaway",
-                        "`/osu bind` - link your osu! account",
+                        "`/mhy bind` - link your HoYoLAB / Miyoushe account",
                         "`/repo_track status` - see keeiv/bot tracking status",
                     ),
                 ),
@@ -507,10 +508,10 @@ CATEGORIES: dict[str, tuple[HelpCategory, ...]] = {
         HelpCategory(
             key="integrations",
             label="Games and integrations",
-            description="Games, osu! and GitHub",
+            description="Games, game accounts and GitHub",
             accent_color=_PURPLE,
-            summary="Games and connections to outside services, including osu! and "
-            "GitHub.",
+            summary="Games and connections to outside services, including HoYoLAB, "
+            "Endfield and GitHub.",
             blocks=(
                 HelpBlock(
                     title="Games",
@@ -523,12 +524,13 @@ CATEGORIES: dict[str, tuple[HelpCategory, ...]] = {
                     ),
                 ),
                 HelpBlock(
-                    title="osu!",
+                    title="Game accounts",
                     lines=(
-                        "`/user_info_osu` - look up an osu! player",
-                        "`/osu bind` - link your osu! account",
-                        "`/osu best` - best plays",
-                        "`/osu recent` - recent plays",
+                        "`/mhy bind` - link your HoYoLAB / Miyoushe account",
+                        "`/mhy notes` - real-time notes",
+                        "`/mhy checkin` - check in now",
+                        "`/endfield bind` - link your Endfield UID",
+                        "`/endfield profile` - your Endfield business card",
                     ),
                 ),
                 HelpBlock(

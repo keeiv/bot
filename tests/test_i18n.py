@@ -573,7 +573,6 @@ def test_user_info_view_is_fully_in_one_language(lang):
         t(lang, "info.user.regular"),
         t(lang, "info.none"),
         "0/10",
-        t(lang, "info.user.osu_linked", name="x"),
         "2026/10/11",
         lang,
     )

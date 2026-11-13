@@ -9,7 +9,6 @@ import pytest
 from src.cogs.core.settings import Settings
 from src.cogs.features import translate
 from src.cogs.features.management import Management
-from src.cogs.features.osu_info import OsuInfo
 
 
 def interaction():
@@ -44,34 +43,6 @@ def test_settings_uses_management_service_config():
     assert cog._get_repo_count(9) == 1
     assert cog.build_welcome_embed(9).fields[0].value == "<#123>"
     assert cog._get_welcome_status(10) == "[未設定]"
-
-
-@pytest.mark.parametrize("command", ["osu_bind", "osu_best", "osu_recent"])
-async def test_osu_network_runs_off_event_loop(command):
-    cog = object.__new__(OsuInfo)
-    service = Mock()
-    cog.service = service
-    event = interaction()
-    main = threading.get_ident()
-
-    def user_lookup(username):
-        event.response.defer.assert_awaited_once()
-        assert threading.get_ident() != main
-        return SimpleNamespace(username="player", id=123, avatar_url=None)
-
-    def scores(*args, **kwargs):
-        assert threading.get_ident() != main
-        return []
-
-    service.api.user.side_effect = user_lookup
-    service.api.user_scores.side_effect = scores
-    await getattr(cog, command).callback(cog, event, username="player")
-    service.api.user.assert_called_once_with("player")
-    if command == "osu_bind":
-        service.bind.assert_called_once_with(42, "player")
-    else:
-        service.api.user_scores.assert_called_once()
-        assert event.followup.send.call_args.kwargs["embed"].title.startswith("osu!")
 
 
 async def test_translation_runs_off_event_loop(monkeypatch):

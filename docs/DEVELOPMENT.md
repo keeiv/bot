@@ -40,7 +40,7 @@ src/
   locales/              英文與中文訊息目錄、指令說明翻譯、說明頁內容
   utils/                儲存、背景工作、翻譯、語言判斷與共用工具
   control_panel/        Windows 終端機控制台、Nova、桌面捷徑
-services/               獨立外部整合（GitHub、osu! API），不是 Cog 的 Service
+services/               獨立外部整合（GitHub），不是 Cog 的 Service
 tests/                  自動化測試
 docs/                   說明文件
 ```

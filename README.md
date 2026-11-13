@@ -11,7 +11,7 @@
 
 **一隻會顧門、會招呼客人、還會順手收拾的 Discord 機器人。**
 
-防洗版與管理、歡迎與自動身分組、臨時語音、工單、小遊戲與成就、osu!／HoYoLAB／GitHub 整合、檔案工具，<br>
+防洗版與管理、歡迎與自動身分組、臨時語音、工單、小遊戲與成就、HoYoLAB／終末地／GitHub 整合、檔案工具，<br>
 以及一個可以在網站上完成設定的儀表板。
 
 [![CI](https://github.com/keeiv/bot/actions/workflows/ci.yml/badge.svg)](https://github.com/keeiv/bot/actions/workflows/ci.yml)
@@ -47,7 +47,7 @@
 | 迎接新成員 | 歡迎訊息範本、自動身分組、年齡守門 | `/welcome` `/auto_role` `/age_guard` |
 | 伺服器服務 | 工單、臨時語音、抽獎、身分組與表情符號、伺服器設定面板 | `>>>ticket` `/temp_voice` `/giveaway` `/role` `/emoji` `/settings` |
 | 遊戲與成就 | 夥伴養成、兩款 Discord 活動遊戲、22 個成就 | `/pet` `/deep-sea-oxygen` `/russian-roulette` `/achievements` |
-| 帳號整合 | osu!、HoYoLAB／米游社、明日方舟：終末地、GitHub 倉庫通知 | `/osu` `/mhy` `/endfield` `/repo_watch` `/repo_track` |
+| 帳號整合 | HoYoLAB／米游社、明日方舟：終末地、GitHub 倉庫通知 | `/mhy` `/endfield` `/repo_watch` `/repo_track` |
 | 工具 | 檔案轉換與壓縮（NovaGrid）、訊息翻譯、AI 聊天 | `/convert` `/compress` `/usage` `翻譯訊息` `/ai` |
 | 語言 | 英文與中文介面，伺服器與個人各自設定 | `/language` |
 
@@ -122,7 +122,6 @@
 
 ### 帳號整合
 
-- **osu!**：`/osu bind`／`unbind` 綁定帳號，`/osu best`、`/osu recent` 查成績，`/user_info_osu` 查玩家資料。
 - **HoYoLAB／米游社**：支援原神、崩壞：星穹鐵道、絕區零與崩壞3（深境螺旋等挑戰紀錄僅前三者），國際服與國服皆可。
   - 帳號：`/mhy bind` 綁定（Cookie 加密保存）、`unbind`、`status`、`tutorial` 取得 Cookie 的教學。
   - 日常：`/mhy toggle_autosignin` 每日自動簽到、`checkin` 手動簽到、`notes` 查便箋、`redeem` 兌換禮包碼。
@@ -164,7 +163,7 @@
 
 > [!NOTE]
 > - 尚未翻譯：網站儀表板 API 的回應（維持中文以相容網站）、本機命令列工具，以及日誌。
-> - 程式已標記可在個人應用程式使用的指令（`/help`、`/language`、`/osu`、`/user_info_osu`、`/mhy`、`/convert`、`/compress`、`/usage`、`/ir`、`翻譯訊息`）；要在 Discord Developer Portal 開啟 User Install 後才會出現。
+> - 程式已標記可在個人應用程式使用的指令（`/help`、`/language`、`/mhy`、`/convert`、`/compress`、`/usage`、`/ir`、`翻譯訊息`）；要在 Discord Developer Portal 開啟 User Install 後才會出現。
 
 ### 網站儀表板
 
@@ -172,7 +171,7 @@
 
 ### 其他
 
-- `/help` 多頁說明，`/user_info` 查看使用者（含 osu! 綁定與成就進度），`/server_info` 查看伺服器。
+- `/help` 多頁說明，`/user_info` 查看使用者（含成就進度），`/server_info` 查看伺服器。
 - 指令錯誤統一處理：權限不足、冷卻中、參數錯誤等會以使用者的語言回覆；未預期的錯誤記錄到指定的錯誤頻道與終端機。
 - 開發者專用：`/dev-status`（也有 `!dev-status`）、`>>>info` 開發者面板，以及檔案工具的測試等級與重置指令（見 [檔案工具](docs/file-tools.md)）。
 
@@ -220,8 +219,6 @@ python -m pip install -r requirements.txt
 
 ```env
 DISCORD_TOKEN=
-OSU_CLIENT_ID=
-OSU_CLIENT_SECRET=
 GITHUB_TOKEN=
 BLACKLIST_API_KEY=
 MORI_BLACK_TOKEN=
@@ -295,7 +292,7 @@ python -X utf8 -m src.control_panel
 | `/emoji upload` | 管理表情符號 |
 | `@BOT.` AI 聊天的角色分身（沒有時改由機器人自己回覆） | 機器人需要該頻道的管理 Webhook |
 | `/blacklist`、開發者指令 | 開發者限定 |
-| 其他指令，例如遊戲、成就、osu!、HoYoLAB、翻譯、檔案工具、`/repo_watch status`、`/repo_track status`、`/welcome templates`／`preview` | 不需要特殊權限 |
+| 其他指令，例如遊戲、成就、HoYoLAB、翻譯、檔案工具、`/repo_watch status`、`/repo_track status`、`/welcome templates`／`preview` | 不需要特殊權限 |
 
 ## 運作方式
 
@@ -315,7 +312,7 @@ python -X utf8 -m src.control_panel
 
 | 位置 | 內容 |
 | --- | --- |
-| MySQL `documents` | 以原本的檔案路徑為鍵保存完整 JSON 與 SHA-256 校驗值：設定、成就、黑名單、osu! 綁定、加密帳號等 |
+| MySQL `documents` | 以原本的檔案路徑為鍵保存完整 JSON 與 SHA-256 校驗值：設定、成就、黑名單、加密帳號等 |
 | MySQL `samples`、`sample_health`、`cache_entries`、`metrics`、`audit_logs` | 運作歷史、快取、指標與審計資料 |
 | MySQL `tool_*`（`tool_users`、`tool_jobs` 等 7 張） | 檔案工具的額度、等級與處理紀錄 |
 | MySQL `message_log`、`message_edits`、`message_log_meta` | 訊息日誌：一則訊息一列、每次編輯一列，保留 30 天 |
@@ -344,7 +341,7 @@ src/
   locales/              英文與中文的訊息目錄
   utils/                儲存、背景工作、翻譯與共用工具
   control_panel/        Windows 終端機控制台
-services/               獨立外部整合（GitHub 客戶端、osu! API）
+services/               獨立外部整合（GitHub 客戶端）
 tests/                  自動化測試（CI：Python 3.11–3.13 與 MySQL 8.4）
 docs/                   說明文件
 ```
@@ -360,7 +357,6 @@ docs/                   說明文件
 | aiohttp | 非同步 HTTP 客戶端與儀表板 API |
 | PyMySQL | MySQL 連線 |
 | Pillow | 圖片轉換與 NovaGrid 壓縮 |
-| ossapi | osu! API v2 |
 | genshin、cryptography | HoYoLAB／米游社整合與 Cookie 加密 |
 | deep-translator | 訊息翻譯 |
 | psutil | 系統資源監控 |

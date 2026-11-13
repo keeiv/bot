@@ -108,7 +108,7 @@ class ReportService:
         if hours:
             parts.append(tx("audit_log.hours", v0=(hours)))
         if minutes:
-            parts.append(tx("osu_service.minutes", v0=(minutes)))
+            parts.append(tx("audit_log.minutes", v0=(minutes)))
         time_str = " ".join(parts)
 
         return discord.Embed(

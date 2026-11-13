@@ -190,11 +190,11 @@ def test_a_missing_package_fails_the_check_and_names_it(tmp_path):
     class Missing(Calls):
         def __call__(self, args, cwd=None, env=None):
             if "-c" in args:
-                return 0, "missing=genshin,ossapi"
+                return 0, "missing=genshin,psutil"
             return super().__call__(args, cwd, env)
 
     job, _ = make(tmp_path, runner=Missing(tmp_path))
-    with pytest.raises(install.Failure, match="genshin, ossapi"):
+    with pytest.raises(install.Failure, match="genshin, psutil"):
         job.install()
 
 
@@ -258,7 +258,7 @@ def test_the_env_template_holds_no_secrets_and_starts_in_json_mode():
         for line in install.ENV_TEMPLATE.splitlines()
         if line and not line.startswith("#")
     )
-    for key in ("DISCORD_TOKEN", "OSU_CLIENT_SECRET", "GITHUB_TOKEN", "BOT_API_SECRET"):
+    for key in ("DISCORD_TOKEN", "GITHUB_TOKEN", "BOT_API_SECRET"):
         assert values[key] == ""
     assert values["STORAGE_BACKEND"] == "json"
     assert values["BOT_API_ENABLED"] == "false"

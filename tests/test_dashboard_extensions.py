@@ -32,10 +32,6 @@ def test_history_survives_restart_retains_gaps_and_prunes_old_samples():
 
 
 def account_bot():
-    osu = SimpleNamespace(service=MagicMock())
-    osu.service.get_bound_username.side_effect = lambda actor: (
-        "Alex" if actor == 123456789012345678 else None
-    )
     hoyo = SimpleNamespace(service=MagicMock())
     hoyo.service.get_bound_user.side_effect = lambda actor: (
         {
@@ -47,32 +43,33 @@ def account_bot():
         else None
     )
     hoyo.service.bind_account = AsyncMock(return_value=[])
-    cogs = {"OsuInfo": osu, "GenshinCog": hoyo}
+    cogs = {"GenshinCog": hoyo}
     bot = MagicMock()
     bot.get_cog.side_effect = cogs.get
-    return bot, osu.service, hoyo.service
+    return bot, hoyo.service
 
 
 def test_account_response_is_scoped_and_strips_all_credentials():
-    bot, _, _ = account_bot()
+    bot, _ = account_bot()
     service = DashboardAccount(bot)
     own = service.read(123456789012345678)
     assert own["hoyolab"]["accounts"][0]["uid"] == 1000
     assert "must-never" not in str(own)
     assert "secret" not in str(own)
-    assert service.read(223456789012345678)["osu"]["username"] is None
+    assert "osu" not in own
     assert not service.read(223456789012345678)["hoyolab"]["bound"]
 
 
 async def test_account_binding_validates_before_write_and_sanitizes_failure():
-    bot, osu, hoyo = account_bot()
+    bot, hoyo = account_bot()
     service = DashboardAccount(bot)
     actor = 123456789012345678
-    osu.api.user.return_value = SimpleNamespace(username="CanonicalName")
-    await service.update(actor, {"game": "osu", "action": "bind", "username": "Alex"})
-    osu.bind.assert_called_once_with(actor, "CanonicalName")
+    with pytest.raises(ValueError, match="Invalid account request"):
+        await service.update(actor, {"game": "osu", "action": "unbind"})
     with pytest.raises(ValueError):
-        await service.update(actor, {"game": "osu", "action": "unbind", "userId": 111})
+        await service.update(
+            actor, {"game": "hoyolab", "action": "unbind", "userId": 111}
+        )
     hoyo.bind_account.side_effect = ValueError("private-cookie-value")
     with pytest.raises(ValueError, match="^Unable to verify HoYoLAB account$"):
         await service.update(
@@ -93,7 +90,7 @@ async def test_account_binding_validates_before_write_and_sanitizes_failure():
 
 
 async def test_new_routes_require_secret_verified_actor_and_apply_rate_limit():
-    bot, _, _ = account_bot()
+    bot, _ = account_bot()
     bot.is_ready.return_value = True
     api = DashboardAPI(bot)
     api.history = StatusHistory()
@@ -110,7 +107,7 @@ async def test_new_routes_require_secret_verified_actor_and_apply_rate_limit():
         response = await client.get("/account", headers=headers)
         assert response.status == 200
         assert "encrypted_cookie" not in await response.text()
-        payload = {"game": "osu", "action": "unbind"}
+        payload = {"game": "hoyolab", "action": "unbind"}
         assert (
             await client.post("/account", headers=headers, json=payload)
         ).status == 200

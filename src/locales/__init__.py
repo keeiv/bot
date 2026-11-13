@@ -40,8 +40,6 @@ from src.locales import management_service_messages
 from src.locales import message_log_service_messages
 from src.locales import message_logger_messages
 from src.locales import novagrid_messages
-from src.locales import osu_info_messages
-from src.locales import osu_service_messages
 from src.locales import pet_messages
 from src.locales import report_messages
 from src.locales import report_service_messages
@@ -87,8 +85,6 @@ _MODULES = [
     message_log_service_messages,
     message_logger_messages,
     novagrid_messages,
-    osu_info_messages,
-    osu_service_messages,
     pet_messages,
     report_messages,
     report_service_messages,

@@ -11,7 +11,7 @@
 
 **A Discord bot that guards the door, greets your guests, and tidies up after itself.**
 
-Anti-spam and moderation, welcome messages and auto roles, temporary voice channels, tickets, mini-games and achievements, osu! / HoYoLAB / GitHub integrations, file tools,<br>
+Anti-spam and moderation, welcome messages and auto roles, temporary voice channels, tickets, mini-games and achievements, HoYoLAB / Endfield / GitHub integrations, file tools,<br>
 plus a web dashboard where you can set most of it up.
 
 [![CI](https://github.com/keeiv/bot/actions/workflows/ci.yml/badge.svg)](https://github.com/keeiv/bot/actions/workflows/ci.yml)
@@ -50,7 +50,7 @@ plus a web dashboard where you can set most of it up.
 | Welcoming members | Welcome message templates, auto roles, age guard | `/welcome` `/auto_role` `/age_guard` |
 | Server services | Tickets, temporary voice, giveaways, roles and emojis, a server settings panel | `>>>ticket` `/temp_voice` `/giveaway` `/role` `/emoji` `/settings` |
 | Games & achievements | Companions, two Discord activity games, 22 achievements | `/pet` `/deep-sea-oxygen` `/russian-roulette` `/achievements` |
-| Account integrations | osu!, HoYoLAB / Miyoushe, Arknights: Endfield, GitHub repository notifications | `/osu` `/mhy` `/endfield` `/repo_watch` `/repo_track` |
+| Account integrations | HoYoLAB / Miyoushe, Arknights: Endfield, GitHub repository notifications | `/mhy` `/endfield` `/repo_watch` `/repo_track` |
 | Tools | File conversion and compression (NovaGrid), message translation, AI chat | `/convert` `/compress` `/usage` `Translate message` `/ai` |
 | Language | English and Chinese interface, set per server and per user | `/language` |
 
@@ -125,7 +125,6 @@ Six actions are available: warn, delete message, mute, kick, ban and lock channe
 
 ### Account integrations
 
-- **osu!**: `/osu bind` / `unbind` to link your account, `/osu best` and `/osu recent` for scores, `/user_info_osu` for a player profile.
 - **HoYoLAB / Miyoushe**: supports Genshin Impact, Honkai: Star Rail, Zenless Zone Zero and Honkai Impact 3rd (endgame challenge records such as Spiral Abyss cover the first three only), on both global and China servers.
   - Account: `/mhy bind` (your cookie is stored encrypted), `unbind`, `status`, `tutorial` (how to get your cookie).
   - Daily: `/mhy toggle_autosignin` for automatic daily check-in, `checkin` to check in manually, `notes` for real-time notes, `redeem` for redemption codes.
@@ -167,7 +166,7 @@ Six actions are available: warn, delete message, mute, kick, ban and lock channe
 
 > [!NOTE]
 > - Not translated yet: web dashboard API responses (kept in Chinese for compatibility with the website), local command-line tools, and logs.
-> - These commands are flagged in code for personal-app use: `/help`, `/language`, `/osu`, `/user_info_osu`, `/mhy`, `/convert`, `/compress`, `/usage`, `/ir`, `Translate message`. They only show up once User Install is enabled in the Discord Developer Portal.
+> - These commands are flagged in code for personal-app use: `/help`, `/language`, `/mhy`, `/convert`, `/compress`, `/usage`, `/ir`, `Translate message`. They only show up once User Install is enabled in the Discord Developer Portal.
 
 ### Web dashboard
 
@@ -175,7 +174,7 @@ At [botweb.shizune.life](https://botweb.shizune.life), sign in with Discord and 
 
 ### Other
 
-- `/help` for multi-page help, `/user_info` for a user's profile (including their osu! link and achievement progress), `/server_info` for server details.
+- `/help` for multi-page help, `/user_info` for a user's profile (including their achievement progress), `/server_info` for server details.
 - Command errors are handled in one place: missing permissions, cooldowns, bad arguments and the like get a reply in the user's language, and unexpected errors are logged to a designated error channel and the terminal.
 - Developer only: `/dev-status` (also `!dev-status`), the `>>>info` developer panel, and the file-tool test tier and reset commands (see [file tools](file-tools.md)).
 
@@ -223,8 +222,6 @@ python -m pip install -r requirements.txt
 
 ```env
 DISCORD_TOKEN=
-OSU_CLIENT_ID=
-OSU_CLIENT_SECRET=
 GITHUB_TOKEN=
 BLACKLIST_API_KEY=
 MORI_BLACK_TOKEN=
@@ -298,7 +295,7 @@ Start, stop and restart the bot, check its status, database connection and logs,
 | `/emoji upload` | Manage Emojis |
 | The `@BOT.` AI chat characters (without it the bot replies itself) | The bot needs Manage Webhooks in that channel |
 | `/blacklist`, developer commands | Developer only |
-| Everything else, such as games, achievements, osu!, HoYoLAB, translation, file tools, `/repo_watch status`, `/repo_track status`, `/welcome templates` / `preview` | None |
+| Everything else, such as games, achievements, HoYoLAB, translation, file tools, `/repo_watch status`, `/repo_track status`, `/welcome templates` / `preview` | None |
 
 ## How it works
 
@@ -318,7 +315,7 @@ From one Discord event to the bot's reply, there are four steps:
 
 | Location | Contents |
 | --- | --- |
-| MySQL `documents` | Complete JSON documents keyed by their original file path, with SHA-256 checksums: settings, achievements, blacklist, osu! links, encrypted accounts and more |
+| MySQL `documents` | Complete JSON documents keyed by their original file path, with SHA-256 checksums: settings, achievements, blacklist, encrypted accounts and more |
 | MySQL `samples`, `sample_health`, `cache_entries`, `metrics`, `audit_logs` | Operational history, caches, metrics and audit data |
 | MySQL `tool_*` (`tool_users`, `tool_jobs` and 5 more) | File-tool quotas, tiers and job history |
 | MySQL `message_log`, `message_edits`, `message_log_meta` | The message log: one row per message and one per edit, kept for 30 days |
@@ -347,7 +344,7 @@ src/
   locales/              English and Chinese message catalogs
   utils/                Storage, background jobs, translation and shared helpers
   control_panel/        Windows terminal console
-services/               Standalone external integrations (GitHub client, osu! API)
+services/               Standalone external integrations (GitHub client)
 tests/                  Automated tests (CI: Python 3.11–3.13 and MySQL 8.4)
 docs/                   Documentation
 ```
@@ -363,7 +360,6 @@ Versions are pinned in one place, `pyproject.toml`. `requirements.txt` installs 
 | aiohttp | Async HTTP client and the dashboard API |
 | PyMySQL | MySQL connections |
 | Pillow | Image conversion and NovaGrid compression |
-| ossapi | osu! API v2 |
 | genshin, cryptography | HoYoLAB / Miyoushe integration and cookie encryption |
 | deep-translator | Message translation |
 | psutil | System resource monitoring |

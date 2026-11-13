@@ -33,7 +33,6 @@ DOCUMENTS: dict[str, str] = {
     "data/storage/languages.json": "語言設定",
     "data/storage/log_channels.json": "日誌頻道",
     "data/storage/management.json": "管理：歡迎訊息與自動身分組",
-    "data/storage/osu_links.json": "osu! 綁定",
     "data/storage/petition.json": "請願",
     "data/storage/temp_voice.json": "臨時語音",
     "data/storage/tickets.json": "工單",
@@ -47,7 +46,6 @@ UNUSED: dict[str, str] = {
     "data/achievements.json": "成就（舊位置）",
     "data/github_watch.json": "GitHub 倉庫通知（舊位置）",
     "data/log_channels.json": "日誌頻道（舊位置）",
-    "data/osu_links.json": "osu! 綁定（舊位置）",
     "data/message_log.json": "訊息日誌（舊位置）",
     "data/config/config.json": "舊設定",
     "data/cross_dressing_data.json": "舊功能資料",
@@ -69,7 +67,6 @@ TOP_IDS: dict[str, str] = {
     "data/storage/genshin_accounts.json": "使用者",
     "data/storage/endfield_bindings.json": "使用者",
     "data/storage/petition.json": "使用者",
-    "data/storage/osu_links.json": "使用者",
     "data/storage/achievements.json": "使用者",
     "data/storage/giveaways.json": "抽獎",
 }
@@ -135,7 +132,6 @@ WORDS: dict[str, str] = {
     "auto_role": "自動身分組",
     "auto_roles": "自動身分組",
     "welcome_auto_role": "歡迎後自動身分組",
-    "osu_user": "osu! 使用者",
     "whitelisted_channels": "白名單頻道",
     "whitelisted_roles": "白名單身分組",
     # time

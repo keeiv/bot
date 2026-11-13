@@ -17,9 +17,6 @@ AchievementData = Dict[str, Any]
 MessageEntry = Dict[str, Union[str, bool, int]]
 MessageLog = Dict[str, MessageEntry]
 
-# osu! types
-OsuUserLink = Dict[int, str]  # discord_id -> osu_username
-
 # GitHub types
 GitHubCommit = Dict[str, str]
 GitHubConfig = Dict[str, Any]

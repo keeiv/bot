@@ -27,26 +27,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     "info.user.regular": {"en": "Regular user", "zh": "普通用戶"},
     "info.user.roles": {"en": "Roles", "zh": "角色"},
     "info.user.achievements": {"en": "Achievement progress", "zh": "成就進度"},
-    "info.user.osu": {"en": "osu! info", "zh": "osu! 資訊"},
     "info.user.banner": {"en": "User banner", "zh": "用戶橫幅"},
-    "info.user.osu_linked": {
-        "en": "Linked: {name}\nLive data is unavailable right now; the link is kept.",
-        "zh": "已綁定: {name}\n即時資料暫時無法取得，綁定仍保留。",
-    },
-    "info.user.osu_username": {"en": "Username: {value}", "zh": "用戶名: {value}"},
-    "info.user.osu_global_rank": {
-        "en": "Global rank: {value}",
-        "zh": "全球排名: {value}",
-    },
-    "info.user.osu_country_rank": {
-        "en": "Country rank: {value}",
-        "zh": "國家排名: {value}",
-    },
-    "info.user.osu_pp": {"en": "PP: {value}", "zh": "PP: {value}"},
-    "info.user.osu_accuracy": {"en": "Accuracy: {value}", "zh": "準確度: {value}"},
-    "info.user.osu_link": {"en": "Link: {value}", "zh": "連結: {value}"},
-    "info.user.osu_unranked": {"en": "Unranked", "zh": "未排名"},
-    "info.user.osu_unknown": {"en": "Unknown", "zh": "未知"},
     "info.user.error": {
         "en": "[Error] Couldn't get the user's info. Please try again later.",
         "zh": "[錯誤] 無法獲取用戶資訊，請稍後重試。",

@@ -10,7 +10,6 @@
 | `MYSQL_HOST`／`MYSQL_PORT` | 預設 `127.0.0.1`／`3307` |
 | `MYSQL_USER`／`MYSQL_PASSWORD`／`MYSQL_DATABASE` | MySQL 模式的專用帳號及資料庫 |
 | `GENSHIN_ENCRYPTION_KEY` | 帳號 Cookie 與 SKPORT 帳號憑證的加密金鑰；已有密文時不可替換 |
-| `OSU_CLIENT_ID`／`OSU_CLIENT_SECRET` | 啟用 osu! API；綁定資料與 API 是否可用是不同狀態 |
 | `GITHUB_TOKEN` | 選用；GitHub 認證查詢 |
 | `BLACKLIST_API_KEY` | 外部黑名單查詢 |
 | `MORI_BLACK_TOKEN` | Mori.black 共享黑名單的 token（擁有者權限，接受申訴時可撤銷紀錄）；未設定則不查 |
@@ -41,7 +40,6 @@ Bot 的一般文字指令前綴由 `src/bot.py` 設為 `!`，部分功能另有�
 | `data/storage/tickets.json` | 工單設定、計數器與記錄 |
 | `data/storage/temp_voice.json` | 暫時語音設定與頻道記錄 |
 | `data/storage/log_channels.json` | 訊息及審計日誌共用頻道設定 |
-| `data/storage/osu_links.json` | osu! 綁定 |
 | `data/storage/genshin_accounts.json` | 加密帳號設定 |
 
 這些路徑在 MySQL 模式是 `documents.path` 的鍵，資料保存於 MySQL；JSON 模式才使用實體文件。運作歷史、快取、指標與審計事件使用獨立資料表，見 [README](../README.md)。

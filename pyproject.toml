@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "discord-bot"
 version = "1.5.0"
-description = "A feature-rich Discord bot with osu! integration and GitHub monitoring"
+description = "A feature-rich Discord bot with game account integrations and GitHub monitoring"
 authors = [{name = "Keeiv"}]
 license = {text = "AGPL-3.0-only"}
 readme = "README.md"
@@ -30,7 +30,6 @@ dependencies = [
     "deep-translator>=1.11.4,<2",
     "discord.py>=2.7.1,<3",
     "genshin>=1.7.31,<2",  # 1.7.31: ZZZ Armorer agents (specialty 7)
-    "ossapi>=5.3.6,<6",
     "psutil>=7.2.2,<8",
     "python-dotenv>=1.2.3,<2",
     "rich>=13.9,<16",
@@ -91,7 +90,7 @@ use_parentheses = true
 ensure_newline_before_comments = true
 # Multilingual import organization
 known_first_party = ["src"]
-known_third_party = ["discord", "aiohttp", "ossapi"]
+known_third_party = ["discord", "aiohttp"]
 
 [tool.flake8]
 max-line-length = 88
