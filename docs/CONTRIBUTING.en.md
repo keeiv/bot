@@ -36,6 +36,16 @@ There is one condition: **a pull request is merged only when it has no security 
 
 Comments are for whoever maintains the code next: say why the code does what it does, and leave out conversations with a tool or the history of how it was changed.
 
+### Claude Code plugin
+
+If you use Claude Code, install [bot-dev](https://github.com/keeiv/bot-dev). It is active only inside this project and tells Claude the architecture, the test rules, what counts as done and how changes are shipped, matched to whether you maintain the project or contribute to it (contributors go through a fork and a pull request). `/scan` shows the project's current state and `/bot-check` runs the same checks as CI.
+
+```
+/plugin install bot-dev --marketplace keeiv/bot-dev
+```
+
+The plugin only helps; the conditions above still apply.
+
 ## Development environment
 
 The minimum is Python 3.11; production runs Python 3.13, and CI tests Python 3.11–3.13 on Linux. `pyproject.toml` is the source of truth for dependency and tool versions.

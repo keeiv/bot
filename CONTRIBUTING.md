@@ -33,6 +33,16 @@
 
 註解寫給之後維護的人看：說明程式為什麼這樣做，不要留下與工具的對話或修改過程。
 
+### Claude Code 插件
+
+使用 Claude Code 的話，可以安裝 [bot-dev](https://github.com/keeiv/bot-dev)。它只在這個專案裡作用，讓 Claude 了解專案的架構、測試規則、完成條件與提交流程，並依你是維護者還是貢獻者給出對應的做法（貢獻者走 Fork 與 Pull Request）。`/scan` 查看專案現況，`/bot-check` 執行與 CI 相同的檢查。
+
+```
+/plugin install bot-dev --marketplace keeiv/bot-dev
+```
+
+插件只是協助，上面的條件一樣適用。
+
 ## 開發環境
 
 專案最低要求 Python 3.11，目前部署使用 Python 3.13；CI 在 Linux 測試 Python 3.11–3.13。依賴與工具版本以 `pyproject.toml` 為準。
