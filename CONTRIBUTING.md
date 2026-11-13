@@ -19,7 +19,7 @@
 
 ## 使用 AI 工具
 
-這個專案不排斥 AI。用 AI 工具協助撰寫、重構或找問題的貢獻，和手寫的一視同仁，不需要標註，也不會因此被拒絕。
+這個專案不排斥 AI。用 AI 工具協助撰寫、重構或找問題的貢獻，和手寫的一視同仁，不需要標註，也不會因此被拒絕；而且我們為這個專案撰寫了 Claude Code 的插件 [bot-dev](https://github.com/keeiv/bot-dev)，見下方的 [Claude Code 插件](#claude-code-插件)。
 
 條件只有一個：**Pull Request 必須沒有安全隱患才會合併。** 不論程式出自誰、用什麼工具寫，只要審查或 CI 發現安全問題，修好之前都不會通過。送出之前請確認：
 
@@ -35,7 +35,7 @@
 
 ### Claude Code 插件
 
-使用 Claude Code 的話，可以安裝 [bot-dev](https://github.com/keeiv/bot-dev)。它只在這個專案裡作用，讓 Claude 了解專案的架構、測試規則、完成條件與提交流程，並依你是維護者還是貢獻者給出對應的做法（貢獻者走 Fork 與 Pull Request）。`/scan` 查看專案現況，`/bot-check` 執行與 CI 相同的檢查。
+bot-dev 只在這個專案裡作用，讓 Claude 了解專案的架構、測試規則、完成條件與提交流程，並依你是維護者還是貢獻者給出對應的做法（貢獻者走 Fork 與 Pull Request）。`/scan` 查看專案現況，`/bot-check` 執行與 CI 相同的檢查。
 
 ```
 /plugin install bot-dev --marketplace keeiv/bot-dev
