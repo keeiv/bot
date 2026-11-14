@@ -22,7 +22,7 @@ Small fixes and documentation updates can go straight to a PR. For new dependenc
 
 ## Using AI tools
 
-This project has nothing against AI. A contribution written, refactored or checked with the help of AI tools is treated the same as one written by hand. It needs no label and is not turned down for it, and we have written a Claude Code plugin for this project, [bot-dev](https://github.com/keeiv/bot-dev); see [Claude Code plugin](#claude-code-plugin) below.
+This project has nothing against AI. A contribution written, refactored or checked with the help of AI tools is treated the same as one written by hand. It needs no label and is not turned down for it, and we have written a Claude Code plugin for this project, [bot-dev](https://github.com/keeiv/bot-dev); a [Codex version](https://github.com/keeiv/bot-dev-codex) is also available. See the plugin sections below.
 
 There is one condition: **a pull request is merged only when it has no security problems.** Whoever wrote the code, and with whatever tool, a security problem found in review or by CI keeps it from passing until it is fixed. Before you send one, make sure that:
 
@@ -45,6 +45,17 @@ bot-dev is active only inside this project and tells Claude the architecture, th
 ```
 
 The plugin only helps; the conditions above still apply.
+
+### Codex plugin
+
+[bot-dev-codex](https://github.com/keeiv/bot-dev-codex) provides skills for the architecture, acceptance criteria and contribution workflow. Use `$bot-dev` for development guidance, `$bot-scan` to scan a checkout, and `$bot-check` to run checks. Skills verify the BOT. checkout first. Git role hints do not authorize pushes; contributors still use a fork and pull request.
+
+```powershell
+codex plugin marketplace add keeiv/bot-dev-codex
+codex plugin add bot-dev-codex@bot-dev-codex-local
+```
+
+Restart Codex after installation. The plugin does not replace this guide or waive testing and security requirements.
 
 ## Development environment
 
