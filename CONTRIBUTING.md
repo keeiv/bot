@@ -19,7 +19,7 @@
 
 ## 使用 AI 工具
 
-這個專案不排斥 AI。用 AI 工具協助撰寫、重構或找問題的貢獻，和手寫的一視同仁，不需要標註，也不會因此被拒絕；而且我們為這個專案撰寫了 Claude Code 的插件 [bot-dev](https://github.com/keeiv/bot-dev)，也提供 [Codex 版本](https://github.com/keeiv/bot-dev-codex)，見下方的插件說明。
+這個專案不排斥 AI。用 AI 工具協助撰寫、重構或找問題的貢獻，和手寫的一視同仁，不需要標註，也不會因此被拒絕；而且我們為這個專案撰寫了 AI 插件：Claude Code 用 [BOT.dev](https://github.com/keeiv/bot-dev)，Codex 用 [BOT.dev for Codex](https://github.com/keeiv/bot-dev-codex)，見下方的 [AI 插件](#ai-插件)。
 
 條件只有一個：**Pull Request 必須沒有安全隱患才會合併。** 不論程式出自誰、用什麼工具寫，只要審查或 CI 發現安全問題，修好之前都不會通過。送出之前請確認：
 
@@ -33,26 +33,35 @@
 
 註解寫給之後維護的人看：說明程式為什麼這樣做，不要留下與工具的對話或修改過程。
 
-### Claude Code 插件
+### AI 插件
 
-bot-dev 只在這個專案裡作用，讓 Claude 了解專案的架構、測試規則、完成條件與提交流程，並依你是維護者還是貢獻者給出對應的做法（貢獻者走 Fork 與 Pull Request）。`/scan` 查看專案現況，`/bot-check` 執行與 CI 相同的檢查。
+Claude Code 與 Codex 各有一個插件，內容相同：讓 AI 了解專案的架構、測試規則、完成條件與提交流程，並依你是維護者還是貢獻者給出對應的做法（貢獻者走 Fork 與 Pull Request）。兩者都只在 BOT. 的專案裡套用這些規則。
+
+| | Claude Code | Codex |
+| --- | --- | --- |
+| 插件 | [BOT.dev](https://github.com/keeiv/bot-dev) | [BOT.dev for Codex](https://github.com/keeiv/bot-dev-codex) |
+| 載入專案規則 | 在專案裡自動載入 | `$bot-dev` |
+| 查看專案現況 | `/scan` | `$bot-scan` |
+| 執行與 CI 相同的檢查 | `/bot-check` | `$bot-check` |
+
+#### 安裝到 Claude Code
+
+在 Claude Code 的輸入框輸入，詢問是否新增 marketplace 時回答 `y`：
 
 ```
 /plugin install bot-dev --marketplace keeiv/bot-dev
 ```
 
-插件只是協助，上面的條件一樣適用。
+#### 安裝到 Codex
 
-### Codex 插件
+在終端機執行，完成後重新開啟 Codex 工作階段：
 
-[bot-dev-codex](https://github.com/keeiv/bot-dev-codex) 提供專案架構、驗收條件與提交流程的技能。使用 `$bot-dev` 取得開發指引、`$bot-scan` 掃描專案，或 `$bot-check` 執行檢查。技能會先辨識 BOT. 專案；Git 身分提示不構成推送授權，貢獻者仍使用 Fork 與 Pull Request。
-
-```powershell
+```
 codex plugin marketplace add keeiv/bot-dev-codex
 codex plugin add bot-dev-codex@bot-dev-codex-local
 ```
 
-安裝後重新開啟 Codex 工作階段。插件不會取代這份指南或免除測試與安全要求。
+兩個插件都依 Git 設定推測你的身分，這只是提示，不代表推送權限。插件只是協助，不會取代這份指南，也不會免除測試與安全要求；上面的條件一樣適用。
 
 ## 開發環境
 
